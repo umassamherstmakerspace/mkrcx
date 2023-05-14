@@ -6,9 +6,8 @@ import (
 
 type User struct {
 	gorm.Model
-	ID      string `gorm:"primaryKey"`
-	Admin   bool
 	Email   string `gorm:"unique"`
+	Admin   bool
 	Name    string
 	Enabled bool
 
@@ -18,14 +17,14 @@ type User struct {
 
 type APIKey struct {
 	gorm.Model
-	UserID      string
-	Key         string `gorm:"unique"`
+	UserID      uint
+	ID          string `gorm:"unique"`
 	Description string
 }
 
 type Training struct {
 	gorm.Model
-	UserID       string
+	UserID       uint `gorm:"foreignKey:user_id"`
 	TrainingType string
-	AddedBy      string
+	AddedBy      uint `gorm:"foreignKey:user_id"`
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -20,7 +19,7 @@ const SYSTEM_USER_EMAIL = "makerspace@umass.edu"
 const HOST = ":8000"
 
 func main() {
-	db, err := gorm.Open(mysql.Open(os.Getenv("API")), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(os.Getenv("DB")), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
 	}
@@ -29,9 +28,6 @@ func main() {
 	db.AutoMigrate(&models.APIKey{})
 	db.AutoMigrate(&models.User{})
 	db.AutoMigrate(&models.Training{})
-
-	// Debug
-	makeMakerspaceSystemUser(db)
 
 	app := fiber.New()
 
@@ -63,7 +59,6 @@ func main() {
 		user := models.User{
 			Email:   email,
 			Name:    name,
-			ID:      uuid.NewString(),
 			Enabled: false,
 		}
 		db.Create(&user)
@@ -76,7 +71,7 @@ func main() {
 	app.Post("/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
 		// Get api user from the request context
 		apiUser := c.Locals(ctxUserKey{}).(models.User)
-
+		log.Printf("User %v\n", apiUser)
 		if !apiUser.Admin {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
@@ -148,40 +143,13 @@ func userTrainingEnable(db *gorm.DB, user models.User) {
 
 }
 
-func makeMakerspaceSystemUser(db *gorm.DB) {
-	var systemUser models.User
-	res := db.First(&systemUser, "email = ?", SYSTEM_USER_EMAIL)
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		// Create a system user
-		user := models.User{
-			Email:   SYSTEM_USER_EMAIL,
-			Name:    "System",
-			ID:      uuid.NewString(),
-			Admin:   true,
-			Enabled: true,
-		}
-
-		// Create a default API key
-		apiKey := models.APIKey{
-			Key:         uuid.NewString(),
-			UserID:      user.ID,
-			Description: "Default API key",
-		}
-		db.Create(&user)
-		db.Create(&apiKey)
-
-		log.Printf("API key: %s\n", apiKey.Key)
-		return
-	}
-
-}
-
 func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Get the API key from the request header
 		apiKey := c.Get("API-Key")
 		var apiKeyRecord models.APIKey
-		res := db.First(&apiKeyRecord, "key = ?", apiKey)
+		apiKeyRecord.ID = apiKey
+		res := db.First(&apiKeyRecord)
 
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// The API key is not valid
