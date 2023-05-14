@@ -11,11 +11,13 @@ type User struct {
 	Email   string `gorm:"unique"`
 	Name    string
 	Enabled bool
+
+	Trainings []Training
+	APIKeys   []APIKey
 }
 
 type APIKey struct {
 	gorm.Model
-	User        User
 	UserID      string
 	Key         string `gorm:"unique"`
 	Description string
@@ -23,7 +25,6 @@ type APIKey struct {
 
 type Training struct {
 	gorm.Model
-	User         User
 	UserID       string
 	TrainingType string
 	AddedBy      string
