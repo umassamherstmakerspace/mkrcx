@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"os"
@@ -32,7 +31,7 @@ func main() {
 	app := fiber.New()
 
 	// Create a new user
-	app.Post("/users", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Post("/api/users", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
 		// Get api user from the request context
 		apiUser := c.Locals(ctxUserKey{}).(models.User)
 
@@ -68,7 +67,7 @@ func main() {
 	}))
 
 	// Add completed training to a user
-	app.Post("/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Post("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
 		// Get api user from the request context
 		apiUser := c.Locals(ctxUserKey{}).(models.User)
 		log.Printf("User %v\n", apiUser)
@@ -103,20 +102,6 @@ func main() {
 		// Write a success message to the response
 		return c.SendString("Training added successfully")
 	}))
-
-	// Used for debugging
-	// List all users
-	app.Get("/users", func(c *fiber.Ctx) error {
-		var users []models.User
-		db.Find(&users)
-
-		// Write the users to the response as json
-		msg, err := json.Marshal(users)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString("Error marshalling users")
-		}
-		return c.SendString(string(msg))
-	})
 
 	log.Printf("Starting server on port %s\n", HOST)
 	app.Listen(HOST)
