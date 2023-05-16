@@ -40,14 +40,24 @@ func main() {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
-		// Get the user's email and name from the request body
-		email := c.FormValue("email")
-		name := c.FormValue("name")
+		type response struct {
+			Email string `json:"email"`
+			Name  string `json:"name"`
+		}
+		// Get the user's email and training type from the request body
+		var body response
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if body.Email == "" || body.Name == "" {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
 
 		// Check if the user already exists
 		{
 			var user models.User
-			res := db.First(&user, "email = ?", email)
+			res := db.First(&user, "email = ?", body.Email)
 			if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 				// The user already exists
 				return c.Status(fiber.StatusConflict).SendString("User already exists")
@@ -56,8 +66,8 @@ func main() {
 
 		// Create a new user in the database
 		user := models.User{
-			Email:   email,
-			Name:    name,
+			Email:   body.Email,
+			Name:    body.Name,
 			Enabled: false,
 		}
 		db.Create(&user)
@@ -75,22 +85,32 @@ func main() {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
+		type response struct {
+			Email        string `json:"email"`
+			TrainingType string `json:"training_type"`
+		}
 		// Get the user's email and training type from the request body
-		email := c.FormValue("email")
-		trainingType := c.FormValue("training_type")
+		var body response
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if body.TrainingType == "" && body.Email == "" {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
 
 		// Check if the user exists
 		var user models.User
-		res := db.First(&user, "email = ?", email)
+		res := db.First(&user, "email = ?", body.Email)
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// The user does not exist
-			return c.Status(fiber.StatusNotFound).SendString("User not found")
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
 		}
 
 		// Create a new training in the database
 		training := models.Training{
 			UserID:       user.ID,
-			TrainingType: trainingType,
+			TrainingType: body.TrainingType,
 			AddedBy:      apiUser.ID,
 		}
 
