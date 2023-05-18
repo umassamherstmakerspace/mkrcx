@@ -13,6 +13,7 @@ import (
 )
 
 type ctxUserKey struct{}
+type ctxAPIKey struct{}
 
 const SYSTEM_USER_EMAIL = "makerspace@umass.edu"
 const HOST = ":8000"
@@ -33,10 +34,9 @@ func main() {
 	// Create a new user
 	app.Post("/api/users", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiUser := c.Locals(ctxUserKey{}).(models.User)
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
 
-		// Make sure API user is system user
-		if apiUser.Email != SYSTEM_USER_EMAIL {
+		if !models.APIKeyValidate(apiKey, "leash.users:write") {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -80,8 +80,9 @@ func main() {
 	app.Post("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
 		// Get api user from the request context
 		apiUser := c.Locals(ctxUserKey{}).(models.User)
-		log.Printf("User %v\n", apiUser)
-		if !apiUser.Admin {
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.trainings:write") {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -169,6 +170,7 @@ func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 		}
 
 		c.Locals(ctxUserKey{}, user)
+		c.Locals(ctxAPIKey{}, apiKeyRecord)
 		return next(c)
 	}
 }
