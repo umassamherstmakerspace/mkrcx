@@ -85,37 +85,52 @@ func main() {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
-		type response struct {
-			Query string `query:"q"`
-			Limit int    `query:"limit"`
+		type request struct {
+			Query       string `query:"q"`
+			Limit       int    `query:"limit"`
+			Offset      int    `query:"offset"`
+			OnlyEnabled bool   `query:"enabled"`
 		}
-		var body response
-		if err := c.QueryParser(&body); err != nil {
+		req := request{
+			Limit:       10,
+			Offset:      0,
+			OnlyEnabled: true,
+		}
+
+		if err := c.QueryParser(&req); err != nil {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if body.Query == "" {
+		if req.Query == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if body.Limit == 0 {
-			body.Limit = 10
-		}
-
-		var users []models.User
-		fields := []string{"name", "email"}
-		search := ""
-		for i := 0; i < len(fields); i++ {
-			if i > 0 {
-				search += " OR "
-			}
-			search += fields[i] + " LIKE @q"
+		if req.Limit == 0 {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
 		// match the query against the name and email fields
-		db.Where(search, map[string]interface{}{"q": "%" + body.Query + "%"}).Limit(body.Limit).Find(&users)
+		var users []models.User
+		var count int64
 
-		return c.JSON(users)
+		var searchQuery string
+		if req.OnlyEnabled {
+			searchQuery += "`enabled` = 1 AND "
+		}
+		searchQuery += "`name` LIKE @q OR `email` LIKE @q"
+
+		db.Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"}).Offset(req.Offset).Limit(req.Limit).Find(&users)
+		db.Model(&models.User{}).Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"}).Count(&count)
+
+		type response struct {
+			Count int64         `json:"count"`
+			Users []models.User `json:"users"`
+		}
+
+		return c.JSON(response{
+			Count: count,
+			Users: users,
+		})
 	}))
 
 	// Add completed training to a user
