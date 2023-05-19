@@ -76,6 +76,48 @@ func main() {
 		return c.SendString("User created successfully")
 	}))
 
+	// Search for a user
+	app.Get("/api/users/search", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.users:search") {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		type response struct {
+			Query string `query:"q"`
+			Limit int    `query:"limit"`
+		}
+		var body response
+		if err := c.QueryParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if body.Query == "" {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if body.Limit == 0 {
+			body.Limit = 10
+		}
+
+		var users []models.User
+		fields := []string{"name", "email"}
+		search := ""
+		for i := 0; i < len(fields); i++ {
+			if i > 0 {
+				search += " OR "
+			}
+			search += fields[i] + " LIKE @q"
+		}
+
+		// match the query against the name and email fields
+		db.Where(search, map[string]interface{}{"q": "%" + body.Query + "%"}).Limit(body.Limit).Find(&users)
+
+		return c.JSON(users)
+	}))
+
 	// Add completed training to a user
 	app.Post("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
 		// Get api user from the request context
