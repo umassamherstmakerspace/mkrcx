@@ -41,8 +41,12 @@ func main() {
 		}
 
 		type request struct {
-			Email string `json:"email"`
-			Name  string `json:"name"`
+			Email     string `json:"email"`
+			FirstName string `json:"first_name"`
+			LastName  string `json:"last_name"`
+			Type      string `json:"type"`
+			GradYear  int    `json:"grad_year"`
+			Major     string `json:"major"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
@@ -50,7 +54,7 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if req.Email == "" || req.Name == "" {
+		if req.Email == "" || req.FirstName == "" || req.LastName == "" || req.Type == "" || req.GradYear == 0 || req.Major == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
@@ -66,9 +70,13 @@ func main() {
 
 		// Create a new user in the database
 		user := models.User{
-			Email:   req.Email,
-			Name:    req.Name,
-			Enabled: false,
+			Email:          req.Email,
+			FirstName:      req.FirstName,
+			LastName:       req.LastName,
+			Type:           req.Type,
+			GraduationYear: req.GradYear,
+			Major:          req.Major,
+			Enabled:        false,
 		}
 		db.Create(&user)
 
@@ -117,7 +125,7 @@ func main() {
 		if req.OnlyEnabled {
 			searchQuery += "`enabled` = 1 AND "
 		}
-		searchQuery += "`name` LIKE @q OR `email` LIKE @q"
+		searchQuery += "CONCAT(`first_name`, \" \", `last_name`) LIKE @q OR `email` LIKE @q"
 
 		db.Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"}).Offset(req.Offset).Limit(req.Limit).Find(&users)
 		db.Model(&models.User{}).Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"}).Count(&count)
@@ -131,6 +139,60 @@ func main() {
 			Count: count,
 			Users: users,
 		})
+	}))
+
+	// Get a user from their email
+	app.Get("/api/users/", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.users:read") {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		type request struct {
+			Email string `query:"email"`
+		}
+		// Get the user's email from the request body
+		var req request
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if req.Email == "" {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		// Check if the user exists
+		var user models.User
+		res := db.First(&user, "email = ?", req.Email)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		return c.JSON(user)
+	}))
+
+	// Get a user from their ID
+	app.Get("/api/users/id/:id", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.users:read") {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		id := c.Params("id")
+
+		var user models.User
+		res := db.First(&user, "id = ?", id)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		return c.JSON(user)
 	}))
 
 	// Add completed training to a user
