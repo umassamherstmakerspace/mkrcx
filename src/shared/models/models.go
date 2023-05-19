@@ -6,10 +6,14 @@ import (
 
 type User struct {
 	gorm.Model
-	Email   string `gorm:"unique"`
-	Admin   bool
-	Name    string
-	Enabled bool
+	Email          string `gorm:"unique"`
+	Admin          bool
+	FirstName      string
+	LastName       string
+	GraduationYear int
+	Type           string
+	Major          string
+	Enabled        bool
 
 	Trainings []Training
 	APIKeys   []APIKey
