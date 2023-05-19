@@ -181,6 +181,44 @@ func main() {
 		return c.SendString("Training added successfully")
 	}))
 
+	// Get a user's trainings
+	app.Get("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.trainings:read") {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		type request struct {
+			Email string `query:"email"`
+		}
+		// Get the user's email from the request body
+		var req request
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if req.Email == "" {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		// Check if the user exists
+		var user models.User
+		res := db.First(&user, "email = ?", req.Email)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		// Get the user's trainings
+		var trainings []models.Training
+		db.Find(&trainings, "user_id = ?", user.ID)
+
+		// Write the trainings to the response
+		return c.JSON(trainings)
+	}))
+
 	log.Printf("Starting server on port %s\n", HOST)
 	app.Listen(HOST)
 }
