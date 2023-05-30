@@ -1,26 +1,36 @@
 package models
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
+type Model struct {
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index" json:",omitempty"`
+}
+
 type User struct {
-	gorm.Model
+	Model
 	Email          string `gorm:"unique"`
 	Admin          bool
 	FirstName      string
 	LastName       string
-	GraduationYear int
+	Role           string
 	Type           string
+	GraduationYear int
 	Major          string
 	Enabled        bool
 
 	Trainings []Training
-	APIKeys   []APIKey
+	APIKeys   []APIKey `json:"-"`
 }
 
 type APIKey struct {
-	gorm.Model
+	Model
 	UserID      uint
 	ID          string `gorm:"unique"`
 	Description string
@@ -59,7 +69,7 @@ func APIKeyValidate(key APIKey, permission string) bool {
 }
 
 type Training struct {
-	gorm.Model
+	Model
 	UserID       uint `gorm:"foreignKey:user_id"`
 	TrainingType string
 	AddedBy      uint `gorm:"foreignKey:user_id"`
