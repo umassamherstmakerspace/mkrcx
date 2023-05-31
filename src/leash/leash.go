@@ -373,6 +373,16 @@ func userTrainingEnable(db *gorm.DB, user models.User) {
 
 func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// Make sure DB is alive
+		sql, err := db.DB()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Database connection error")
+		}
+		err = sql.Ping()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Database connection error")
+		}
+
 		// Get the API key from the request header
 		apiKey := c.Get("API-Key")
 		var apiKeyRecord models.APIKey
