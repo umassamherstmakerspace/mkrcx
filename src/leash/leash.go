@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 
@@ -225,14 +224,20 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("User not found")
 		}
 
+		// Check if the training already exists
+		var training models.Training
+		res = db.Model(&models.Training{}).Where("user_id = ? AND training_type = ?", user.ID, req.TrainingType).First(&training)
+		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The training already exists
+			return c.Status(fiber.StatusConflict).SendString("Training already exists")
+		}
+
 		// Create a new training in the database
-		training := models.Training{
+		training = models.Training{
 			UserID:       user.ID,
 			TrainingType: req.TrainingType,
 			AddedBy:      apiUser.ID,
 		}
-
-		fmt.Println(training)
 
 		db.Create(&training)
 
@@ -241,6 +246,61 @@ func main() {
 
 		// Write a success message to the response
 		return c.SendString("Training added successfully")
+	}))
+
+	// Delete a training from a user
+	app.Delete("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		apiUser := c.Locals(ctxUserKey{}).(models.User)
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.trainings:write") {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		type request struct {
+			Email        string `json:"email" xml:"email" form:"email"`
+			ID           uint   `json:"id" xml:"id" form:"id"`
+			TrainingType string `json:"training_type" xml:"training_type" form:"training_type"`
+		}
+		// Get the user's email and training type from the request body
+		var req request
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if req.TrainingType == "" {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		// Check if the user exists
+		var user models.User
+		res := db.Model(&models.User{}).Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		// Check if the training exists
+		var training models.Training
+		res = db.Model(&models.Training{}).Where("user_id = ? AND training_type = ?", user.ID, req.TrainingType).First(&training)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The training does not exist
+			return c.Status(fiber.StatusConflict).SendString("Training has not been added")
+		}
+
+		// Update the training in the database
+		training.RemovedBy = apiUser.ID
+		db.Save(&training)
+		// Delete the training from the db
+		db.Delete(&training)
+
+		// Write a success message to the response
+		return c.SendString("Training removed successfully")
 	}))
 
 	// Get a user's trainings
@@ -253,8 +313,9 @@ func main() {
 		}
 
 		type request struct {
-			Email string `query:"email"`
-			ID    uint   `query:"id"`
+			Email          string `query:"email"`
+			ID             uint   `query:"id"`
+			IncludeDeleted bool   `query:"include_deleted"`
 		}
 		// Get the user's email from the request body
 		var req request
@@ -268,14 +329,21 @@ func main() {
 
 		// Check if the user exists
 		var user models.User
-		res := db.Model(&models.User{}).Preload("Trainings").Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
+		res := db.Model(&models.User{}).Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// The user does not exist
 			return c.Status(fiber.StatusBadRequest).SendString("User not found")
 		}
 
+		var trainings []models.Training
+		if req.IncludeDeleted {
+			db.Model(&models.Training{}).Unscoped().Where("user_id = ?", user.ID).Find(&trainings)
+		} else {
+			db.Model(&models.Training{}).Where("user_id = ?", user.ID).Find(&trainings)
+		}
+
 		// Write the trainings to the response
-		return c.JSON(user.Trainings)
+		return c.JSON(trainings)
 	}))
 
 	log.Printf("Starting server on port %s\n", HOST)

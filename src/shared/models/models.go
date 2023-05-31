@@ -73,4 +73,5 @@ type Training struct {
 	UserID       uint `gorm:"foreignKey:user_id"`
 	TrainingType string
 	AddedBy      uint `gorm:"foreignKey:user_id"`
+	RemovedBy    uint `gorm:"foreignKey:user_id"`
 }
