@@ -83,6 +83,7 @@ func main() {
 			Email:          req.Email,
 			FirstName:      req.FirstName,
 			LastName:       req.LastName,
+			Role:           req.Role,
 			Type:           req.Type,
 			GraduationYear: req.GradYear,
 			Major:          req.Major,
@@ -92,6 +93,77 @@ func main() {
 
 		// Write a success message to the response
 		return c.SendString("User created successfully")
+	}))
+
+	// Update a user
+	app.Put("/api/users", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.users:write") {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		type request struct {
+			Email     string `json:"email" xml:"email" form:"email"`
+			ID        uint   `json:"id" xml:"id" form:"id"`
+			NewEmail  string `json:"new_email" xml:"new_email" form:"new_email"`
+			FirstName string `json:"first_name" xml:"first_name" form:"first_name"`
+			LastName  string `json:"last_name" xml:"last_name" form:"last_name"`
+			Role      string `json:"role" xml:"role" form:"role"`
+			Type      string `json:"type" xml:"type" form:"type"`
+			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year"`
+			Major     string `json:"major" xml:"major" form:"major"`
+		}
+
+		// Get the user's email and training type from the request body
+		var req request
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		// Check if the user exists
+		var user models.User
+		res := db.Model(&models.User{}).Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		// Update the user in the database
+		if req.NewEmail != "" {
+			user.Email = req.NewEmail
+		}
+		if req.FirstName != "" {
+			user.FirstName = req.FirstName
+		}
+		if req.LastName != "" {
+			user.LastName = req.LastName
+		}
+		if req.Role != "" {
+			user.Role = req.Role
+		}
+		if req.Type != "" {
+			user.Type = req.Type
+		}
+		if req.GradYear != 0 {
+			user.GraduationYear = req.GradYear
+		}
+		if req.Major != "" {
+			user.Major = req.Major
+		}
+
+		res = db.Save(&user)
+		if res.Error != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Database error")
+		}
+
+		// Write a success message to the response
+		return c.SendString("User updated successfully")
 	}))
 
 	// Search for a user
