@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -326,7 +327,7 @@ func main() {
 
 		type request struct {
 			UserIDReq
-			TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required,notblank"`
+			TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required,notblank,lowercase"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
@@ -394,11 +395,12 @@ func main() {
 
 		type request struct {
 			UserIDReq
-			TrainingType string `json:"training_type" xml:"training_type" form:"training_type"`
+			TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required,notblank,lowercase"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
 		if err := c.BodyParser(&req); err != nil {
+			fmt.Println(err)
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
