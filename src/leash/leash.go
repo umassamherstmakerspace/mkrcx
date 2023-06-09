@@ -58,12 +58,12 @@ func main() {
 
 		type request struct {
 			Email     string `json:"email" xml:"email" form:"email" validate:"required,email"`
-			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"required"`
+			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"required,notblank"`
 			LastName  string `json:"last_name" xml:"last_name" form:"last_name" validate:"required"`
 			Role      string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
 			Type      string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
-			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required"`
-			Major     string `json:"major" xml:"major" form:"major" validate:"required"`
+			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni"`
+			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni, notblank"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
@@ -115,12 +115,12 @@ func main() {
 		type request struct {
 			UserIDReq
 			NewEmail  string `json:"new_email" xml:"new_email" form:"new_email" validate:"email"`
-			FirstName string `json:"first_name" xml:"first_name" form:"first_name"`
+			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"notblank"`
 			LastName  string `json:"last_name" xml:"last_name" form:"last_name"`
 			Role      string `json:"role" xml:"role" form:"role" validate:"oneof=member volunteer staff admin"`
 			Type      string `json:"type" xml:"type" form:"type" validate:"oneof=undergrad grad faculty staff alumni other"`
-			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year"`
-			Major     string `json:"major" xml:"major" form:"major"`
+			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni"`
+			Major     string `json:"major" xml:"major" form:"major validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni, notblank"`
 		}
 
 		// Get the user's email and training type from the request body
@@ -326,7 +326,7 @@ func main() {
 
 		type request struct {
 			UserIDReq
-			TrainingType string `json:"training_type" xml:"training_type" form:"training_type"`
+			TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required,notblank"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
