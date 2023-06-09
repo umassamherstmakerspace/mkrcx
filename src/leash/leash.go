@@ -143,31 +143,31 @@ func main() {
 
 		// Update the user in the database
 		if req.NewEmail != "" {
-			updateUser(db, apiUser, "email", user.Email, req.NewEmail)
+			updateUser(db, user, apiUser, "email", user.Email, req.NewEmail)
 			user.Email = req.NewEmail
 		}
 		if req.FirstName != "" {
-			updateUser(db, apiUser, "first_name", user.FirstName, req.FirstName)
+			updateUser(db, user, apiUser, "first_name", user.FirstName, req.FirstName)
 			user.FirstName = req.FirstName
 		}
 		if req.LastName != "" {
-			updateUser(db, apiUser, "last_name", user.LastName, req.LastName)
+			updateUser(db, user, apiUser, "last_name", user.LastName, req.LastName)
 			user.LastName = req.LastName
 		}
 		if req.Role != "" {
-			updateUser(db, apiUser, "role", user.Role, req.Role)
+			updateUser(db, user, apiUser, "role", user.Role, req.Role)
 			user.Role = req.Role
 		}
 		if req.Type != "" {
-			updateUser(db, apiUser, "type", user.Type, req.Type)
+			updateUser(db, user, apiUser, "type", user.Type, req.Type)
 			user.Type = req.Type
 		}
 		if req.GradYear != 0 {
-			updateUser(db, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(req.GradYear))
+			updateUser(db, user, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(req.GradYear))
 			user.GraduationYear = req.GradYear
 		}
 		if req.Major != "" {
-			updateUser(db, apiUser, "major", user.Major, req.Major)
+			updateUser(db, user, apiUser, "major", user.Major, req.Major)
 			user.Major = req.Major
 		}
 
@@ -219,10 +219,16 @@ func main() {
 		con := db.Model(&models.User{})
 
 		if req.WithTrainings {
+			if !models.APIKeyValidate(apiKey, "leash.trainings:read") {
+				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+			}
 			con = con.Preload("Trainings")
 		}
 
 		if req.WithUpdates {
+			if !models.APIKeyValidate(apiKey, "leash.updates:read") {
+				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+			}
 			con = con.Preload("UserUpdates")
 		}
 
@@ -278,10 +284,16 @@ func main() {
 		con := db.Model(&models.User{})
 
 		if req.WithTrainings {
+			if !models.APIKeyValidate(apiKey, "leash.trainings:read") {
+				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+			}
 			con = con.Preload("Trainings")
 		}
 
 		if req.WithUpdates {
+			if !models.APIKeyValidate(apiKey, "leash.updates:read") {
+				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+			}
 			con = con.Preload("UserUpdates")
 		}
 
@@ -587,12 +599,13 @@ func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 	}
 }
 
-func updateUser(db *gorm.DB, editedBy models.User, field string, value string, previous string) {
+func updateUser(db *gorm.DB, user models.User, editedBy models.User, field string, oldValue string, newValue string) {
 	update := models.UserUpdate{
 		Field:    field,
-		Value:    value,
-		Previous: previous,
-		UserID:   editedBy.ID,
+		NewValue: newValue,
+		OldValue: oldValue,
+		UserID:   user.ID,
+		EditedBy: editedBy.ID,
 	}
 
 	db.Create(&update)
