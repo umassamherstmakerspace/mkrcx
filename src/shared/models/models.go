@@ -10,7 +10,7 @@ type Model struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index" json:",omitempty"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 type User struct {
@@ -25,8 +25,9 @@ type User struct {
 	Major          string
 	Enabled        bool
 
-	Trainings []Training
-	APIKeys   []APIKey `json:"-"`
+	Trainings   []Training   `json:",omitempty"`
+	APIKeys     []APIKey     `json:"-"`
+	UserUpdates []UserUpdate `json:",omitempty"`
 }
 
 type APIKey struct {
@@ -74,4 +75,12 @@ type Training struct {
 	TrainingType string
 	AddedBy      uint `gorm:"foreignKey:user_id"`
 	RemovedBy    uint `gorm:"foreignKey:user_id"`
+}
+
+type UserUpdate struct {
+	Model
+	UserID   uint `gorm:"foreignKey:user_id"`
+	Field    string
+	Value    string
+	Previous string
 }

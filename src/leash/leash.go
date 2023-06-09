@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -15,6 +16,11 @@ import (
 
 type ctxUserKey struct{}
 type ctxAPIKey struct{}
+
+type UserIDReq struct {
+	ID    uint   `json:"id" xml:"id" form:"id" query:"id" validate:"required_without=email"`
+	Email string `json:"email" xml:"email" form:"email" query:"email" validate:"required_without=id,email"`
+}
 
 const SYSTEM_USER_EMAIL = "makerspace@umass.edu"
 const HOST = ":8000"
@@ -29,6 +35,7 @@ func main() {
 	db.AutoMigrate(&models.APIKey{})
 	db.AutoMigrate(&models.User{})
 	db.AutoMigrate(&models.Training{})
+	db.AutoMigrate(&models.UserUpdate{})
 
 	app := fiber.New()
 
@@ -50,13 +57,13 @@ func main() {
 		}
 
 		type request struct {
-			Email     string `json:"email" xml:"email" form:"email"`
-			FirstName string `json:"first_name" xml:"first_name" form:"first_name"`
-			LastName  string `json:"last_name" xml:"last_name" form:"last_name"`
-			Role      string `json:"role" xml:"role" form:"role"`
-			Type      string `json:"type" xml:"type" form:"type"`
-			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year"`
-			Major     string `json:"major" xml:"major" form:"major"`
+			Email     string `json:"email" xml:"email" form:"email" validate:"required,email"`
+			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"required"`
+			LastName  string `json:"last_name" xml:"last_name" form:"last_name" validate:"required"`
+			Role      string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
+			Type      string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
+			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required"`
+			Major     string `json:"major" xml:"major" form:"major" validate:"required"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
@@ -98,6 +105,7 @@ func main() {
 	// Update a user
 	app.Put("/api/users", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
 		// Get api user from the request context
+		apiUser := c.Locals(ctxUserKey{}).(models.User)
 		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
 
 		if !models.APIKeyValidate(apiKey, "leash.users:write") {
@@ -105,13 +113,12 @@ func main() {
 		}
 
 		type request struct {
-			Email     string `json:"email" xml:"email" form:"email"`
-			ID        uint   `json:"id" xml:"id" form:"id"`
-			NewEmail  string `json:"new_email" xml:"new_email" form:"new_email"`
+			UserIDReq
+			NewEmail  string `json:"new_email" xml:"new_email" form:"new_email" validate:"email"`
 			FirstName string `json:"first_name" xml:"first_name" form:"first_name"`
 			LastName  string `json:"last_name" xml:"last_name" form:"last_name"`
-			Role      string `json:"role" xml:"role" form:"role"`
-			Type      string `json:"type" xml:"type" form:"type"`
+			Role      string `json:"role" xml:"role" form:"role" validate:"oneof=member volunteer staff admin"`
+			Type      string `json:"type" xml:"type" form:"type" validate:"oneof=undergrad grad faculty staff alumni other"`
 			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year"`
 			Major     string `json:"major" xml:"major" form:"major"`
 		}
@@ -136,24 +143,31 @@ func main() {
 
 		// Update the user in the database
 		if req.NewEmail != "" {
+			updateUser(db, apiUser, "email", user.Email, req.NewEmail)
 			user.Email = req.NewEmail
 		}
 		if req.FirstName != "" {
+			updateUser(db, apiUser, "first_name", user.FirstName, req.FirstName)
 			user.FirstName = req.FirstName
 		}
 		if req.LastName != "" {
+			updateUser(db, apiUser, "last_name", user.LastName, req.LastName)
 			user.LastName = req.LastName
 		}
 		if req.Role != "" {
+			updateUser(db, apiUser, "role", user.Role, req.Role)
 			user.Role = req.Role
 		}
 		if req.Type != "" {
+			updateUser(db, apiUser, "type", user.Type, req.Type)
 			user.Type = req.Type
 		}
 		if req.GradYear != 0 {
+			updateUser(db, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(req.GradYear))
 			user.GraduationYear = req.GradYear
 		}
 		if req.Major != "" {
+			updateUser(db, apiUser, "major", user.Major, req.Major)
 			user.Major = req.Major
 		}
 
@@ -176,11 +190,13 @@ func main() {
 		}
 
 		type request struct {
-			Query          string `query:"q"`
-			Limit          int    `query:"limit"`
-			Offset         int    `query:"offset"`
+			Query          string `query:"q" validate:"required_without=allow_empty_body,required_unless=allow_empty_body true"`
+			Limit          int    `query:"limit" validate:"required,min=1,max=1000"`
+			Offset         int    `query:"offset" validate:"required,min=0"`
 			OnlyEnabled    bool   `query:"enabled"`
-			AllowEmptyBody bool   `query:"allow_empty_body"`
+			AllowEmptyBody bool   `query:"allow_empty_body" validate:"required_without=query"`
+			WithTrainings  bool   `query:"with_trainings"`
+			WithUpdates    bool   `query:"with_updates"`
 		}
 		req := request{
 			Limit:       10,
@@ -200,6 +216,16 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
+		con := db.Model(&models.User{})
+
+		if req.WithTrainings {
+			con = con.Preload("Trainings")
+		}
+
+		if req.WithUpdates {
+			con = con.Preload("UserUpdates")
+		}
+
 		// match the query against the name and email fields
 		var users []models.User
 		var count int64
@@ -210,9 +236,9 @@ func main() {
 		}
 		searchQuery += "((CONCAT_WS(\" \", `first_name`, `last_name`) LIKE @q) OR (`email` LIKE @q))"
 
-		db.Model(&models.User{}).Preload("Trainings").Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"}).Offset(req.Offset).Limit(req.Limit).Find(&users)
-
-		db.Model(&models.User{}).Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"}).Count(&count)
+		con = con.Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"})
+		con.Offset(req.Offset).Limit(req.Limit).Find(&users)
+		con.Count(&count)
 
 		type response struct {
 			Count int64         `json:"count"`
@@ -235,8 +261,9 @@ func main() {
 		}
 
 		type request struct {
-			Email string `query:"email"`
-			ID    uint   `query:"id"`
+			UserIDReq
+			WithTrainings bool `query:"with_trainings"`
+			WithUpdates   bool `query:"with_updates"`
 		}
 		// Get the user's email from the request body
 		var req request
@@ -248,9 +275,25 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
+		con := db.Model(&models.User{})
+
+		if req.WithTrainings {
+			con = con.Preload("Trainings")
+		}
+
+		if req.WithUpdates {
+			con = con.Preload("UserUpdates")
+		}
+
+		if req.Email != "" {
+			con = con.Where("email = ?", req.Email)
+		} else {
+			con = con.Where("id = ?", req.ID)
+		}
+
 		// Check if the user exists
 		var user models.User
-		res := db.Model(&models.User{}).Preload("Trainings").Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
+		res := con.First(&user)
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// The user does not exist
 			return c.Status(fiber.StatusBadRequest).SendString("User not found")
@@ -270,8 +313,7 @@ func main() {
 		}
 
 		type request struct {
-			Email        string `json:"email" xml:"email" form:"email"`
-			ID           uint   `json:"id" xml:"id" form:"id"`
+			UserIDReq
 			TrainingType string `json:"training_type" xml:"training_type" form:"training_type"`
 		}
 		// Get the user's email and training type from the request body
@@ -288,9 +330,17 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
+		con := db.Model(&models.User{})
+
+		if req.Email != "" {
+			con = con.Where("email = ?", req.Email)
+		} else {
+			con = con.Where("id = ?", req.ID)
+		}
+
 		// Check if the user exists
 		var user models.User
-		res := db.Model(&models.User{}).Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
+		res := con.First(&user)
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// The user does not exist
 			return c.Status(fiber.StatusBadRequest).SendString("User not found")
@@ -331,8 +381,7 @@ func main() {
 		}
 
 		type request struct {
-			Email        string `json:"email" xml:"email" form:"email"`
-			ID           uint   `json:"id" xml:"id" form:"id"`
+			UserIDReq
 			TrainingType string `json:"training_type" xml:"training_type" form:"training_type"`
 		}
 		// Get the user's email and training type from the request body
@@ -349,9 +398,17 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
+		con := db.Model(&models.User{})
+
+		if req.Email != "" {
+			con = con.Where("email = ?", req.Email)
+		} else {
+			con = con.Where("id = ?", req.ID)
+		}
+
 		// Check if the user exists
 		var user models.User
-		res := db.Model(&models.User{}).Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
+		res := con.First(&user)
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// The user does not exist
 			return c.Status(fiber.StatusBadRequest).SendString("User not found")
@@ -385,9 +442,8 @@ func main() {
 		}
 
 		type request struct {
-			Email          string `query:"email"`
-			ID             uint   `query:"id"`
-			IncludeDeleted bool   `query:"include_deleted"`
+			UserIDReq
+			IncludeDeleted bool `query:"include_deleted"`
 		}
 		// Get the user's email from the request body
 		var req request
@@ -399,9 +455,17 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
+		con := db.Model(&models.User{})
+
+		if req.Email != "" {
+			con = con.Where("email = ?", req.Email)
+		} else {
+			con = con.Where("id = ?", req.ID)
+		}
+
 		// Check if the user exists
 		var user models.User
-		res := db.Model(&models.User{}).Where("email = ?", req.Email).Or("id = ?", req.ID).First(&user)
+		res := con.First(&user)
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// The user does not exist
 			return c.Status(fiber.StatusBadRequest).SendString("User not found")
@@ -416,6 +480,50 @@ func main() {
 
 		// Write the trainings to the response
 		return c.JSON(trainings)
+	}))
+
+	// Get a user's updates
+	app.Get("/api/updates", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+
+		if !models.APIKeyValidate(apiKey, "leash.updates:read") {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		type request struct {
+			UserIDReq
+		}
+		// Get the user's email from the request body
+		var req request
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		con := db.Model(&models.User{})
+		if req.Email != "" {
+			con = con.Where("email = ?", req.Email)
+		} else {
+			con = con.Where("id = ?", req.ID)
+		}
+
+		// Check if the user exists
+		var user models.User
+		res := con.First(&user)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		var updates []models.UserUpdate
+		db.Model(&models.UserUpdate{}).Where("user_id = ?", user.ID).Find(&updates)
+
+		// Write the updates to the response
+		return c.JSON(updates)
 	}))
 
 	log.Printf("Starting server on port %s\n", HOST)
@@ -477,4 +585,15 @@ func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 		c.Locals(ctxAPIKey{}, apiKeyRecord)
 		return next(c)
 	}
+}
+
+func updateUser(db *gorm.DB, editedBy models.User, field string, value string, previous string) {
+	update := models.UserUpdate{
+		Field:    field,
+		Value:    value,
+		Previous: previous,
+		UserID:   editedBy.ID,
+	}
+
+	db.Create(&update)
 }
