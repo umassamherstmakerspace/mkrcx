@@ -62,8 +62,8 @@ func main() {
 			LastName  string `json:"last_name" xml:"last_name" form:"last_name" validate:"required"`
 			Role      string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
 			Type      string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
-			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni"`
-			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni, notblank"`
+			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
@@ -119,8 +119,8 @@ func main() {
 			LastName  string `json:"last_name" xml:"last_name" form:"last_name"`
 			Role      string `json:"role" xml:"role" form:"role" validate:"oneof=member volunteer staff admin"`
 			Type      string `json:"type" xml:"type" form:"type" validate:"oneof=undergrad grad faculty staff alumni other"`
-			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni"`
-			Major     string `json:"major" xml:"major" form:"major validate:"required_if=Type undergrad, required_if=Type grad, required_if=Type alumni, notblank"`
+			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
 		}
 
 		// Get the user's email and training type from the request body
