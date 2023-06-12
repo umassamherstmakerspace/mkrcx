@@ -16,7 +16,9 @@ type Model struct {
 // TODO: User struct should have "pending actions" (users should have to have their changes approved by an admin)
 type User struct {
 	Model
-	Email          string `gorm:"unique"`
+	Email string `gorm:"unique"`
+	// TODO: Add email verification
+	PendingEmail   string `gorm:"unique"`
 	Admin          bool
 	FirstName      string
 	LastName       string
