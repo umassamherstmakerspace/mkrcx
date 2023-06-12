@@ -144,31 +144,31 @@ func main() {
 
 		// Update the user in the database
 		if req.NewEmail != "" {
-			updateUser(db, user, apiUser, "email", user.Email, req.NewEmail)
+			updateUser(db, user, apiUser, apiUser, "email", user.Email, req.NewEmail, true)
 			user.Email = req.NewEmail
 		}
 		if req.FirstName != "" {
-			updateUser(db, user, apiUser, "first_name", user.FirstName, req.FirstName)
+			updateUser(db, user, apiUser, apiUser, "first_name", user.FirstName, req.FirstName, true)
 			user.FirstName = req.FirstName
 		}
 		if req.LastName != "" {
-			updateUser(db, user, apiUser, "last_name", user.LastName, req.LastName)
+			updateUser(db, user, apiUser, apiUser, "last_name", user.LastName, req.LastName, true)
 			user.LastName = req.LastName
 		}
 		if req.Role != "" {
-			updateUser(db, user, apiUser, "role", user.Role, req.Role)
+			updateUser(db, user, apiUser, apiUser, "role", user.Role, req.Role, true)
 			user.Role = req.Role
 		}
 		if req.Type != "" {
-			updateUser(db, user, apiUser, "type", user.Type, req.Type)
+			updateUser(db, user, apiUser, apiUser, "type", user.Type, req.Type, true)
 			user.Type = req.Type
 		}
 		if req.GradYear != 0 {
-			updateUser(db, user, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(req.GradYear))
+			updateUser(db, user, apiUser, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(req.GradYear), true)
 			user.GraduationYear = req.GradYear
 		}
 		if req.Major != "" {
-			updateUser(db, user, apiUser, "major", user.Major, req.Major)
+			updateUser(db, user, apiUser, apiUser, "major", user.Major, req.Major, true)
 			user.Major = req.Major
 		}
 
@@ -601,14 +601,39 @@ func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 	}
 }
 
-func updateUser(db *gorm.DB, user models.User, editedBy models.User, field string, oldValue string, newValue string) {
+func updateUser(db *gorm.DB, user models.User, editedBy models.User, acceptedBy models.User, field string, oldValue string, newValue string, accepted bool) {
 	update := models.UserUpdate{
-		Field:    field,
-		NewValue: newValue,
-		OldValue: oldValue,
-		UserID:   user.ID,
-		EditedBy: editedBy.ID,
+		Field:      field,
+		NewValue:   newValue,
+		OldValue:   oldValue,
+		UserID:     user.ID,
+		EditedBy:   editedBy.ID,
+		AcceptedBy: acceptedBy.ID,
+		Accepted:   accepted,
 	}
 
 	db.Create(&update)
+}
+
+func closeUpdatesForEmail(db *gorm.DB, api_user models.User, email string) {
+	var changes []models.PendingChange
+	db.Model(&models.PendingChange{}).Where("field = ?", "email").Where("new_value = ?", email).Find(&changes)
+
+	for _, change := range changes {
+		var user models.User
+		db.Model(&models.User{}).Where("id = ?", change.UserID).First(&user)
+
+		update := models.UserUpdate{
+			Field:      "email",
+			NewValue:   email,
+			OldValue:   user.Email,
+			UserID:     user.ID,
+			EditedBy:   change.UserID,
+			AcceptedBy: api_user.ID,
+			Accepted:   false,
+		}
+
+		db.Create(&update)
+		db.Delete(&change)
+	}
 }

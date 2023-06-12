@@ -13,6 +13,7 @@ type Model struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+// TODO: User struct should have "pending actions" (users should have to have their changes approved by an admin)
 type User struct {
 	Model
 	Email          string `gorm:"unique"`
@@ -25,9 +26,10 @@ type User struct {
 	Major          string
 	Enabled        bool
 
-	Trainings   []Training   `json:",omitempty"`
-	APIKeys     []APIKey     `json:"-"`
-	UserUpdates []UserUpdate `json:",omitempty"`
+	Trainings      []Training      `json:",omitempty"`
+	APIKeys        []APIKey        `json:"-"`
+	UserUpdates    []UserUpdate    `json:",omitempty"`
+	PendingChanges []PendingChange `json:",omitempty"`
 }
 
 type APIKey struct {
@@ -79,8 +81,19 @@ type Training struct {
 
 type UserUpdate struct {
 	Model
+	UserID     uint `gorm:"foreignKey:user_id"`
+	EditedBy   uint `gorm:"foreignKey:user_id"`
+	AcceptedBy uint `gorm:"foreignKey:user_id"`
+	Field      string
+	NewValue   string
+	OldValue   string
+	Accepted   bool
+}
+
+type PendingChange struct {
+	Model
 	UserID   uint `gorm:"foreignKey:user_id"`
+	EditedBy uint `gorm:"foreignKey:user_id"`
 	Field    string
-	Value    string
-	Previous string
+	NewValue string
 }
