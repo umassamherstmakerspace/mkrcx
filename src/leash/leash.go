@@ -194,7 +194,7 @@ func main() {
 			Query          string `query:"q" validate:"required_without=allow_empty_body,required_unless=allow_empty_body true"`
 			Limit          int    `query:"limit" validate:"required,min=1,max=1000"`
 			Offset         int    `query:"offset" validate:"required,min=0"`
-			OnlyEnabled    bool   `query:"enabled"`
+			OnlyEnabled    bool   `query:"only_enabled"`
 			AllowEmptyBody bool   `query:"allow_empty_body" validate:"required_without=query"`
 			WithTrainings  bool   `query:"with_trainings"`
 			WithUpdates    bool   `query:"with_updates"`
