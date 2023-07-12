@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/go-playground/validator/v10"
+	val "github.com/go-playground/validator/v10/non-standard/validators"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"gorm.io/driver/mysql"
@@ -26,10 +28,38 @@ type UserIDReq struct {
 const SYSTEM_USER_EMAIL = "makerspace@umass.edu"
 const HOST = ":8000"
 
+var validate = validator.New()
+
+type ErrorResponse struct {
+	FailedField string
+	Tag         string
+	Value       string
+}
+
+func ValidateStruct(s interface{}) []*ErrorResponse {
+	var errors []*ErrorResponse
+	err := validate.Struct(s)
+	if err != nil {
+		for _, err := range err.(validator.ValidationErrors) {
+			var element ErrorResponse
+			element.FailedField = err.StructNamespace()
+			element.Tag = err.Tag()
+			element.Value = err.Param()
+			errors = append(errors, &element)
+		}
+	}
+	return errors
+}
+
 func main() {
 	db, err := gorm.Open(mysql.Open(os.Getenv("DB")), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
+	}
+
+	err = validate.RegisterValidation("notblank", val.NotBlank)
+	if err != nil {
+		panic(err)
 	}
 
 	// Migrate the schema
@@ -59,28 +89,34 @@ func main() {
 
 		type request struct {
 			Email     string `json:"email" xml:"email" form:"email" validate:"required,email"`
-			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"required,notblank"`
+			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"required"`
 			LastName  string `json:"last_name" xml:"last_name" form:"last_name" validate:"required"`
 			Role      string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
 			Type      string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
 			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
+			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
 		if err := c.BodyParser(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
 		}
 
-		if req.Email == "" || req.FirstName == "" || req.LastName == "" || req.Type == "" || req.GradYear == 0 || req.Major == "" {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+
+			}
 		}
 
 		// Check if the user already exists
 		{
 			var user models.User
-			res := db.First(&user, "email = ?", req.Email)
-			if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			res := db.Find(&user, "email = ?", req.Email)
+			if res.RowsAffected > 0 {
 				// The user already exists
 				return c.Status(fiber.StatusConflict).SendString("User already exists")
 			}
@@ -115,13 +151,13 @@ func main() {
 
 		type request struct {
 			UserIDReq
-			NewEmail  string `json:"new_email" xml:"new_email" form:"new_email" validate:"email"`
-			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"notblank"`
-			LastName  string `json:"last_name" xml:"last_name" form:"last_name"`
-			Role      string `json:"role" xml:"role" form:"role" validate:"oneof=member volunteer staff admin"`
-			Type      string `json:"type" xml:"type" form:"type" validate:"oneof=undergrad grad faculty staff alumni other"`
-			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
+			NewEmail  *string `json:"new_email" xml:"new_email" form:"new_email" validate:"omitempty,email"`
+			FirstName *string `json:"first_name" xml:"first_name" form:"first_name" validate:"omitempty"`
+			LastName  *string `json:"last_name" xml:"last_name" form:"last_name"`
+			Role      *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
+			Type      *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
+			GradYear  *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
+			Major     *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
 		}
 
 		// Get the user's email and training type from the request body
@@ -143,33 +179,33 @@ func main() {
 		}
 
 		// Update the user in the database
-		if req.NewEmail != "" {
-			updateUser(db, user, apiUser, apiUser, "email", user.Email, req.NewEmail, true)
-			user.Email = req.NewEmail
+		if req.NewEmail != nil {
+			updateUser(db, user, apiUser, apiUser, "email", user.Email, *req.NewEmail, true)
+			user.Email = *req.NewEmail
 		}
-		if req.FirstName != "" {
-			updateUser(db, user, apiUser, apiUser, "first_name", user.FirstName, req.FirstName, true)
-			user.FirstName = req.FirstName
+		if req.FirstName != nil {
+			updateUser(db, user, apiUser, apiUser, "first_name", user.FirstName, *req.FirstName, true)
+			user.FirstName = *req.FirstName
 		}
-		if req.LastName != "" {
-			updateUser(db, user, apiUser, apiUser, "last_name", user.LastName, req.LastName, true)
-			user.LastName = req.LastName
+		if req.LastName != nil {
+			updateUser(db, user, apiUser, apiUser, "last_name", user.LastName, *req.LastName, true)
+			user.LastName = *req.LastName
 		}
-		if req.Role != "" {
-			updateUser(db, user, apiUser, apiUser, "role", user.Role, req.Role, true)
-			user.Role = req.Role
+		if req.Role != nil {
+			updateUser(db, user, apiUser, apiUser, "role", user.Role, *req.Role, true)
+			user.Role = *req.Role
 		}
-		if req.Type != "" {
-			updateUser(db, user, apiUser, apiUser, "type", user.Type, req.Type, true)
-			user.Type = req.Type
+		if req.Type != nil {
+			updateUser(db, user, apiUser, apiUser, "type", user.Type, *req.Type, true)
+			user.Type = *req.Type
 		}
-		if req.GradYear != 0 {
-			updateUser(db, user, apiUser, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(req.GradYear), true)
-			user.GraduationYear = req.GradYear
+		if req.GradYear != nil {
+			updateUser(db, user, apiUser, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(*req.GradYear), true)
+			user.GraduationYear = *req.GradYear
 		}
-		if req.Major != "" {
-			updateUser(db, user, apiUser, apiUser, "major", user.Major, req.Major, true)
-			user.Major = req.Major
+		if req.Major != nil {
+			updateUser(db, user, apiUser, apiUser, "major", user.Major, *req.Major, true)
+			user.Major = *req.Major
 		}
 
 		res = db.Save(&user)
@@ -603,37 +639,12 @@ func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 
 func updateUser(db *gorm.DB, user models.User, editedBy models.User, acceptedBy models.User, field string, oldValue string, newValue string, accepted bool) {
 	update := models.UserUpdate{
-		Field:      field,
-		NewValue:   newValue,
-		OldValue:   oldValue,
-		UserID:     user.ID,
-		EditedBy:   editedBy.ID,
-		AcceptedBy: acceptedBy.ID,
-		Accepted:   accepted,
+		Field:    field,
+		NewValue: newValue,
+		OldValue: oldValue,
+		UserID:   user.ID,
+		EditedBy: editedBy.ID,
 	}
 
 	db.Create(&update)
-}
-
-func closeUpdatesForEmail(db *gorm.DB, api_user models.User, email string) {
-	var changes []models.PendingChange
-	db.Model(&models.PendingChange{}).Where("field = ?", "email").Where("new_value = ?", email).Find(&changes)
-
-	for _, change := range changes {
-		var user models.User
-		db.Model(&models.User{}).Where("id = ?", change.UserID).First(&user)
-
-		update := models.UserUpdate{
-			Field:      "email",
-			NewValue:   email,
-			OldValue:   user.Email,
-			UserID:     user.ID,
-			EditedBy:   change.UserID,
-			AcceptedBy: api_user.ID,
-			Accepted:   false,
-		}
-
-		db.Create(&update)
-		db.Delete(&change)
-	}
 }
