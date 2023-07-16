@@ -1,24 +1,96 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	val "github.com/go-playground/validator/v10/non-standard/validators"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	models "github.com/spectrum-control/spectrum/src/shared/models"
 )
 
-type ctxUserKey struct{}
-type ctxAPIKey struct{}
+type ctxAuthKey struct{}
+
+type UserRole int
+
+const (
+	USER_ROLE_MEMBER UserRole = iota
+	USER_ROLE_VOLUNTEER
+	USER_ROLE_STAFF
+	USER_ROLE_ADMIN
+)
+
+func parseUserRole(role string) (UserRole, error) {
+	switch role {
+	case "member":
+		return USER_ROLE_MEMBER, nil
+	case "volunteer":
+		return USER_ROLE_VOLUNTEER, nil
+	case "staff":
+		return USER_ROLE_STAFF, nil
+	case "admin":
+		return USER_ROLE_ADMIN, nil
+	default:
+		return 0, errors.New("invalid role")
+	}
+}
+
+type Authenticator int
+
+const (
+	AUTHENTICATOR_LOGGED_OUT Authenticator = iota
+	AUTHENTICATOR_USER
+	AUTHENTICATOR_APIKEY
+)
+
+type Authentication struct {
+	User          models.User
+	Authenticator Authenticator
+	Data          interface{}
+}
+
+func (auth *Authentication) Authenticate(minimumRole UserRole, permissions ...string) error {
+	switch auth.Authenticator {
+	case AUTHENTICATOR_LOGGED_OUT:
+		return errors.New("not logged in")
+	case AUTHENTICATOR_USER:
+		role, err := parseUserRole(auth.User.Role)
+		if err != nil {
+			return err
+		}
+
+		if role < minimumRole {
+			return errors.New("insufficient permissions")
+		}
+		break
+	case AUTHENTICATOR_APIKEY:
+		apiKey := auth.Data.(models.APIKey)
+		for _, permission := range permissions {
+			if !models.APIKeyValidate(apiKey, permission) {
+				return errors.New("insufficient permissions")
+			}
+		}
+		break
+	}
+	return nil
+}
 
 type UserIDReq struct {
 	ID    uint   `json:"id" xml:"id" form:"id" query:"id" validate:"required_without=email"`
@@ -78,12 +150,50 @@ func main() {
 		},
 	}))
 
-	// Create a new user
-	app.Post("/api/users", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
-		// Get api user from the request context
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+	// Google OAuth2
+	google := &oauth2.Config{
+		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		RedirectURL:  os.Getenv("URL") + "/auth/callback",
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+		},
+		Endpoint: google.Endpoint,
+	}
 
-		if !models.APIKeyValidate(apiKey, "leash.users:write") {
+	// JWT Key
+
+	//read text from file keys.json
+	keyFile, err := os.Open("keys.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer keyFile.Close()
+
+	keyBytes, err := ioutil.ReadAll(keyFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	keys, err := jwk.Parse(keyBytes)
+	if err != nil {
+		fmt.Printf("failed to parse private key: %s\n", err)
+	}
+
+	privateKey, _ := keys.Key(0)
+
+	publicKey, err := privateKey.PublicKey()
+	if err != nil {
+		fmt.Printf("failed to get public key: %s\n", err)
+	}
+
+	// Create a new user
+	app.Post("/api/users", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.users:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -108,7 +218,6 @@ func main() {
 			errors := ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
-
 			}
 		}
 
@@ -140,12 +249,12 @@ func main() {
 	}))
 
 	// Update a user
-	app.Put("/api/users", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Put("/api/users", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiUser := c.Locals(ctxUserKey{}).(models.User)
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+		apiUser := authentication.User
 
-		if !models.APIKeyValidate(apiKey, "leash.users:write") {
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.users:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -218,11 +327,11 @@ func main() {
 	}))
 
 	// Search for a user
-	app.Get("/api/users/search", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Get("/api/users/search", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
 
-		if !models.APIKeyValidate(apiKey, "leash.users:search") {
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.users:search") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -256,14 +365,14 @@ func main() {
 		con := db.Model(&models.User{})
 
 		if req.WithTrainings {
-			if !models.APIKeyValidate(apiKey, "leash.trainings:read") {
+			if authentication.Authenticate(USER_ROLE_STAFF, "leash.trainings:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("Trainings")
 		}
 
 		if req.WithUpdates {
-			if !models.APIKeyValidate(apiKey, "leash.updates:read") {
+			if authentication.Authenticate(USER_ROLE_STAFF, "leash.updates:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("UserUpdates")
@@ -295,11 +404,11 @@ func main() {
 	}))
 
 	// Get a user from their email or id
-	app.Get("/api/users/", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Get("/api/users/", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
 
-		if !models.APIKeyValidate(apiKey, "leash.users:read") {
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.users:read") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -321,14 +430,14 @@ func main() {
 		con := db.Model(&models.User{})
 
 		if req.WithTrainings {
-			if !models.APIKeyValidate(apiKey, "leash.trainings:read") {
+			if authentication.Authenticate(USER_ROLE_STAFF, "leash.trainings:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("Trainings")
 		}
 
 		if req.WithUpdates {
-			if !models.APIKeyValidate(apiKey, "leash.updates:read") {
+			if authentication.Authenticate(USER_ROLE_STAFF, "leash.updates:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("UserUpdates")
@@ -352,12 +461,12 @@ func main() {
 	}))
 
 	// Add completed training to a user
-	app.Post("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Post("/api/training", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiUser := c.Locals(ctxUserKey{}).(models.User)
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+		apiUser := authentication.User
 
-		if !models.APIKeyValidate(apiKey, "leash.trainings:write") {
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.trainings:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -420,12 +529,12 @@ func main() {
 	}))
 
 	// Delete a training from a user
-	app.Delete("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Delete("/api/training", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiUser := c.Locals(ctxUserKey{}).(models.User)
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+		apiUser := authentication.User
 
-		if !models.APIKeyValidate(apiKey, "leash.trainings:write") {
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.trainings:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -483,11 +592,11 @@ func main() {
 	}))
 
 	// Get a user's trainings
-	app.Get("/api/training", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Get("/api/training", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
 
-		if !models.APIKeyValidate(apiKey, "leash.trainings:read") {
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.trainings:read") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -533,11 +642,11 @@ func main() {
 	}))
 
 	// Get a user's updates
-	app.Get("/api/updates", apiKeyAuthMiddleware(db, func(c *fiber.Ctx) error {
+	app.Get("/api/updates", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
-		apiKey := c.Locals(ctxAPIKey{}).(models.APIKey)
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
 
-		if !models.APIKeyValidate(apiKey, "leash.updates:read") {
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.updates:read") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -576,6 +685,224 @@ func main() {
 		return c.JSON(updates)
 	}))
 
+	app.Get("/auth/login", func(c *fiber.Ctx) error {
+		var req struct {
+			Return string `query:"return"`
+		}
+
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		if req.Return == "" {
+			req.Return = "/"
+		}
+
+		tok, err := jwt.NewBuilder().
+			Issuer(`github.com/lestrrat-go/jwx`).
+			IssuedAt(time.Now()).
+			Expiration(time.Now().Add(5*time.Minute)).
+			Claim("return", req.Return).
+			Build()
+
+		if err != nil {
+			fmt.Printf("failed to build token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		signed, err := jwt.Sign(tok, jwt.WithKey(jwa.RS256, privateKey))
+		if err != nil {
+			fmt.Printf("failed to sign token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		url := google.AuthCodeURL(string(signed))
+		return c.Redirect(url)
+	})
+
+	// Login Flow
+	app.Get("/auth/callback", func(c *fiber.Ctx) error {
+		var req struct {
+			Code  string `query:"code" validate:"required"`
+			State string `query:"state" validate:"required"`
+		}
+
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
+		}
+
+		ret := "/"
+		{
+			tok, err := jwt.ParseString(req.State, jwt.WithKey(jwa.RS256, publicKey))
+			if err != nil {
+				fmt.Printf("failed to parse token: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
+			}
+
+			if err := jwt.Validate(tok); err != nil {
+				fmt.Printf("failed to validate token: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
+			}
+
+			val, valid := tok.Get("return")
+			if !valid {
+				fmt.Printf("failed to get return value: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
+			}
+
+			ret = val.(string)
+		}
+
+		userinfo := &struct {
+			Email string `json:"email" validate:"required,email"`
+		}{}
+
+		{
+			tok, err := google.Exchange(c.Context(), req.Code)
+			if err != nil {
+				fmt.Printf("failed to exchange token: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
+			}
+
+			client := google.Client(c.Context(), tok)
+			resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+			if err != nil {
+				fmt.Printf("failed to get userinfo: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
+			}
+			defer resp.Body.Close()
+
+			err = json.NewDecoder(resp.Body).Decode(userinfo)
+			if err != nil {
+				fmt.Printf("failed to decode userinfo: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
+			}
+
+			{
+				errors := ValidateStruct(userinfo)
+				if errors != nil {
+					return c.Status(fiber.StatusBadRequest).JSON(errors)
+				}
+			}
+		}
+
+		var user models.User
+		res := db.First(&user, "email = ?", userinfo.Email)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			c.Set("Content-Type", "text/html")
+			return c.Status(fiber.StatusUnauthorized).SendString(
+				fmt.Sprintf(`
+				<html>
+					<head>
+						<title>Unauthorized</title>
+					</head>
+
+					<body>
+						<h1>Unauthorized</h1>
+						<br>
+						<p>You need to create an account before you can log in.</p>
+						<br>
+						<p>If you already have an account, please log in with the email you used to create your account.</p>
+						<br>
+						<a href="/auth/login?return=%s">Retry Login</a>
+					</body>
+				</html>
+			`, ret))
+		}
+
+		tok, err := jwt.NewBuilder().
+			Issuer(`github.com/lestrrat-go/jwx`).
+			IssuedAt(time.Now()).
+			Expiration(time.Now().Add(24*time.Hour)).
+			Claim("email", userinfo.Email).
+			Build()
+		if err != nil {
+			fmt.Printf("failed to build token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		signed, err := jwt.Sign(tok, jwt.WithKey(jwa.RS256, privateKey))
+		if err != nil {
+			fmt.Printf("failed to sign token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		cookie := new(fiber.Cookie)
+		cookie.Name = "token"
+		cookie.Value = string(signed)
+		cookie.Expires = tok.Expiration()
+
+		c.Cookie(cookie)
+		return c.Redirect(ret)
+	})
+
+	app.Get("/auth/validate", func(c *fiber.Ctx) error {
+		cookie := c.Cookies("token")
+		if cookie == "" {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		tok, err := jwt.ParseString(cookie, jwt.WithKey(jwa.RS256, publicKey))
+		if err != nil {
+			fmt.Printf("failed to parse token: %s\n", err)
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		if err := jwt.Validate(tok); err != nil {
+			fmt.Printf("failed to validate token: %s\n", err)
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		return c.SendString("Authorized")
+	})
+
+	app.Get("/auth/logout", func(c *fiber.Ctx) error {
+		c.ClearCookie("token")
+		return c.Redirect("/")
+	})
+
+	app.Get("/auth/refresh", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+
+		if authentication.Authenticator != AUTHENTICATOR_USER {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		tok, err := jwt.NewBuilder().
+			Issuer(`github.com/lestrrat-go/jwx`).
+			IssuedAt(time.Now()).
+			Expiration(time.Now().Add(24*time.Hour)).
+			Claim("email", authentication.User.Email).
+			Build()
+
+		if err != nil {
+			fmt.Printf("failed to build token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		signed, err := jwt.Sign(tok, jwt.WithKey(jwa.RS256, privateKey))
+		if err != nil {
+			fmt.Printf("failed to sign token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		return c.JSON(struct {
+			Token     string    `json:"token"`
+			ExpiresAt time.Time `json:"expires_at"`
+		}{
+			Token:     string(signed),
+			ExpiresAt: tok.Expiration(),
+		})
+	}))
+
 	log.Printf("Starting server on port %s\n", HOST)
 	app.Listen(HOST)
 }
@@ -601,7 +928,7 @@ func userTrainingEnable(db *gorm.DB, user models.User) {
 
 }
 
-func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
+func authMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Make sure DB is alive
 		sql, err := db.DB()
@@ -613,26 +940,99 @@ func apiKeyAuthMiddleware(db *gorm.DB, next fiber.Handler) fiber.Handler {
 			return c.Status(fiber.StatusInternalServerError).SendString("Database connection error")
 		}
 
-		// Get the API key from the request header
-		apiKey := c.Get("API-Key")
-		var apiKeyRecord models.APIKey
-		apiKeyRecord.ID = apiKey
-		res := db.First(&apiKeyRecord)
+		// Get the token from the request header
+		authentication, err := func() (Authentication, error) {
+			authentication := Authentication{
+				Authenticator: AUTHENTICATOR_LOGGED_OUT,
+			}
 
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			// The API key is not valid
-			return c.Status(fiber.StatusUnauthorized).SendString("Invalid API key")
+			authorization := c.Get("Authorization")
+			if authorization == "" {
+				return authentication, errors.New("no authorization header")
+			}
+
+			// Get the token from the authorization header
+			token := strings.TrimPrefix(authorization, "Bearer ")
+
+			// Parse the token
+			tok, err := jwt.ParseString(token, jwt.WithKey(jwa.RS256, publicKey))
+			if err != nil {
+				return authentication, err
+			}
+
+			// Validate the token
+			if err := jwt.Validate(tok); err != nil {
+				return authentication, err
+			}
+
+			// Get the email from the token
+			email, valid := tok.Get("email")
+			if !valid {
+				return authentication, errors.New("token does not contain email")
+			}
+
+			// Check if the user exists
+			var user models.User
+			res := db.First(&user, "email = ?", email)
+			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+				// The user does not exist
+				return authentication, errors.New("user not found")
+			}
+
+			authentication = Authentication{
+				Authenticator: AUTHENTICATOR_USER,
+				User:          user,
+			}
+
+			return authentication, nil
+		}()
+
+		if err != nil {
+			// Get the api key from the request header
+			authentication, err = func() (Authentication, error) {
+				authentication := Authentication{
+					Authenticator: AUTHENTICATOR_LOGGED_OUT,
+				}
+
+				apiKey := c.Get("API-Key")
+				if apiKey == "" {
+					return authentication, errors.New("no API-Key header")
+				}
+
+				var apiKeyRecord = models.APIKey{ID: apiKey}
+
+				res := db.First(&apiKeyRecord)
+				if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+					// The API key is not valid
+					return authentication, errors.New("invalid API key")
+				}
+
+				fmt.Println(apiKeyRecord.ID)
+
+				var user models.User
+				res = db.First(&user, "id = ?", apiKeyRecord.UserID)
+				if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+					// The user does not exist
+					return authentication, errors.New("user not found")
+				}
+
+				authentication = Authentication{
+					Authenticator: AUTHENTICATOR_APIKEY,
+					User:          user,
+					Data:          apiKeyRecord,
+				}
+
+				return authentication, nil
+			}()
+
+			if err != nil {
+				authentication = Authentication{
+					Authenticator: AUTHENTICATOR_LOGGED_OUT,
+				}
+			}
 		}
 
-		var user models.User
-		res = db.First(&user, "id = ?", apiKeyRecord.UserID)
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			// The user does not exist
-			return c.Status(fiber.StatusUnauthorized).SendString("User not found")
-		}
-
-		c.Locals(ctxUserKey{}, user)
-		c.Locals(ctxAPIKey{}, apiKeyRecord)
+		c.Locals(ctxAuthKey{}, authentication)
 		return next(c)
 	}
 }

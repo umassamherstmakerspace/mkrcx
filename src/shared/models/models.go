@@ -13,7 +13,6 @@ type Model struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-// TODO: User struct should have "pending actions" (users should have to have their changes approved by an admin)
 type User struct {
 	Model
 	Email          string `gorm:"unique"`
@@ -32,9 +31,11 @@ type User struct {
 }
 
 type APIKey struct {
-	Model
+	ID          string `gorm:"primarykey,unique"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
 	UserID      uint
-	ID          string `gorm:"unique"`
 	Description string
 	Scope       string
 }
