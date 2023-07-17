@@ -181,7 +181,10 @@ func main() {
 		key.Set(jwk.AlgorithmKey, jwa.RS256)
 		key.Set(jwk.KeyUsageKey, jwk.ForSignature)
 
-		buf, err := json.MarshalIndent(key, "", "  ")
+		keys := jwk.NewSet()
+		keys.AddKey(key)
+
+		buf, err := json.MarshalIndent(keys, "", "  ")
 		if err != nil {
 			log.Fatal(err)
 		}
