@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -164,6 +166,32 @@ func main() {
 	// JWT Key
 
 	//read text from file keys.json
+	if _, err := os.Stat("keys.json"); os.IsNotExist(err) {
+		raw, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		key, err := jwk.FromRaw(raw)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		key.Set(jwk.KeyIDKey, "sig-"+strconv.FormatInt(time.Now().Unix(), 10))
+		key.Set(jwk.AlgorithmKey, jwa.RS256)
+		key.Set(jwk.KeyUsageKey, jwk.ForSignature)
+
+		buf, err := json.MarshalIndent(key, "", "  ")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = ioutil.WriteFile("keys.json", buf, 0600)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	keyFile, err := os.Open("keys.json")
 	if err != nil {
 		log.Fatal(err)
