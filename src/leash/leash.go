@@ -844,25 +844,15 @@ func main() {
 		return c.Redirect(ret)
 	})
 
-	app.Get("/auth/validate", func(c *fiber.Ctx) error {
-		cookie := c.Cookies("token")
-		if cookie == "" {
-			return c.SendStatus(fiber.StatusUnauthorized)
-		}
+	app.Get("/auth/validate", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
 
-		tok, err := jwt.ParseString(cookie, jwt.WithKey(jwa.RS256, publicKey))
-		if err != nil {
-			fmt.Printf("failed to parse token: %s\n", err)
-			return c.SendStatus(fiber.StatusUnauthorized)
-		}
-
-		if err := jwt.Validate(tok); err != nil {
-			fmt.Printf("failed to validate token: %s\n", err)
+		if authentication.Authenticator != AUTHENTICATOR_USER {
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 
 		return c.SendString("Authorized")
-	})
+	}))
 
 	app.Get("/auth/logout", func(c *fiber.Ctx) error {
 		c.ClearCookie("token")
