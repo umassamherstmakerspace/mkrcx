@@ -76,3 +76,32 @@ export async function getUserUpdates(email: string): Promise<LeashUserUpdate[]> 
     const result = await leashFetch<LeashUserUpdate[]>(`/api/updates?email=${email}`, "GET");
     return result;
 }
+
+interface LeashTokenRefresh {
+    token: string;
+    expires_at: string;
+}
+
+export async function refreshTokens(): Promise<boolean> {
+    try {
+        const refresh = await leashFetch<LeashTokenRefresh>(`/auth/refresh`, "GET");
+        Cookie.set("token", refresh.token, { expires: new Date(refresh.expires_at) });
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+export async function validateToken(): Promise<boolean> {
+    try {
+        await leashFetch(`/auth/validate`, "GET", undefined, true);
+        return true;
+    } catch (e) {
+        console.log(e);
+        return false;
+    }
+}
+
+export async function login(return_to: string): Promise<void> {
+    window.location.href = `${LEASH_ENDPOINT}/auth/login?return=${return_to}`;
+}
