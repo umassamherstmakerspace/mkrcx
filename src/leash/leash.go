@@ -1070,7 +1070,7 @@ func userTrainingEnable(db *gorm.DB, user models.User, webhookClient webhook.Cli
 	if orientationCompleted && docusignCompleted {
 		// Send a discord webhook
 		if webhookClient != nil {
-			message, err := webhookClient.CreateContent("Test")
+			message, err := webhookClient.CreateContent("Awaiting Token Generation")
 			if err != nil {
 				fmt.Printf("failed to send webhook: %s\n", err)
 			}
