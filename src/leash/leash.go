@@ -26,6 +26,10 @@ import (
 	"gorm.io/gorm"
 
 	models "github.com/spectrum-control/spectrum/src/shared/models"
+
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/webhook"
+	"github.com/disgoorg/snowflake/v2"
 )
 
 type ctxAuthKey struct{}
@@ -152,11 +156,13 @@ func main() {
 		},
 	}))
 
+	URL := os.Getenv("URL")
+
 	// Google OAuth2
 	google := &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:  os.Getenv("URL") + "/auth/callback",
+		RedirectURL:  URL + "/auth/callback",
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
 		},
@@ -219,6 +225,16 @@ func main() {
 		fmt.Printf("failed to get public key: %s\n", err)
 	}
 
+	// Discord Webhook
+	webhookURL := os.Getenv("DISCORD_WEBHOOK_URL")
+	var webhookClient webhook.Client
+	if webhookURL != "" {
+		webhookClient, err = webhook.NewWithURL(webhookURL)
+		if err != nil {
+			fmt.Printf("failed to create webhook: %s\n", err)
+		}
+	}
+
 	// Create a new user
 	app.Post("/api/users", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
@@ -274,6 +290,23 @@ func main() {
 			Enabled:        false,
 		}
 		db.Create(&user)
+
+		// Send a discord webhook
+		if webhookClient != nil {
+			embed := discord.NewEmbedBuilder().
+				SetTitle("New User").
+				SetDescription("A new user has been created").
+				SetColor(0x00ff00).
+				AddField("Name", fmt.Sprintf("%s %s", req.FirstName, req.LastName), true).
+				AddField("Email", req.Email, true).
+				SetTimestamp(time.Now()).
+				Build()
+
+			_, err := webhookClient.CreateEmbeds([]discord.Embed{embed})
+			if err != nil {
+				fmt.Printf("failed to send webhook: %s\n", err)
+			}
+		}
 
 		// Write a success message to the response
 		return c.SendString("User created successfully")
@@ -553,7 +586,7 @@ func main() {
 		db.Create(&training)
 
 		// If the user has completed the trainings "orientation" and "docusign", enable the user
-		userTrainingEnable(db, user)
+		userTrainingEnable(db, user, webhookClient, URL, privateKey)
 
 		// Write a success message to the response
 		return c.SendString("Training added successfully")
@@ -924,11 +957,103 @@ func main() {
 		})
 	}))
 
+	app.Get("/discord/enable", cookieAuthMiddleware(publicKey, authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+
+		if authentication.Authenticate(USER_ROLE_STAFF, "leash.users:write") != nil {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
+		var req struct {
+			Token string `query:"token" validate:"required"`
+		}
+
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
+		}
+
+		var user_id int
+		var message_id snowflake.ID
+		{
+			tok, err := jwt.ParseString(req.Token, jwt.WithKey(jwa.RS256, publicKey))
+			if err != nil {
+				fmt.Printf("failed to parse token: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid token")
+			}
+
+			if err := jwt.Validate(tok); err != nil {
+				fmt.Printf("failed to validate token: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid token")
+			}
+
+			val, valid := tok.Get("user_id")
+			if !valid {
+				fmt.Printf("failed to get id value: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid token")
+			}
+
+			user_id, err = strconv.Atoi(fmt.Sprintf("%v", val))
+			if err != nil {
+				fmt.Printf("failed to convert id value: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid token")
+			}
+
+			val, valid = tok.Get("message_id")
+			if !valid {
+				fmt.Printf("failed to get message id value: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid token")
+			}
+
+			message_id, err = snowflake.Parse(fmt.Sprintf("%v", val))
+			if err != nil {
+				fmt.Printf("failed to convert message id value: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid token")
+			}
+		}
+
+		var user models.User
+		res := db.First(&user, "id = ?", user_id)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		user.Enabled = true
+		db.Save(&user)
+
+		// Send a discord webhook
+		if webhookClient != nil {
+			embed := discord.NewEmbedBuilder().
+				SetTitle("User Enabled").
+				SetDescription("User has been enabled.").
+				SetColor(0xff00B0).
+				AddField("Name", fmt.Sprintf("%s %s", user.FirstName, user.LastName), true).
+				AddField("Email", user.Email, true).
+				AddField("Enabled By", fmt.Sprintf("%s %s", authentication.User.FirstName, authentication.User.LastName), false).
+				SetTimestamp(time.Now()).
+				Build()
+
+			_, err := webhookClient.UpdateEmbeds(message_id, []discord.Embed{embed})
+			if err != nil {
+				fmt.Printf("failed to send webhook: %s\n", err)
+			}
+		}
+
+		return c.Redirect("/")
+	})))
+
 	log.Printf("Starting server on port %s\n", HOST)
 	app.Listen(HOST)
 }
 
-func userTrainingEnable(db *gorm.DB, user models.User) {
+func userTrainingEnable(db *gorm.DB, user models.User, webhookClient webhook.Client, URL string, privateKey jwk.Key) {
 	var trainings []models.Training
 	db.Find(&trainings, "user_id = ?", user.ID)
 	orientationCompleted := false
@@ -943,10 +1068,85 @@ func userTrainingEnable(db *gorm.DB, user models.User) {
 	}
 
 	if orientationCompleted && docusignCompleted {
-		user.Enabled = true
-		db.Save(&user)
+		// Send a discord webhook
+		if webhookClient != nil {
+			message, err := webhookClient.CreateContent("Test")
+			if err != nil {
+				fmt.Printf("failed to send webhook: %s\n", err)
+			}
+
+			fmt.Println(message)
+
+			token, err := jwt.NewBuilder().
+				Issuer(`github.com/lestrrat-go/jwx`).
+				IssuedAt(time.Now()).
+				Claim("user_id", user.ID).
+				Claim("message_id", message.ID).
+				Build()
+
+			if err != nil {
+				fmt.Printf("failed to build token: %s\n", err)
+				return
+			}
+
+			signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, privateKey))
+			if err != nil {
+				fmt.Printf("failed to sign token: %s\n", err)
+				return
+			}
+
+			embed := discord.NewEmbedBuilder().
+				SetTitle("User Awaiting Verification").
+				SetDescription("A user has completed the orientation and docusign trainings and is awaiting verification.").
+				SetColor(0xffa000).
+				AddField("Name", fmt.Sprintf("%s %s", user.FirstName, user.LastName), true).
+				AddField("Email", user.Email, true).
+				AddField("Verification Link", fmt.Sprintf(URL+"/discord/enable?token=%s", signed), false).
+				SetTimestamp(time.Now()).
+				Build()
+
+			m := ""
+			_, err = webhookClient.UpdateMessage(message.ID, discord.WebhookMessageUpdate{
+				Embeds:  &[]discord.Embed{embed},
+				Content: &m,
+			})
+
+			if err != nil {
+				fmt.Printf("failed to update webhook: %s\n", err)
+			}
+		}
 	}
 
+}
+
+func validateToken(token string, publicKey jwk.Key) bool {
+	tok, err := jwt.ParseString(token, jwt.WithKey(jwa.RS256, publicKey))
+	if err != nil {
+		return false
+	}
+
+	if err := jwt.Validate(tok); err != nil {
+		return false
+	}
+
+	_, v := tok.Get("email")
+	return v
+}
+
+func cookieAuthMiddleware(publicKey jwk.Key, next fiber.Handler) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Get the token from the cookie
+		cookie := c.Cookies("token")
+
+		if !validateToken(cookie, publicKey) {
+			return c.Redirect("/auth/login?return=" + c.OriginalURL())
+		}
+
+		cookie = c.Cookies("token")
+		c.Locals("Authorization", "Bearer "+cookie)
+
+		return next(c)
+	}
 }
 
 func authMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler) fiber.Handler {
@@ -967,7 +1167,15 @@ func authMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler) fiber.Ha
 				Authenticator: AUTHENTICATOR_LOGGED_OUT,
 			}
 
-			authorization := c.Get("Authorization")
+			authLocal := c.Locals("Authorization")
+
+			var authorization string
+			if authLocal == nil {
+				authorization = c.Get("Authorization")
+			} else {
+				authorization = authLocal.(string)
+			}
+
 			if authorization == "" {
 				return authentication, errors.New("no authorization header")
 			}

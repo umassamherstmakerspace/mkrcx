@@ -13,6 +13,10 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
+	github.com/disgoorg/disgo v0.16.7 // indirect
+	github.com/disgoorg/json v1.1.0 // indirect
+	github.com/disgoorg/log v1.2.0 // indirect
+	github.com/disgoorg/snowflake/v2 v2.0.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
@@ -40,6 +44,7 @@ require (
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/sasha-s/go-csync v0.0.0-20210812194225-61421b77c44b // indirect
 	github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
@@ -48,6 +53,7 @@ require (
 	github.com/valyala/fasthttp v1.47.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
+	golang.org/x/exp v0.0.0-20220325121720-054d8573a5d8 // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
