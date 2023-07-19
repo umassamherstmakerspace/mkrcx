@@ -53,6 +53,12 @@ export async function getUserById(id: number, with_training=true, with_updates=t
     return new User(result);
 }
 
+export async function getSelf(with_training=true): Promise<User> {
+    const result = await leashFetch<LeashUser>(`/api/users/self?with_trainings=${with_training}`, "GET");
+
+    return new User(result);
+}
+
 export async function getTrainings(email: string): Promise<LeashTraining[]> {
     const result = await leashFetch<LeashTraining[]>(`/api/training?email=${email}&include_deleted=true`, "GET");
     return result;
