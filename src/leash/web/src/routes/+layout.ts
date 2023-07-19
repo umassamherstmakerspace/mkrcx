@@ -5,7 +5,7 @@ import advancedFormat from 'dayjs/plugin/advancedFormat';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { date_format } from "$lib/src/stores";
 import Cookies from "js-cookie";
-import { DEFAULT_DATE_FORMAT } from "../lib/src/locale";
+import { DEFAULT_DATE_FORMAT } from "$lib/src/defaults";
 import { refreshTokens } from "$lib/src/leash";
 
 export const prerender = true;

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ThemeSwitcher from './ThemeSwitcher.svelte';
 	import Branding from './Branding.svelte';
 	import { Burger } from '@svelteuidev/core';
 
