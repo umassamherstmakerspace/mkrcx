@@ -58,37 +58,29 @@
   </script>
 
   <Seo title="User Directory" description="Search for users in the system." />
-  
-  <AppShell>
-    <Header height={80} slot="header">
-      <HeadContent />
-    </Header>
-  
-    <slot>
+  <div class="sticky">
       <div class="flex">
         <div class="full-grow">
           <Input
           bind:value={query}
           placeholder="Search for users..."/>
         </div>
-    </div>
-    </slot>
-    <slot>
+      </div>
+      <Paper shadow="sm" padding="lg">
+        <Grid>
+          <Grid.Col span={1}>
+            User Status
+          </Grid.Col>
+          <Grid.Col span={2}>Creation Date</Grid.Col>
+          <Grid.Col span={3}>Name</Grid.Col>
+          <Grid.Col span={3}>Email</Grid.Col>
+          <Grid.Col span={1}>User Type</Grid.Col>
+          <Grid.Col span={1}>User Role</Grid.Col>
+          <Grid.Col span={1}>User ID</Grid.Col>
+        </Grid>
+      </Paper>
+    </div>  
       <Stack>
-        <Paper shadow="sm" padding="lg">
-          <Grid>
-            <Grid.Col span={1}>
-              User Status
-            </Grid.Col>
-            <Grid.Col span={2}>Creation Date</Grid.Col>
-            <Grid.Col span={3}>Name</Grid.Col>
-            <Grid.Col span={3}>Email</Grid.Col>
-            <Grid.Col span={1}>User Type</Grid.Col>
-            <Grid.Col span={1}>User Role</Grid.Col>
-            <Grid.Col span={1}>User ID</Grid.Col>
-          </Grid>
-        </Paper>
-        
         {#await search(query)}
           <Skeleton height={8} radius="xl" override={{ marginTop: '8px' }}   />
           <Skeleton height={8} radius="xl" override={{ marginTop: '8px' }}   />
@@ -125,8 +117,6 @@
       </Alert>
         {/await}
         </Stack>
-    </slot>
-  </AppShell>
   
   <style>
     .flex {
@@ -136,6 +126,12 @@
   
     .full-grow {
       flex-grow: 1;
+    }
+
+    .sticky {
+      position:sticky;
+      top:80px;
+      z-index: 100;
     }
   </style>
   
