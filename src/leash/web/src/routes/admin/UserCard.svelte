@@ -53,11 +53,13 @@
   </UnstyledButton>
 
   {#if active}
+  <div in:slide={{ duration: 300, easing: quadIn }}
+    out:slide={{ duration: 200, easing: quadOut }}>
+    <Divider />
   {#key refresh}
   {#await initalizeUserInfo(user)}
     <div in:slide={{ duration: 300, easing: quadIn }}
     out:slide={{ duration: 200, easing: quadOut }}>
-        <Divider />
         <Skeleton height={8} radius="xl" override={{ marginTop: '8px' }}   />
         <Skeleton height={8} radius="xl" override={{ marginTop: '8px' }}   />
         <Skeleton height={8} radius="xl" override={{ marginTop: '8px' }}   />
@@ -65,7 +67,6 @@
   {:then userInfo}
     <div in:slide={{ duration: 300, easing: quadIn }}
     out:slide={{ duration: 200, easing: quadOut }}>
-        <Divider />
       <UserInfo userInfo={userInfo} on:refresh={() => refresh = {}}/>
     </div>
   {:catch error}
@@ -74,6 +75,7 @@
 </Alert>
   {/await}
   {/key}
+</div>
   {/if}
   </Stack>
 </Paper>

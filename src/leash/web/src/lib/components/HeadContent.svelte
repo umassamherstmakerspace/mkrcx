@@ -1,18 +1,43 @@
 <script lang="ts">
-  import ThemeSwitcher from "./ThemeSwitcher.svelte";
-  import Branding from "./Branding.svelte";
-  import { Button, Group } from "@svelteuidev/core";
+	import ThemeSwitcher from './ThemeSwitcher.svelte';
+	import Branding from './Branding.svelte';
+	import { Burger } from '@svelteuidev/core';
 
-  export let menu: boolean;
+	export let menu: boolean;
 </script>
 
-<Group override={{ height: '100%', px: 20 }} position="apart">
-    <Branding />
-    <ThemeSwitcher />
-    <Button
-        size="sm"
-        on:click={() => {
-            menu = !menu;
-        }}
-        ></Button>
-</Group>
+<div class="flex-container">
+	<div class="flex-item">
+		<Burger opened={menu} on:click={() => (menu = !menu)} />
+	</div>
+	<div class="flex-item">
+		<Branding />
+	</div>
+	<div class="flex-item">
+		<!-- <ThemeSwitcher /> -->
+	</div>
+</div>
+
+<style lang="scss">
+	.flex-container {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px;
+		width: 100%;
+	}
+
+	.flex-item {
+		flex: 1;
+		display: flex;
+		justify-content: center;
+	}
+
+	.flex-item:first-child {
+		justify-content: flex-start;
+	}
+
+	.flex-item:last-child {
+		justify-content: flex-end;
+	}
+</style>
