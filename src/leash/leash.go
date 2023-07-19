@@ -524,6 +524,39 @@ func main() {
 		return c.JSON(user)
 	}))
 
+	// Get a user from their email or id
+	app.Get("/api/users/self", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+
+		type request struct {
+			WithTrainings bool `query:"with_trainings"`
+		}
+		// Get the user's email from the request body
+		var req request
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		con := db.Model(&models.User{})
+
+		if req.WithTrainings {
+			con = con.Preload("Trainings")
+		}
+
+		con = con.Where("id = ?", authentication.User.ID)
+
+		// Check if the user exists
+		var user models.User
+		res := con.First(&user)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		}
+
+		return c.JSON(user)
+	}))
+
 	// Add completed training to a user
 	app.Post("/api/training", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
 		// Get api user from the request context
