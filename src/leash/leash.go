@@ -1061,6 +1061,17 @@ func main() {
 		user.Enabled = true
 		db.Save(&user)
 
+		// Create a new update in the database
+		update := models.UserUpdate{
+			UserID:   user.ID,
+			EditedBy: authentication.User.ID,
+			Field:    "enabled",
+			OldValue: "false",
+			NewValue: "true",
+		}
+
+		db.Create(&update)
+
 		// Send a discord webhook
 		if webhookClient != nil {
 			embed := discord.NewEmbedBuilder().
