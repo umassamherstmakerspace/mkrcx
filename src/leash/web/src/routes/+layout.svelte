@@ -60,7 +60,7 @@
 					</div>
 				</div>
 			{/if}
-				<div class="inner-app" id="inner-app">
+				<div class="inner-app padding" id="inner-app">
 					<slot />
 				</div>
 			</div>
@@ -90,7 +90,7 @@
 	.sticky {
 		position: sticky;
 		top: 0;
-		z-index: 1000;
+		z-index: 100;
 	}
 
 	.padding {
