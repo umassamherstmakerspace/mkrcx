@@ -126,7 +126,7 @@
 	{/await}
 </Stack>
 
-<style>
+<style lang="scss">
 	.flex {
 		display: flex;
 		gap: 1rem;
@@ -138,7 +138,7 @@
 
 	.sticky {
 		position: sticky;
-		top: 80px;
+		top: 0;
 		z-index: 100;
 	}
 </style>

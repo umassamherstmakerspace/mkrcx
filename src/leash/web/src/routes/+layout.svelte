@@ -1,36 +1,16 @@
 <script lang="ts">
 	import HeadContent from '$lib/components/HeadContent.svelte';
-	import { AppShell, Header, SvelteUIProvider, Title } from '@svelteuidev/core';
+	import SideMenu from '$lib/components/SideMenu.svelte';
+	import { AppShell, Header, SvelteUIProvider } from '@svelteuidev/core';
 	import { quadIn, quadOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
-	import { lockscroll } from '@svelteuidev/composables';
 	import { colorScheme } from '@svelteuidev/core';
 	import Cookies from 'js-cookie';
 	import { DEFAULT_THEME } from '$lib/src/defaults';
 	import { theme } from '$lib/src/stores';
 
 	let menu = false;
-	const toggleMenu = () => {
-		menu = !menu;
-	};
-
-	$: if (menu) {
-		openMenu();
-	} else {
-		closeMenu();
-	}
-
-	const lock = lockscroll(document.body);
-
-	const openMenu = () => {
-		lock.update ? true : '';
-		menu = true;
-	};
-
-	const closeMenu = () => {
-		lock.update ? false : '';
-		menu = false;
-	};
+	let transitioned = false;
 
 	if (!Cookies.get('color_scheme')) {
 		Cookies.set('color_scheme', DEFAULT_THEME);
@@ -58,47 +38,42 @@
 </script>
 
 <SvelteUIProvider withGlobalStyles themeObserver={$colorScheme}>
-	<AppShell>
-		<div class="sticky">
-			<Header height={80} slot="header">
-				<HeadContent bind:menu />
-			</Header>
-		</div>
-		{#if menu}
-			<div
-				class="fullscreen dimmed"
-				on:click={toggleMenu}
-				on:keydown={toggleMenu}
-				role="dialog"
-				aria-modal="true"
-				aria-hidden="true"
-			>
-				<div
-					class="menu"
-					in:slide={{ duration: 300, easing: quadIn, axis: 'x' }}
-					out:slide={{ duration: 200, easing: quadOut, axis: 'x' }}
-				>
-					<div class="innerMenu">
-						<Title>Menu</Title>
+	<div class="outter">
+		<div class="shell">
+			<div class="sticky padding">
+
+				<Header height={80} slot="header">
+					<HeadContent bind:menu />
+				</Header>
+			</div>
+			<div class="app" id="app">
+				{#if menu}
+				<div class="fullscreen dimmed">
+					<div
+						class="menu"
+						in:slide={{ duration: 300, easing: quadIn, axis: 'x' }}
+						out:slide={{ duration: 200, easing: quadOut, axis: 'x' }}
+						on:introend={() => (transitioned = true)}
+						on:outrostart={() => (transitioned = false)}
+					>
+						<SideMenu bind:menu bind:transitioned />
 					</div>
 				</div>
+			{/if}
+				<div class="inner-app" id="inner-app">
+					<slot />
+				</div>
 			</div>
-		{/if}
-		<slot />
-	</AppShell>
+		</div>
+</div>
 </SvelteUIProvider>
 
 <style lang="scss">
 	.fullscreen {
-		position: fixed;
-		top: 80px;
-		left: 0;
-		bottom: 0;
-		right: 0;
-		height: 100vh;
+		position: absolute;
+		height: 100%;
 		width: 100vw;
 		z-index: 1000;
-		overflow: hidden;
 	}
 
 	.dimmed {
@@ -107,27 +82,34 @@
 
 	.menu {
 		height: 100%;
-		position: fixed;
-		top: 80px;
+		bottom: 0;
 		display: inline-block;
 		background-color: white;
 	}
 
-	.sticky {
-		position: sticky;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		z-index: 100;
+	.padding {
+		padding: 16px;
+		padding-bottom: 0;
 	}
 
-	.innerMenu {
-		height: 100%;
-		width: 100%;
+	.app {
+		flex: 1 1 auto;
+		height: 0px;
+		margin: 8px;
+		margin-top: 0;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
-		padding: 20px;
+		position: relative;
+	}
+
+	.inner-app {
+		overflow: scroll;
+	}
+
+	.shell {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		height: 100vh;
 	}
 </style>
