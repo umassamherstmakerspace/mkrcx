@@ -1,7 +1,7 @@
 <script lang="ts">
 	import HeadContent from '$lib/components/HeadContent.svelte';
 	import SideMenu from '$lib/components/SideMenu.svelte';
-	import { AppShell, Header, SvelteUIProvider } from '@svelteuidev/core';
+	import { Header, SvelteUIProvider } from '@svelteuidev/core';
 	import { quadIn, quadOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 	import { colorScheme } from '@svelteuidev/core';
@@ -87,6 +87,12 @@
 		background-color: white;
 	}
 
+	.sticky {
+		position: sticky;
+		top: 0;
+		z-index: 1000;
+	}
+
 	.padding {
 		padding: 16px;
 		padding-bottom: 0;
@@ -103,6 +109,7 @@
 	}
 
 	.inner-app {
+		position: relative;
 		overflow: scroll;
 	}
 
