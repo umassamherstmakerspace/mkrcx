@@ -60,7 +60,7 @@
 					</div>
 				</div>
 			{/if}
-				<div class="inner-app padding" id="inner-app">
+				<div class="inner-app margin" id="inner-app">
 					<slot />
 				</div>
 			</div>
@@ -96,6 +96,10 @@
 	.padding {
 		padding: 16px;
 		padding-bottom: 0;
+	}
+
+	.margin {
+		margin: 16px;
 	}
 
 	.app {
