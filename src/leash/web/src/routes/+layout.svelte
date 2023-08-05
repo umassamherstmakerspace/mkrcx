@@ -9,8 +9,8 @@
 	import { DEFAULT_THEME } from '$lib/src/defaults';
 	import { theme } from '$lib/src/stores';
 
-	let menu = false;
-	let transitioned = false;
+	let menu = sessionStorage.getItem('menu') === 'true';
+	let menuTransitioning = false;
 
 	if (!Cookies.get('color_scheme')) {
 		Cookies.set('color_scheme', DEFAULT_THEME);
@@ -35,6 +35,8 @@
 				break;
 		}
 	});
+
+	$: sessionStorage.setItem('menu', menu.toString());
 </script>
 
 <SvelteUIProvider withGlobalStyles themeObserver={$colorScheme}>
@@ -53,10 +55,12 @@
 						class="menu"
 						in:slide={{ duration: 300, easing: quadIn, axis: 'x' }}
 						out:slide={{ duration: 200, easing: quadOut, axis: 'x' }}
-						on:introend={() => (transitioned = true)}
-						on:outrostart={() => (transitioned = false)}
+						on:introstart={() => (menuTransitioning = true)}
+						on:introend={() => (menuTransitioning = false)}
+						on:outrostart={() => (menuTransitioning = true)}
+						on:outroend={() => (menuTransitioning = false)}
 					>
-						<SideMenu bind:menu bind:transitioned />
+						<SideMenu bind:menu transitioning={menuTransitioning} />
 					</div>
 				</div>
 			{/if}

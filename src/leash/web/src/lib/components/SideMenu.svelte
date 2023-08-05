@@ -1,36 +1,31 @@
 <script lang="ts">
-	import { colorScheme, NativeSelect, SvelteUIProvider } from '@svelteuidev/core';
-	import { cssvariable, clickoutside, lockscroll } from '@svelteuidev/composables';
+	import { NativeSelect } from '@svelteuidev/core';
+	import { clickoutside, lockscroll } from '@svelteuidev/composables';
 	import { theme, user } from '$lib/src/stores';
-	import { searchUsers } from '$lib/src/leash';
 	import { Role } from '$lib/src/types';
+	import MenuLink from './MenuLink.svelte';
+	import { Exit, Home, ListBullet, Person } from 'radix-icons-svelte';
 
 	export let menu: boolean;
-	export let transitioned: boolean;
-
-	$: styleVars = {
-		colorPrimary:
-			$colorScheme === 'dark' ? 'var(--svelteui-colors-dark700)' : 'var(--svelteui-colors-light700)'
-	};
+	export let transitioning: boolean;
 </script>
 
 <div
 	class="box"
-	use:cssvariable={styleVars}
-	use:clickoutside={{ enabled: transitioned, callback: () => (menu = false) }}
+	use:clickoutside={{ enabled: menu && !transitioning, callback: () => (menu = false) }}
 	use:lockscroll={menu}
 >
 	<div class="inner">
         <div class="top">
-            <a href="/">Home</a>
-            <a href="/profile">Profile</a>
+            <MenuLink href="/" title="Home" icon={Home} />
+            <MenuLink href="/profile" title="Profile" icon={Person} />
 
             {#if $user && $user.roleNumber >= Role.USER_ROLE_VOLUNTEER}
-            <a href="/admin">Admin</a>
+                <MenuLink href="/admin" title="Admin User Directory" icon={ListBullet} />
             {/if}
 
             {#if $user}
-                <a href="/logout">Logout</a>
+                <MenuLink href="/logout" title="Logout" icon={Exit} />
             {/if}
         </div>
         <div class="bottom">
@@ -52,11 +47,15 @@
 		width: 100%;
         min-width: 400px;
 		height: 100%;
-		background-color: var(--colorPrimary);
+		background-color: #ffffff;
 		white-space: nowrap;
         display: flex;
         flex-direction: column;
 	}
+
+    :global(.dark-theme) .box {
+        background-color: var(--svelteui-colors-dark700);
+    }
 
 	.inner {
         flex: 1 1 auto;
