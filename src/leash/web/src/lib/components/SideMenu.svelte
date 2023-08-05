@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { colorScheme, NativeSelect, SvelteUIProvider } from '@svelteuidev/core';
 	import { cssvariable, clickoutside, lockscroll } from '@svelteuidev/composables';
-	import { theme } from '$lib/src/stores';
+	import { theme, user } from '$lib/src/stores';
+	import { searchUsers } from '$lib/src/leash';
+	import { Role } from '$lib/src/types';
 
 	export let menu: boolean;
 	export let transitioned: boolean;
@@ -20,7 +22,16 @@
 >
 	<div class="inner">
         <div class="top">
-            <p>This is a test</p>
+            <a href="/">Home</a>
+            <a href="/profile">Profile</a>
+
+            {#if $user && $user.roleNumber >= Role.USER_ROLE_VOLUNTEER}
+            <a href="/admin">Admin</a>
+            {/if}
+
+            {#if $user}
+                <a href="/logout">Logout</a>
+            {/if}
         </div>
         <div class="bottom">
             <NativeSelect
@@ -57,6 +68,8 @@
 
     .top {
         flex-grow: 0;
+        display: flex;
+        flex-direction: column;
     }
 
     .bottom {

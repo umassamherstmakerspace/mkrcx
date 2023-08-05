@@ -44,7 +44,7 @@ export class Training {
 
 	async getAddedBy(userCache?: Map<number, User>): Promise<User> {
 		if (userCache && userCache.has(this.addedById)) {
-			return userCache.get(this.addedById);
+			return userCache.get(this.addedById) as User;
 		}
 
 		return getUserById(this.addedById).then((user) => {
@@ -62,12 +62,12 @@ export class Training {
 		}
 
 		if (userCache && userCache.has(this.addedById)) {
-			return userCache.get(this.removedById);
+			return userCache.get(this.removedById) as User;
 		}
 
 		return getUserById(this.removedById).then((user) => {
 			if (userCache) {
-				userCache.set(this.removedById, user);
+				userCache.set(this.removedById as number, user);
 			}
 
 			return user;
@@ -122,7 +122,7 @@ export class UserUpdate {
 
 	async getEditedBy(userCache?: Map<number, User>): Promise<User> {
 		if (userCache && userCache.has(this.editedById)) {
-			return userCache.get(this.editedById);
+			return userCache.get(this.editedById) as User;
 		}
 
 		return getUserById(this.editedById).then((user) => {
@@ -154,6 +154,13 @@ export interface LeashUser {
 	UserUpdates: LeashUserUpdate[];
 }
 
+export enum Role {
+	USER_ROLE_MEMBER = 0,
+	USER_ROLE_VOLUNTEER = 1,
+	USER_ROLE_STAFF = 2,
+	USER_ROLE_ADMIN = 3,
+}
+
 export class User {
 	id: number;
 	createdAt: Dayjs;
@@ -174,6 +181,21 @@ export class User {
 
 	get name(): string {
 		return `${this.firstName} ${this.lastName}`.trim();
+	}
+
+	get roleNumber(): number {
+		switch (this.role) {
+			case 'member':
+				return Role.USER_ROLE_MEMBER;
+			case 'volunteer':
+				return Role.USER_ROLE_VOLUNTEER;
+			case 'staff':
+				return Role.USER_ROLE_STAFF;
+			case 'admin':
+				return Role.USER_ROLE_ADMIN;
+			default:
+				throw new Error(`Unknown role ${this.role}`);
+		}
 	}
 
 	constructor(user: LeashUser) {

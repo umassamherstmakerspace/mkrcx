@@ -6,7 +6,8 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { date_format } from '$lib/src/stores';
 import Cookies from 'js-cookie';
 import { DEFAULT_DATE_FORMAT } from '$lib/src/defaults';
-import { refreshTokens } from '$lib/src/leash';
+import { getSelf, refreshTokens } from '$lib/src/leash';
+import { user } from '$lib/src/stores';
 
 export const prerender = true;
 export const ssr = false;
@@ -25,4 +26,8 @@ date_format.subscribe((value: string) => {
 	Cookies.set('date_format', value);
 });
 
-refreshTokens();
+if (await refreshTokens()) {
+	user.set(await getSelf());
+} else {
+	user.set(null);
+}
