@@ -16,6 +16,8 @@ export default defineConfig({
 				  ),
 			}
 		  }),
-		  ViteFaviconsPlugin()
+		  ViteFaviconsPlugin({
+			logo: './static/favicon.png',
+		  })
 	]
 });
