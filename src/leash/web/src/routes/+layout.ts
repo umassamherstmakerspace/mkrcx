@@ -18,12 +18,12 @@ dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
 
 if (!Cookies.get('date_format')) {
-	Cookies.set('date_format', DEFAULT_DATE_FORMAT);
+	Cookies.set('date_format', DEFAULT_DATE_FORMAT, { expires: 365, sameSite: 'strict' });
 }
 
 date_format.set(Cookies.get('date_format') || DEFAULT_DATE_FORMAT);
 date_format.subscribe((value: string) => {
-	Cookies.set('date_format', value);
+	Cookies.set('date_format', value, { expires: 365, sameSite: 'strict' });
 });
 
 refreshTokens().then((valid) => {

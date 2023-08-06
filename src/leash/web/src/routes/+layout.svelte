@@ -13,12 +13,12 @@
 	$: sessionStorage.setItem('menuOpen', menuOpen.toString());
 
 	if (!Cookies.get('color_scheme')) {
-		Cookies.set('color_scheme', DEFAULT_THEME);
+		Cookies.set('color_scheme', DEFAULT_THEME, { expires: 365, sameSite: 'strict' });
 	}
 
 	theme.set(Cookies.get('color_scheme') || DEFAULT_THEME);
 	theme.subscribe((value: string) => {
-		Cookies.set('color_scheme', value);
+		Cookies.set('color_scheme', value, { expires: 365, sameSite: 'strict' });
 
 		switch (value) {
 			case 'light':

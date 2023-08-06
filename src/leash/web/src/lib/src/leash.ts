@@ -1,4 +1,4 @@
-import Cookie from 'js-cookie';
+import Cookies from 'js-cookie';
 import { User, type LeashUser, type LeashTraining, type LeashUserUpdate } from './types';
 import { dev } from '$app/environment';
 
@@ -25,7 +25,7 @@ async function leashFetch<T extends object>(
 	const r = await fetch(`${LEASH_ENDPOINT}${endpoint}`, {
 		method: method,
 		headers: {
-			Authorization: `Bearer ${Cookie.get('token')}`,
+			Authorization: `Bearer ${Cookies.get('token')}`,
 			'Content-Type': 'application/json'
 		},
 		redirect: 'follow',
@@ -140,7 +140,7 @@ interface LeashTokenRefresh {
 export async function refreshTokens(): Promise<boolean> {
 	try {
 		const refresh = await leashFetch<LeashTokenRefresh>(`/auth/refresh`, 'GET');
-		Cookie.set('token', refresh.token, { expires: new Date(refresh.expires_at) });
+		Cookies.set('token', refresh.token, { expires: new Date(refresh.expires_at), sameSite: 'strict' });
 		return true;
 	} catch (e) {
 		return false;
