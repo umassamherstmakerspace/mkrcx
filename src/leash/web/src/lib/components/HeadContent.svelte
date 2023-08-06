@@ -29,8 +29,9 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 10px;
+		padding: 0 10px;
 		width: 100%;
+		height: 100%;
 	}
 
 	.flex-item {

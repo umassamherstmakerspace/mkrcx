@@ -1,8 +1,6 @@
 <script lang="ts">
 	import HeadContent from '$lib/components/HeadContent.svelte';
 	import { Header, SvelteUIProvider } from '@svelteuidev/core';
-	import { quadIn, quadOut } from 'svelte/easing';
-	import { slide } from 'svelte/transition';
 	import { colorScheme } from '@svelteuidev/core';
 	import Cookies from 'js-cookie';
 	import { DEFAULT_THEME } from '$lib/src/defaults';
