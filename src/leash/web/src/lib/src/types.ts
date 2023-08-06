@@ -158,7 +158,7 @@ export enum Role {
 	USER_ROLE_MEMBER = 0,
 	USER_ROLE_VOLUNTEER = 1,
 	USER_ROLE_STAFF = 2,
-	USER_ROLE_ADMIN = 3,
+	USER_ROLE_ADMIN = 3
 }
 
 export class User {

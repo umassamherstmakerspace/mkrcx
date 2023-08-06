@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { mobile } from '$lib/src/stores';
 	import { Burger, Text } from '@svelteuidev/core';
-	import IconLogo from '~icons/custom/logo'
+	import IconLogo from '~icons/custom/logo';
 
 	export let menuOpen: boolean;
 </script>

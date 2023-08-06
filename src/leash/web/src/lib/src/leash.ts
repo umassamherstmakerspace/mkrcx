@@ -140,7 +140,10 @@ interface LeashTokenRefresh {
 export async function refreshTokens(): Promise<boolean> {
 	try {
 		const refresh = await leashFetch<LeashTokenRefresh>(`/auth/refresh`, 'GET');
-		Cookies.set('token', refresh.token, { expires: new Date(refresh.expires_at), sameSite: 'strict' });
+		Cookies.set('token', refresh.token, {
+			expires: new Date(refresh.expires_at),
+			sameSite: 'strict'
+		});
 		return true;
 	} catch (e) {
 		return false;

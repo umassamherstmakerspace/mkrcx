@@ -35,16 +35,12 @@
 	});
 </script>
 
-<svelte:window
-	bind:innerHeight={$screenH}
-	bind:innerWidth={$screenW}
-/>
+<svelte:window bind:innerHeight={$screenH} bind:innerWidth={$screenW} />
 
 <SvelteUIProvider withGlobalStyles themeObserver={$colorScheme}>
 	<div class="outter">
 		<div class="shell">
 			<div class="sticky padding">
-
 				<Header height={80} slot="header">
 					<HeadContent bind:menuOpen />
 				</Header>
@@ -56,11 +52,10 @@
 				</div>
 			</div>
 		</div>
-</div>
+	</div>
 </SvelteUIProvider>
 
 <style lang="scss">
-
 	.sticky {
 		position: sticky;
 		top: 0;

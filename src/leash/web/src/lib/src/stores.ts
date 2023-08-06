@@ -10,6 +10,6 @@ export const screenH = writable(900);
 export const screenW = writable(900);
 export const mobileThreshold = writable(800);
 export const mobile = derived(
-    [screenW, mobileThreshold],
-    ([$screenW, $mobileThreshold]) => $screenW < $mobileThreshold
+	[screenW, mobileThreshold],
+	([$screenW, $mobileThreshold]) => $screenW < $mobileThreshold
 );
