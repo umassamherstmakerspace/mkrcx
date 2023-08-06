@@ -6,41 +6,11 @@
 	import MenuLink from './MenuLink.svelte';
 	import { Exit, Home, ListBullet, Person } from 'radix-icons-svelte';
 
-	export let menu: boolean;
+	export let menuOpen: boolean;
 	export let transitioning: boolean;
 </script>
 
-<div
-	class="box"
-	use:clickoutside={{ enabled: menu && !transitioning, callback: () => (menu = false) }}
-	use:lockscroll={menu}
->
-	<div class="inner">
-        <div class="top">
-            <MenuLink href="/" title="Home" icon={Home} />
-            <MenuLink href="/profile" title="Profile" icon={Person} />
 
-            {#if $user && $user.roleNumber >= Role.USER_ROLE_VOLUNTEER}
-                <MenuLink href="/admin" title="Admin User Directory" icon={ListBullet} />
-            {/if}
-
-            {#if $user}
-                <MenuLink href="/logout" title="Logout" icon={Exit} />
-            {/if}
-        </div>
-        <div class="bottom">
-            <NativeSelect
-                data={[
-                    { value: 'auto', label: 'Auto' },
-                    { value: 'light', label: 'Light' },
-                    { value: 'dark', label: 'Dark' }
-                ]}
-                bind:value={$theme}
-                label="Theme"
-            />
-        </div>
-	</div>
-</div>
 
 <style lang="scss">
 	.box {

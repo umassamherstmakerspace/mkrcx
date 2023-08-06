@@ -1,16 +1,17 @@
 <script lang="ts">
 	import HeadContent from '$lib/components/HeadContent.svelte';
-	import SideMenu from '$lib/components/SideMenu.svelte';
 	import { Header, SvelteUIProvider } from '@svelteuidev/core';
 	import { quadIn, quadOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 	import { colorScheme } from '@svelteuidev/core';
 	import Cookies from 'js-cookie';
 	import { DEFAULT_THEME } from '$lib/src/defaults';
-	import { theme } from '$lib/src/stores';
+	import { theme, screenH, screenW } from '$lib/src/stores';
+	import MenuItems from '$lib/components/MenuItems.svelte';
+	import Menu from '$lib/components/Menu.svelte';
 
-	let menu = sessionStorage.getItem('menu') === 'true';
-	let menuTransitioning = false;
+	let menuOpen = sessionStorage.getItem('menuOpen') === 'true';
+	$: sessionStorage.setItem('menu', menuOpen.toString());
 
 	if (!Cookies.get('color_scheme')) {
 		Cookies.set('color_scheme', DEFAULT_THEME);
@@ -35,9 +36,12 @@
 				break;
 		}
 	});
-
-	$: sessionStorage.setItem('menu', menu.toString());
 </script>
+
+<svelte:window
+	bind:innerHeight={$screenH}
+	bind:innerWidth={$screenW}
+/>
 
 <SvelteUIProvider withGlobalStyles themeObserver={$colorScheme}>
 	<div class="outter">
@@ -45,25 +49,11 @@
 			<div class="sticky padding">
 
 				<Header height={80} slot="header">
-					<HeadContent bind:menu />
+					<HeadContent bind:menuOpen />
 				</Header>
 			</div>
 			<div class="app" id="app">
-				{#if menu}
-				<div class="fullscreen dimmed">
-					<div
-						class="menu"
-						in:slide={{ duration: 300, easing: quadIn, axis: 'x' }}
-						out:slide={{ duration: 200, easing: quadOut, axis: 'x' }}
-						on:introstart={() => (menuTransitioning = true)}
-						on:introend={() => (menuTransitioning = false)}
-						on:outrostart={() => (menuTransitioning = true)}
-						on:outroend={() => (menuTransitioning = false)}
-					>
-						<SideMenu bind:menu transitioning={menuTransitioning} />
-					</div>
-				</div>
-			{/if}
+				<Menu bind:menuOpen />
 				<div class="inner-app margin" id="inner-app">
 					<slot />
 				</div>
@@ -73,23 +63,6 @@
 </SvelteUIProvider>
 
 <style lang="scss">
-	.fullscreen {
-		position: absolute;
-		height: 100%;
-		width: 100vw;
-		z-index: 1000;
-	}
-
-	.dimmed {
-		background-color: rgba(0, 0, 0, 0.5);
-	}
-
-	.menu {
-		height: 100%;
-		bottom: 0;
-		display: inline-block;
-		background-color: white;
-	}
 
 	.sticky {
 		position: sticky;

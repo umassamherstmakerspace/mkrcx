@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { ActionIcon } from "@svelteuidev/core";
     import type { SvelteComponent } from "svelte";
     import { createEventDispatcher } from 'svelte';
     

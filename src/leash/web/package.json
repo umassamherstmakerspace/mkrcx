@@ -28,6 +28,8 @@
 		"svelte-check": "^3.4.3",
 		"tslib": "^2.4.1",
 		"typescript": "^5.0.0",
+		"unplugin-fonts": "^1.0.3",
+		"unplugin-icons": "^0.16.5",
 		"vite": "^4.4.2"
 	},
 	"type": "module",
