@@ -7,7 +7,6 @@
 	import Cookies from 'js-cookie';
 	import { DEFAULT_THEME } from '$lib/src/defaults';
 	import { theme, screenH, screenW } from '$lib/src/stores';
-	import MenuItems from '$lib/components/MenuItems.svelte';
 	import Menu from '$lib/components/Menu.svelte';
 
 	let menuOpen = sessionStorage.getItem('menuOpen') === 'true';

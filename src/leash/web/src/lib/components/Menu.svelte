@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { slide } from "svelte/transition";
-	import MenuItems from "./MenuItems.svelte";
 	import { quadIn, quadOut } from "svelte/easing";
 	import { mobile, theme, user } from "$lib/src/stores";
 	import { clickoutside, lockscroll } from "@svelteuidev/composables";
