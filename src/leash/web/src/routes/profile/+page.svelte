@@ -1,19 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import HeadContent from '$lib/components/HeadContent.svelte';
 	import Timestamp from '$lib/components/Timestamp.svelte';
-	import { getSelf, getUserById, key } from '$lib/src/leash';
+	import { getSelf } from '$lib/src/leash';
 	import type { User } from '$lib/src/types';
-	import {
-		Alert,
-		AppShell,
-		Header,
-		Seo,
-		SimpleGrid,
-		Skeleton,
-		Tabs,
-		Text
-	} from '@svelteuidev/core';
+	import { Alert, Seo, SimpleGrid, Skeleton, Tabs, Text } from '@svelteuidev/core';
 	import { CrossCircled } from 'radix-icons-svelte';
 
 	let user: User;
