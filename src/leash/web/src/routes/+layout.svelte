@@ -11,7 +11,7 @@
 	import Menu from '$lib/components/Menu.svelte';
 
 	let menuOpen = sessionStorage.getItem('menuOpen') === 'true';
-	$: sessionStorage.setItem('menu', menuOpen.toString());
+	$: sessionStorage.setItem('menuOpen', menuOpen.toString());
 
 	if (!Cookies.get('color_scheme')) {
 		Cookies.set('color_scheme', DEFAULT_THEME);
