@@ -26,8 +26,12 @@ date_format.subscribe((value: string) => {
 	Cookies.set('date_format', value);
 });
 
-if (await refreshTokens()) {
-	user.set(await getSelf());
-} else {
-	user.set(null);
-}
+refreshTokens().then((valid) => {
+	if (valid) {
+		getSelf().then((self) => {
+			user.set(self);
+		});
+	} else {
+		user.set(null);
+	}
+});
