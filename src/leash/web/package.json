@@ -30,7 +30,8 @@
 		"typescript": "^5.0.0",
 		"unplugin-fonts": "^1.0.3",
 		"unplugin-icons": "^0.16.5",
-		"vite": "^4.4.2"
+		"vite": "^4.4.2",
+		"vite-plugin-favicon2": "^1.1.5"
 	},
 	"type": "module",
 	"dependencies": {
