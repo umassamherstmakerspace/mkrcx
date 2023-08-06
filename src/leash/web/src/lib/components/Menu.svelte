@@ -67,7 +67,7 @@
     .fullscreen {
 		position: absolute;
 		height: 100%;
-		width: 100vw;
+		width: 100dvw;
 		z-index: 1000;
 	}
 
