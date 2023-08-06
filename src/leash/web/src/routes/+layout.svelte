@@ -81,14 +81,14 @@
 	.app {
 		flex: 1 1 auto;
 		height: 0px;
-		margin: 8px;
-		margin-top: 0;
 		display: flex;
 		flex-direction: column;
 		position: relative;
 	}
 
 	.inner-app {
+		margin: 8px;
+		margin-top: 0;
 		position: relative;
 		overflow: scroll;
 	}
