@@ -97,6 +97,6 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		height: 100vh;
+		height: 100dvh;
 	}
 </style>
