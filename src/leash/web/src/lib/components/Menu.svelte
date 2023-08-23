@@ -112,7 +112,7 @@
 		display: flex;
 		height: 0px;
 		flex-direction: column;
-		overflow-y: scroll;
+		overflow: auto;
 	}
 
 	.top {

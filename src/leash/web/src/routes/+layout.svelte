@@ -83,7 +83,7 @@
 		margin: 8px;
 		margin-top: 0;
 		position: relative;
-		overflow: scroll;
+		overflow: auto;
 	}
 
 	.shell {
