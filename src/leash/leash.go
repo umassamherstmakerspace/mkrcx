@@ -41,6 +41,7 @@ const (
 	USER_ROLE_VOLUNTEER
 	USER_ROLE_STAFF
 	USER_ROLE_ADMIN
+	USER_ROLE_SERVICE
 )
 
 func parseUserRole(role string) (UserRole, error) {
@@ -53,6 +54,8 @@ func parseUserRole(role string) (UserRole, error) {
 		return USER_ROLE_STAFF, nil
 	case "admin":
 		return USER_ROLE_ADMIN, nil
+	case "service":
+		return USER_ROLE_SERVICE, nil
 	default:
 		return 0, errors.New("invalid role")
 	}
@@ -85,7 +88,6 @@ func (auth *Authentication) Authenticate(minimumRole UserRole, permissions ...st
 		if role < minimumRole {
 			return errors.New("insufficient permissions")
 		}
-		break
 	case AUTHENTICATOR_APIKEY:
 		apiKey := auth.Data.(models.APIKey)
 		for _, permission := range permissions {
@@ -93,7 +95,6 @@ func (auth *Authentication) Authenticate(minimumRole UserRole, permissions ...st
 				return errors.New("insufficient permissions")
 			}
 		}
-		break
 	}
 	return nil
 }
@@ -915,6 +916,31 @@ func main() {
 			`, ret))
 		}
 
+		if !user.Enabled {
+			// The user is not enabled
+			c.Set("Content-Type", "text/html")
+			return c.Status(fiber.StatusUnauthorized).SendString(
+				fmt.Sprintf(`
+				<html>
+					<head>
+						<title>Unauthorized</title>
+					</head>
+
+					<body>
+						<h1>Unauthorized</h1>
+						<br>
+						<p>Your account is not enabled. Please sign the docusign form and finish the orientation or contact an administrator to enable your account.</p>
+						<br>
+						<a href="/auth/login?return=%s">Retry Login</a>
+					</body>
+				</html>
+			`, ret))
+		}
+
+		if user.Role == "service" {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		}
+
 		tok, err := jwt.NewBuilder().
 			Issuer(`github.com/lestrrat-go/jwx`).
 			IssuedAt(time.Now()).
@@ -1250,6 +1276,15 @@ func authMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler) fiber.Ha
 			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 				// The user does not exist
 				return authentication, errors.New("user not found")
+			}
+
+			if !user.Enabled {
+				// The user is not enabled
+				return authentication, errors.New("user not enabled")
+			}
+
+			if user.Role == "service" {
+				return authentication, errors.New("service account")
 			}
 
 			authentication = Authentication{
