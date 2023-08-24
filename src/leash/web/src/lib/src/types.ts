@@ -146,8 +146,7 @@ export interface LeashUser {
 	Email: string;
 	Admin: boolean;
 	Role: string;
-	FirstName: string;
-	LastName: string;
+	Name: string;
 	GraduationYear: number;
 	Type: string;
 	Major: string;
@@ -172,18 +171,13 @@ export class User {
 	email: string;
 	admin: boolean;
 	role: string;
-	firstName: string;
-	lastName: string;
+	name: string;
 	graduationYear: number;
 	type: string;
 	major: string;
 	enabled: boolean;
 	trainings?: Training[];
 	userUpdates?: UserUpdate[];
-
-	get name(): string {
-		return `${this.firstName} ${this.lastName}`.trim();
-	}
 
 	get roleNumber(): number {
 		switch (this.role) {
@@ -211,8 +205,7 @@ export class User {
 		this.email = user.Email;
 		this.admin = user.Admin;
 		this.role = user.Role;
-		this.firstName = user.FirstName;
-		this.lastName = user.LastName;
+		this.name = user.Name;
 		this.graduationYear = user.GraduationYear;
 		this.type = user.Type;
 		this.major = user.Major;

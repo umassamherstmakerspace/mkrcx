@@ -11,8 +11,7 @@
 
 	let user: User;
 
-	let firstName: string;
-	let lastName: string;
+	let name: string;
 	let email: string;
 	let enabled: boolean;
 	
@@ -23,8 +22,7 @@
 	async function getUser(id: number) {
 		user = await getUserById(id);
 
-		firstName = user.firstName;
-		lastName = user.lastName;
+		name = user.name;
 		email = user.email;
 		enabled = user.enabled;
 
@@ -42,8 +40,7 @@
 		<Skeleton />
 	{:then}
 		<Stack>
-		<TextInput label="First Name or Service Name" bind:value={firstName}/>
-		<TextInput label="Last Name" bind:value={lastName}/>
+		<TextInput label="Name" bind:value={name}/>
 		<TextInput label="Email" bind:value={email}/>
 		<InputWrapper label="Account Enabled">
 			<Switch label={enabled ? "Enabled" : "Disabled"} bind:checked={enabled} />

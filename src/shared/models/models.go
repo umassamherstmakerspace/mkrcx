@@ -17,8 +17,7 @@ type User struct {
 	Model
 	Email          string `gorm:"unique"`
 	Admin          bool
-	FirstName      string
-	LastName       string
+	Name           string
 	Role           string
 	Type           string
 	GraduationYear int

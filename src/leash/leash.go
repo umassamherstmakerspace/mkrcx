@@ -246,13 +246,12 @@ func main() {
 		}
 
 		type request struct {
-			Email     string `json:"email" xml:"email" form:"email" validate:"required,email"`
-			FirstName string `json:"first_name" xml:"first_name" form:"first_name" validate:"required"`
-			LastName  string `json:"last_name" xml:"last_name" form:"last_name" validate:"required"`
-			Role      string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
-			Type      string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
-			GradYear  int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-			Major     string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+			Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
+			Name     string `json:"name" xml:"name" form:"name" validate:"required"`
+			Role     string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
+			Type     string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
+			GradYear int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+			Major    string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		}
 		// Get the user's email and training type from the request body
 		var req request
@@ -282,8 +281,7 @@ func main() {
 		// Create a new user in the database
 		user := models.User{
 			Email:          req.Email,
-			FirstName:      req.FirstName,
-			LastName:       req.LastName,
+			Name:           req.Name,
 			Role:           req.Role,
 			Type:           req.Type,
 			GraduationYear: req.GradYear,
@@ -298,7 +296,7 @@ func main() {
 				SetTitle("New User").
 				SetDescription("A new user has been created").
 				SetColor(0x00ff00).
-				AddField("Name", fmt.Sprintf("%s %s", req.FirstName, req.LastName), true).
+				AddField("Name", req.Name, true).
 				AddField("Email", req.Email, true).
 				SetTimestamp(time.Now()).
 				Build()
@@ -325,13 +323,12 @@ func main() {
 
 		type request struct {
 			UserIDReq
-			NewEmail  *string `json:"new_email" xml:"new_email" form:"new_email" validate:"omitempty,email"`
-			FirstName *string `json:"first_name" xml:"first_name" form:"first_name" validate:"omitempty"`
-			LastName  *string `json:"last_name" xml:"last_name" form:"last_name"`
-			Role      *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
-			Type      *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
-			GradYear  *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
-			Major     *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
+			NewEmail *string `json:"new_email" xml:"new_email" form:"new_email" validate:"omitempty,email"`
+			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
+			Role     *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
+			Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
+			GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
+			Major    *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,notblank"`
 		}
 
 		// Get the user's email and training type from the request body
@@ -357,13 +354,9 @@ func main() {
 			updateUser(db, user, apiUser, apiUser, "email", user.Email, *req.NewEmail, true)
 			user.Email = *req.NewEmail
 		}
-		if req.FirstName != nil {
-			updateUser(db, user, apiUser, apiUser, "first_name", user.FirstName, *req.FirstName, true)
-			user.FirstName = *req.FirstName
-		}
-		if req.LastName != nil {
-			updateUser(db, user, apiUser, apiUser, "last_name", user.LastName, *req.LastName, true)
-			user.LastName = *req.LastName
+		if req.Name != nil {
+			updateUser(db, user, apiUser, apiUser, "name", user.Name, *req.Name, true)
+			user.Name = *req.Name
 		}
 		if req.Role != nil {
 			updateUser(db, user, apiUser, apiUser, "role", user.Role, *req.Role, true)
@@ -451,7 +444,7 @@ func main() {
 		if req.OnlyEnabled {
 			searchQuery += "`enabled` = 1 AND "
 		}
-		searchQuery += "((CONCAT_WS(\" \", `first_name`, `last_name`) LIKE @q) OR (`email` LIKE @q))"
+		searchQuery += "(`name` LIKE @q) OR (`email` LIKE @q)"
 
 		con = con.Where(searchQuery, map[string]interface{}{"q": "%" + req.Query + "%"})
 		con.Offset(req.Offset).Limit(req.Limit).Find(&users)
@@ -1104,9 +1097,9 @@ func main() {
 				SetTitle("User Enabled").
 				SetDescription("User has been enabled.").
 				SetColor(0xff00B0).
-				AddField("Name", fmt.Sprintf("%s %s", user.FirstName, user.LastName), true).
+				AddField("Name", user.Name, true).
 				AddField("Email", user.Email, true).
-				AddField("Enabled By", fmt.Sprintf("%s %s", authentication.User.FirstName, authentication.User.LastName), false).
+				AddField("Enabled By", authentication.User.Name, false).
 				SetTimestamp(time.Now()).
 				Build()
 
@@ -1169,7 +1162,7 @@ func userTrainingEnable(db *gorm.DB, user models.User, webhookClient webhook.Cli
 				SetTitle("User Awaiting Verification").
 				SetDescription("A user has completed the orientation and docusign trainings and is awaiting verification.").
 				SetColor(0xffa000).
-				AddField("Name", fmt.Sprintf("%s %s", user.FirstName, user.LastName), true).
+				AddField("Name", user.Name, true).
 				AddField("Email", user.Email, true).
 				AddField("Verification Link", fmt.Sprintf(URL+"/discord/enable?token=%s", signed), false).
 				SetTimestamp(time.Now()).
