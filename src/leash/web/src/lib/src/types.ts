@@ -1,6 +1,8 @@
 import type { Dayjs } from 'dayjs';
 import { createTraining, getTrainings, getUserById, getUserUpdates, removeTraining } from './leash';
 import dayjs from 'dayjs';
+import type { Readable } from 'svelte/store';
+import { timestampCreator } from './stores';
 
 export interface LeashTraining {
 	ID: number;

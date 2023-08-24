@@ -1,31 +1,38 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import Timestamp from '$lib/components/Timestamp.svelte';
 	import { getUserById } from '$lib/src/leash';
+	import { timestampCreator } from '$lib/src/stores';
 	import type { User } from '$lib/src/types';
-	import { Alert, Seo, SimpleGrid, Skeleton, Tabs, Text } from '@svelteuidev/core';
+	import { Alert, Seo, Switch, Skeleton, TextInput, Stack, InputWrapper } from '@svelteuidev/core';
 	import { CrossCircled } from 'radix-icons-svelte';
+	import type { Readable } from 'svelte/store';
 
 	let id = Number.parseInt($page.url.searchParams.get('id') ?? '');
 
-	let active = 2;
-
-	function onActiveChange(event) {
-		const { index, key } = event.detail;
-		console.log('Tab active', index, key);
-	}
-
 	let user: User;
-	let userPlaceholder: User;
+
+	let firstName: string;
+	let lastName: string;
+	let email: string;
+	let enabled: boolean;
+	
+
+	let createdAt: Readable<string>;
+	let updatedAt: Readable<string>;
 
 	async function getUser(id: number) {
 		user = await getUserById(id);
-		userPlaceholder = JSON.parse(
-			JSON.stringify(user, (key, value) =>
-				typeof value === 'function' ? null : typeof value === 'object' ? null : value
-			)
-		);
+
+		firstName = user.firstName;
+		lastName = user.lastName;
+		email = user.email;
+		enabled = user.enabled;
+
+		createdAt = timestampCreator(user.createdAt);
+		updatedAt = timestampCreator(user.updatedAt);
 	}
+
+	
 </script>
 
 <Seo title="User Directory" description="Search for users in the system." />
@@ -34,12 +41,19 @@
 	{#await getUser(id)}
 		<Skeleton />
 	{:then}
-		<Tabs bind:active on:change={onActiveChange}>
-			<Tabs.Tab label="Gallery">Gallery tab content</Tabs.Tab>
-			<Tabs.Tab label="Messages">Messages tab content</Tabs.Tab>
-			<Tabs.Tab label="Settings">Settings tab content</Tabs.Tab>
-		</Tabs>
-		<SimpleGrid cols={2}>
+		<Stack>
+		<TextInput label="First Name or Service Name" bind:value={firstName}/>
+		<TextInput label="Last Name" bind:value={lastName}/>
+		<TextInput label="Email" bind:value={email}/>
+		<InputWrapper label="Account Enabled">
+			<Switch label={enabled ? "Enabled" : "Disabled"} bind:checked={enabled} />
+		</InputWrapper>
+
+		<TextInput label="ID" disabled value={user.id} />
+		<TextInput label="Join Date" disabled value={$createdAt} />
+		<TextInput label="Last Updated" disabled value={$updatedAt} />
+	</Stack>
+		<!-- <SimpleGrid cols={2}>
 			<Text color="dimmed">Name</Text>
 			<Text>{user.name}</Text>
 
@@ -76,7 +90,7 @@
 				<Text color="dimmed">Major</Text>
 				<Text>{user.major}</Text>
 			{/if}
-		</SimpleGrid>
+		</SimpleGrid> -->
 	{:catch error}
 		<Alert icon={CrossCircled} title="Error" color="red" variant="filled">
 			{error.message}
