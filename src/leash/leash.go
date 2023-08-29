@@ -337,8 +337,11 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
 		}
 
 		// Check if the user exists
@@ -481,8 +484,11 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
 		}
 
 		con := db.Model(&models.User{})
@@ -571,12 +577,11 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if req.TrainingType == "" {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
-		}
-
-		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
 		}
 
 		con := db.Model(&models.User{})
@@ -640,12 +645,11 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if req.TrainingType == "" {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
-		}
-
-		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
 		}
 
 		con := db.Model(&models.User{})
@@ -701,8 +705,11 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
 		}
 
 		con := db.Model(&models.User{})
@@ -750,8 +757,11 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 		}
 
-		if (req.Email == "" && req.ID == 0) || (req.Email != "" && req.ID != 0) {
-			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
 		}
 
 		con := db.Model(&models.User{})
