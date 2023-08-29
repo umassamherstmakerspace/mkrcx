@@ -1,36 +1,54 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getUserById } from '$lib/src/leash';
-	import { timestampCreator } from '$lib/src/stores';
-	import type { User } from '$lib/src/types';
-	import { Alert, Seo, Switch, Skeleton, TextInput, Stack, InputWrapper } from '@svelteuidev/core';
+	import { getSelf, getUserById } from '$lib/src/leash';
+	import { timestampCreator, user as s } from '$lib/src/stores';
+	import { Role, type User } from '$lib/src/types';
+	import {
+		Alert,
+		Seo,
+		Switch,
+		Skeleton,
+		TextInput,
+		Stack,
+		InputWrapper,
+		NativeSelect,
+		Divider,
+		NumberInput
+	} from '@svelteuidev/core';
 	import { CrossCircled } from 'radix-icons-svelte';
 	import type { Readable } from 'svelte/store';
 
 	let id = Number.parseInt($page.url.searchParams.get('id') ?? '');
+
+	let self: User;
+	let canEdit: boolean;
 
 	let user: User;
 
 	let name: string;
 	let email: string;
 	let enabled: boolean;
-	
+	let accountType: string;
+	let accountRole: string;
 
 	let createdAt: Readable<string>;
 	let updatedAt: Readable<string>;
 
 	async function getUser(id: number) {
+		self = await getSelf();
+		canEdit = self.roleNumber >= Role.USER_ROLE_ADMIN;
+
 		user = await getUserById(id);
 
 		name = user.name;
 		email = user.email;
 		enabled = user.enabled;
+		accountType = user.type;
+		accountRole = user.role;
 
 		createdAt = timestampCreator(user.createdAt);
 		updatedAt = timestampCreator(user.updatedAt);
 	}
-
-	
 </script>
 
 <Seo title="User Directory" description="Search for users in the system." />
@@ -40,54 +58,42 @@
 		<Skeleton />
 	{:then}
 		<Stack>
-		<TextInput label="Name" bind:value={name}/>
-		<TextInput label="Email" bind:value={email}/>
-		<InputWrapper label="Account Enabled">
-			<Switch label={enabled ? "Enabled" : "Disabled"} bind:checked={enabled} />
-		</InputWrapper>
-
-		<TextInput label="ID" disabled value={user.id} />
-		<TextInput label="Join Date" disabled value={$createdAt} />
-		<TextInput label="Last Updated" disabled value={$updatedAt} />
-	</Stack>
-		<!-- <SimpleGrid cols={2}>
-			<Text color="dimmed">Name</Text>
-			<Text>{user.name}</Text>
-
-			<Text color="dimmed">ID</Text>
-			<Text>{user.id}</Text>
-
-			<Text color="dimmed">Email</Text>
-			<Text>{user.email}</Text>
-
-			<Text color="dimmed">Join Date</Text>
-			<Text><Timestamp time={user.createdAt} /></Text>
-
-			<Text color="dimmed">Last Updated</Text>
-			<Text><Timestamp time={user.updatedAt} /></Text>
-
-			<Text color="dimmed">Enabled</Text>
-			<Text>{user.enabled ? 'Yes' : 'No'}</Text>
-
-			<Text color="dimmed">Admin</Text>
-			<Text>{user.admin ? 'Yes' : 'No'}</Text>
-
-			<Text color="dimmed">Role</Text>
-			<Text>{user.role}</Text>
-
-			<Text color="dimmed">User Type</Text>
-			<Text>{user.type}</Text>
-
-			{#if user.graduationYear > 0}
-				<Text color="dimmed">Graduation Year</Text>
-				<Text>{user.graduationYear}</Text>
-			{/if}
-
-			{#if user.major}
-				<Text color="dimmed">Major</Text>
-				<Text>{user.major}</Text>
-			{/if}
-		</SimpleGrid> -->
+			<TextInput label="Full Name" bind:value={name} />
+			<TextInput label="Email" bind:value={email} />
+			<InputWrapper label="Account Enabled">
+				<Switch label={enabled ? 'Enabled' : 'Disabled'} bind:checked={enabled} />
+			</InputWrapper>
+			<NativeSelect
+				data={[
+					{ value: 'member', label: 'Member' },
+					{ value: 'volunteer', label: 'Makerspace Volunteer' },
+					{ value: 'staff', label: 'Makerspace Staff' },
+					{ value: 'admin', label: 'Admin' },
+					{ value: 'service', label: 'Service Account' }
+				]}
+				disabled={!canEdit}
+				bind:value={accountRole}
+				label="Account Role"
+			/>
+			<NativeSelect
+				data={[
+					{ value: 'undergrad', label: 'Undergrad Student' },
+					{ value: 'grad', label: 'Graduate Student' },
+					{ value: 'faculty', label: 'Faculty' },
+					{ value: 'staff', label: 'Makerspace Staff' },
+					{ value: 'alumni', label: 'Alumni' },
+					{ value: 'other', label: 'Other' }
+				]}
+				bind:value={accountType}
+				label="Account Type"
+			/>
+			<TextInput label="Major" value={user.major} />
+			<NumberInput label="Graduation Year" value={user.graduationYear} />
+			<Divider />
+			<TextInput label="ID" disabled value={user.id} />
+			<TextInput label="Join Date" disabled value={$createdAt} />
+			<TextInput label="Last Updated" disabled value={$updatedAt} />
+		</Stack>
 	{:catch error}
 		<Alert icon={CrossCircled} title="Error" color="red" variant="filled">
 			{error.message}
