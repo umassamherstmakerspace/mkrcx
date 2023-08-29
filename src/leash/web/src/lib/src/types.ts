@@ -235,3 +235,13 @@ export class User {
 		return await createTraining(this.email, trainingType);
 	}
 }
+
+export interface LeashUserUpdateRequest {
+	name ?: string;
+	new_email?: string;
+	enabled ?: boolean;
+	role ?: string;
+	type ?: string;
+	grad_year ?: number;
+	major ?: string;
+}
