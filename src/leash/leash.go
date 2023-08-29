@@ -100,8 +100,8 @@ func (auth *Authentication) Authenticate(minimumRole UserRole, permissions ...st
 }
 
 type UserIDReq struct {
-	ID    uint   `json:"id" xml:"id" form:"id" query:"id" validate:"required_without=email"`
-	Email string `json:"email" xml:"email" form:"email" query:"email" validate:"required_without=id,email"`
+	ID    uint   `json:"id" xml:"id" form:"id" query:"id" validate:"required_without=Email"`
+	Email string `json:"email" xml:"email" form:"email" query:"email" validate:"required_without=ID"`
 }
 
 const SYSTEM_USER_EMAIL = "makerspace@umass.edu"
