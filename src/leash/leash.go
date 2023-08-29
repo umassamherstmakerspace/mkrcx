@@ -325,6 +325,7 @@ func main() {
 			UserIDReq
 			NewEmail *string `json:"new_email" xml:"new_email" form:"new_email" validate:"omitempty,email"`
 			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
+			Enabled  *bool   `json:"enabled" xml:"enabled" form:"enabled" validate:"omitempty"`
 			Role     *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
 			Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
 			GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
