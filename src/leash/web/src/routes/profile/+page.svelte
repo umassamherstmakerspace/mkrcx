@@ -96,8 +96,8 @@
 									{ value: 'alumni', label: 'Alumni' },
 									{ value: 'other', label: 'Other' }
 								]}
-								bind:value={accountType}
-								on:change={modify}
+								value={accountType}
+								disabled
 								label="Account Type"
 							/>
 							<TextInput label="Major" bind:value={major} on:change={modify} on:input={modify}/>

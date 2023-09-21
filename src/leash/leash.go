@@ -572,7 +572,6 @@ func main() {
 
 		type request struct {
 			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
-			Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
 			GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 			Major    *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		}
@@ -594,10 +593,6 @@ func main() {
 		if req.Name != nil {
 			updateUser(db, user, user, "name", user.Name, *req.Name, true)
 			user.Name = *req.Name
-		}
-		if req.Type != nil {
-			updateUser(db, user, user, "type", user.Type, *req.Type, true)
-			user.Type = *req.Type
 		}
 		if req.GradYear != nil {
 			updateUser(db, user, user, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(*req.GradYear), true)

@@ -246,7 +246,6 @@ export interface LeashUserUpdateRequest {
 
 export interface LeashSelfUpdateRequest {
 	name ?: string;
-	type ?: string;
 	grad_year ?: number;
 	major ?: string;
 }
