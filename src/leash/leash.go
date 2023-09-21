@@ -361,27 +361,27 @@ func main() {
 
 		// Update the user in the database
 		if req.NewEmail != nil {
-			updateUser(db, user, apiUser, apiUser, "email", user.Email, *req.NewEmail, true)
+			updateUser(db, user, apiUser, "email", user.Email, *req.NewEmail, true)
 			user.Email = *req.NewEmail
 		}
 		if req.Name != nil {
-			updateUser(db, user, apiUser, apiUser, "name", user.Name, *req.Name, true)
+			updateUser(db, user, apiUser, "name", user.Name, *req.Name, true)
 			user.Name = *req.Name
 		}
 		if req.Role != nil {
-			updateUser(db, user, apiUser, apiUser, "role", user.Role, *req.Role, true)
+			updateUser(db, user, apiUser, "role", user.Role, *req.Role, true)
 			user.Role = *req.Role
 		}
 		if req.Type != nil {
-			updateUser(db, user, apiUser, apiUser, "type", user.Type, *req.Type, true)
+			updateUser(db, user, apiUser, "type", user.Type, *req.Type, true)
 			user.Type = *req.Type
 		}
 		if req.GradYear != nil {
-			updateUser(db, user, apiUser, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(*req.GradYear), true)
+			updateUser(db, user, apiUser, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(*req.GradYear), true)
 			user.GraduationYear = *req.GradYear
 		}
 		if req.Major != nil {
-			updateUser(db, user, apiUser, apiUser, "major", user.Major, *req.Major, true)
+			updateUser(db, user, apiUser, "major", user.Major, *req.Major, true)
 			user.Major = *req.Major
 		}
 
@@ -562,6 +562,59 @@ func main() {
 		}
 
 		return c.JSON(user)
+	}))
+
+	// Get a user from their email or id
+	app.Put("/api/users/self", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
+		// Get api user from the request context
+		authentication := c.Locals(ctxAuthKey{}).(Authentication)
+		user := authentication.User
+
+		type request struct {
+			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
+			Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
+			GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+			Major    *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		}
+
+		// Get the user's email and training type from the request body
+		var req request
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
+		}
+
+		{
+			errors := ValidateStruct(req)
+			if errors != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(errors)
+			}
+		}
+
+		// Update the user in the database
+		if req.Name != nil {
+			updateUser(db, user, user, "name", user.Name, *req.Name, true)
+			user.Name = *req.Name
+		}
+		if req.Type != nil {
+			updateUser(db, user, user, "type", user.Type, *req.Type, true)
+			user.Type = *req.Type
+		}
+		if req.GradYear != nil {
+			updateUser(db, user, user, "graduation_year", strconv.Itoa(user.GraduationYear), strconv.Itoa(*req.GradYear), true)
+			user.GraduationYear = *req.GradYear
+		}
+		if req.Major != nil {
+			updateUser(db, user, user, "major", user.Major, *req.Major, true)
+			user.Major = *req.Major
+		}
+
+		res := db.Save(&user)
+		if res.Error != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Database error")
+		}
+
+		// Write a success message to the response
+		return c.SendString("User updated successfully")
 	}))
 
 	// Add completed training to a user
@@ -1355,7 +1408,7 @@ func authMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler) fiber.Ha
 	}
 }
 
-func updateUser(db *gorm.DB, user models.User, editedBy models.User, acceptedBy models.User, field string, oldValue string, newValue string, accepted bool) {
+func updateUser(db *gorm.DB, user models.User, editedBy models.User, field string, oldValue string, newValue string, accepted bool) {
 	update := models.UserUpdate{
 		Field:    field,
 		NewValue: newValue,

@@ -1,72 +1,122 @@
 <script lang="ts">
-	import Timestamp from '$lib/components/Timestamp.svelte';
-	import { getSelf } from '$lib/src/leash';
-	import type { User } from '$lib/src/types';
-	import { Alert, Seo, SimpleGrid, Skeleton, Tabs, Text } from '@svelteuidev/core';
+	import { getSelf, updateSelf } from '$lib/src/leash';
+	import type { LeashSelfUpdateRequest, User } from '$lib/src/types';
+	import { Alert, Button, Center, NativeSelect, NumberInput, Paper, Seo, Skeleton, Stack, Tabs, TextInput } from '@svelteuidev/core';
 	import { CrossCircled } from 'radix-icons-svelte';
 
+	let k = {};
+
 	let user: User;
-	let userPlaceholder: User;
+
+	let name: string;
+	let email: string;
+	let accountType: string;
+	let major: string;
+	let graduationYear: number;
+
+	let modified = false;
+
+	function resetUserData() {
+		name = user.name;
+		email = user.email;
+		accountType = user.type;
+		major = user.major;
+		graduationYear = user.graduationYear;
+		modified = false;
+	}
 
 	async function getUser() {
 		user = await getSelf();
-		userPlaceholder = JSON.parse(
-			JSON.stringify(user, (key, value) =>
-				typeof value === 'function' ? null : typeof value === 'object' ? null : value
-			)
-		);
+		resetUserData();
+	}
+
+	function modify() {
+		modified = true;
+	}
+
+	function save() {
+		modified = false;
+		let req: LeashSelfUpdateRequest = {};
+
+		if (name != user.name) {
+			req['name'] = name;
+		}
+
+		if (accountType != user.type) {
+			req['type'] = accountType;
+		}
+
+		if (major != user.major) {
+			req['major'] = major;
+		}
+
+		if (graduationYear != user.graduationYear) {
+			req['grad_year'] = graduationYear;
+		}
+		
+		updateSelf(req);
+
+		window.setTimeout(() => {
+			getUser();
+			resetUserData();
+		}, 200);
 	}
 </script>
 
-<Seo title="User Directory" description="Search for users in the system." />
+<Seo title="Profile" description="Modify your own information." />
+
 {#await getUser()}
 	<Skeleton />
 {:then}
-	<Tabs>
-		<Tabs.Tab label="Gallery">Gallery tab content</Tabs.Tab>
-		<Tabs.Tab label="Messages">Messages tab content</Tabs.Tab>
-		<Tabs.Tab label="Settings">Settings tab content</Tabs.Tab>
+	<Tabs on:change={resetUserData}>
+		<Tabs.Tab label="Account">
+			<Center>
+				<Paper>
+					<div class="fill">
+						<Stack>
+							<TextInput label="Full Name" bind:value={name} on:change={modify} on:input={modify}/>
+							<TextInput disabled label="Email" value={email}/>
+							<Button disabled={!modified} color="blue" variant="filled" fullSize on:click={save}>Save</Button>
+						</Stack>
+					</div>
+				</Paper>
+			</Center>
+		</Tabs.Tab>
+		<Tabs.Tab label="Education">
+			<Center>
+				<Paper>
+					<div class="fill">
+						<Stack>
+							<NativeSelect
+								data={[
+									{ value: 'undergrad', label: 'Undergrad Student' },
+									{ value: 'grad', label: 'Graduate Student' },
+									{ value: 'faculty', label: 'Faculty' },
+									{ value: 'staff', label: 'Makerspace Staff' },
+									{ value: 'alumni', label: 'Alumni' },
+									{ value: 'other', label: 'Other' }
+								]}
+								bind:value={accountType}
+								on:change={modify}
+								label="Account Type"
+							/>
+							<TextInput label="Major" bind:value={major} on:change={modify} on:input={modify}/>
+							<NumberInput label="Graduation Year" bind:value={graduationYear} on:change={modify}/>
+							<Button disabled={!modified} color="blue" variant="filled" fullSize on:click={save}>Save</Button>
+						</Stack>
+					</div>
+				</Paper>
+			</Center>
+		</Tabs.Tab>
 	</Tabs>
-	<SimpleGrid cols={2}>
-		<Text color="dimmed">Name</Text>
-		<Text>{user.name}</Text>
-
-		<Text color="dimmed">ID</Text>
-		<Text>{user.id}</Text>
-
-		<Text color="dimmed">Email</Text>
-		<Text>{user.email}</Text>
-
-		<Text color="dimmed">Join Date</Text>
-		<Text><Timestamp time={user.createdAt} /></Text>
-
-		<Text color="dimmed">Last Updated</Text>
-		<Text><Timestamp time={user.updatedAt} /></Text>
-
-		<Text color="dimmed">Enabled</Text>
-		<Text>{user.enabled ? 'Yes' : 'No'}</Text>
-
-		<Text color="dimmed">Admin</Text>
-		<Text>{user.admin ? 'Yes' : 'No'}</Text>
-
-		<Text color="dimmed">Role</Text>
-		<Text>{user.role}</Text>
-
-		<Text color="dimmed">User Type</Text>
-		<Text>{user.type}</Text>
-
-		{#if user.graduationYear > 0}
-			<Text color="dimmed">Graduation Year</Text>
-			<Text>{user.graduationYear}</Text>
-		{/if}
-
-		{#if user.major}
-			<Text color="dimmed">Major</Text>
-			<Text>{user.major}</Text>
-		{/if}
-	</SimpleGrid>
 {:catch error}
 	<Alert icon={CrossCircled} title="Error" color="red" variant="filled">
 		{error.message}
 	</Alert>
 {/await}
+
+<style lang="scss">
+	.fill {
+		min-width: 50dvw;
+	}
+</style>

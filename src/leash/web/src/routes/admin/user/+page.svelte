@@ -101,7 +101,7 @@
 	}
 </script>
 
-<Seo title="User Directory" description="Search for users in the system." />
+<Seo title="Edit User" description="Admin page to edit a user's info." />
 
 {#key k}
 {#if Number.isInteger(id)}

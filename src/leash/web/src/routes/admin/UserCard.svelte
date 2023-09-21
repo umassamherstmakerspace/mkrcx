@@ -8,7 +8,10 @@
 		Skeleton,
 		Stack,
 		UnstyledButton,
-		type SvelteUIColor
+		Text,
+		type SvelteUIColor,
+		Menu,
+		TypographyProvider
 	} from '@svelteuidev/core';
 	import {} from '@svelteuidev/motion';
 	import type { User } from '$lib/src/types';
@@ -16,7 +19,15 @@
 	import { quadIn, quadOut } from 'svelte/easing';
 	import UserInfo from './UserInfo.svelte';
 	import { initalizeUserInfo } from './userCard';
-	import { CrossCircled } from 'radix-icons-svelte';
+	import {
+		Camera,
+		ChatBubble,
+		CrossCircled,
+		Gear,
+		MagnifyingGlass,
+		Trash,
+		Width
+	} from 'radix-icons-svelte';
 	import Timestamp from '$lib/components/Timestamp.svelte';
 
 	export let user: User;
@@ -43,22 +54,47 @@
 	}
 </script>
 
-<Paper shadow="sm" padding="lg" on:click={toggle}>
+<Paper shadow="sm" padding="lg">
 	<Stack>
+		<!-- <div class="float">
+			<button class="fill" />
+		</div> -->
 		<UnstyledButton on:click={toggle}>
-			<Grid>
-				<Grid.Col md={1}>
-					<Badge color={enabled} radius="md" variant="filled">
-						{user.deletedAt ? 'Deleted' : user.enabled ? 'Enabled' : 'Disabled'}
-					</Badge>
-				</Grid.Col>
-				<Grid.Col span={2}><Timestamp time={user.createdAt} /></Grid.Col>
-				<Grid.Col span={3}>{user.name}</Grid.Col>
-				<Grid.Col span={3}>{user.email}</Grid.Col>
-				<Grid.Col span={1}>{user.type}</Grid.Col>
-				<Grid.Col span={1}>{user.role}</Grid.Col>
-				<Grid.Col span={1}>{user.id}</Grid.Col>
-			</Grid>
+			<TypographyProvider>
+				<Grid cols={24}>
+					<Grid.Col span={2}>
+						<Badge color={enabled} radius="md" variant="filled">
+							{user.deletedAt ? 'Deleted' : user.enabled ? 'Enabled' : 'Disabled'}
+						</Badge>
+					</Grid.Col>
+					<Grid.Col span={4}><Timestamp time={user.createdAt} /></Grid.Col>
+					<Grid.Col span={6}>{user.name}</Grid.Col>
+					<Grid.Col span={6}>{user.email}</Grid.Col>
+					<Grid.Col span={2}>{user.role}</Grid.Col>
+					<Grid.Col span={2}>{user.type}</Grid.Col>
+					<Grid.Col span={1}>{user.id}</Grid.Col>
+					<Grid.Col span={1}>
+						<Menu>
+							<Menu.Label>Application</Menu.Label>
+							<Menu.Item icon={Gear} on:click={() => alert('test')}>Settings</Menu.Item>
+							<Menu.Item icon={ChatBubble}>Messages</Menu.Item>
+							<Menu.Item icon={Camera}>Gallery</Menu.Item>
+							<Menu.Item icon={MagnifyingGlass}>
+								<svelte:fragment slot="rightSection">
+									<Text size="xs" color="dimmed">⌘K</Text>
+								</svelte:fragment>
+								Search
+							</Menu.Item>
+
+							<Divider />
+
+							<Menu.Label>Danger zone</Menu.Label>
+							<Menu.Item icon={Width}>Transfer my data</Menu.Item>
+							<Menu.Item color="red" icon={Trash}>Delete my account</Menu.Item>
+						</Menu>
+					</Grid.Col>
+				</Grid>
+			</TypographyProvider>
 		</UnstyledButton>
 
 		{#if active}
@@ -94,3 +130,13 @@
 		{/if}
 	</Stack>
 </Paper>
+
+<style lang="scss">
+	.float {
+	}
+
+	.fill {
+		width: 100%;
+		height: 100%;
+	}
+</style>

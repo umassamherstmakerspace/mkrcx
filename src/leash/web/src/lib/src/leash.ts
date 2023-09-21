@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import { User, type LeashUser, type LeashTraining, type LeashUserUpdate, type LeashUserUpdateRequest } from './types';
+import { User, type LeashUser, type LeashTraining, type LeashUserUpdate, type LeashUserUpdateRequest, type LeashSelfUpdateRequest } from './types';
 import { dev } from '$app/environment';
 
 const LEASH_ENDPOINT = dev ? 'http://127.0.0.1:8000' : '';
@@ -108,6 +108,19 @@ export async function getSelf(with_training = true): Promise<User> {
 	);
 
 	return new User(result);
+}
+
+export async function updateSelf(
+	update: LeashSelfUpdateRequest
+): Promise<void> {
+	await leashFetch(
+		`/api/users/self`,
+		'PUT',
+		{
+			...update
+		},
+		true
+	);
 }
 
 export async function getTrainings(email: string): Promise<LeashTraining[]> {
