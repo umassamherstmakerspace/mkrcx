@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -184,8 +184,9 @@ func main() {
 
 	// JWT Key
 
-	//read text from file keys.json
-	if _, err := os.Stat("keys.json"); os.IsNotExist(err) {
+	//read text from file keyfile
+	key_file := os.Getenv("KEY_FILE")
+	if _, err := os.Stat(key_file); os.IsNotExist(err) {
 		raw, err := rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
 			log.Fatal(err)
@@ -208,20 +209,20 @@ func main() {
 			log.Fatal(err)
 		}
 
-		err = ioutil.WriteFile("keys.json", buf, 0600)
+		err = os.WriteFile(key_file, buf, 0600)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	keyFile, err := os.Open("keys.json")
+	keyFile, err := os.Open(key_file)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer keyFile.Close()
 
-	keyBytes, err := ioutil.ReadAll(keyFile)
+	keyBytes, err := io.ReadAll(keyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
