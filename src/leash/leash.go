@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -59,6 +60,17 @@ func parseUserRole(role string) (UserRole, error) {
 	default:
 		return 0, errors.New("invalid role")
 	}
+}
+
+func tryPath(file string, dir string) (string, error) {
+	f := path.Join(dir, file)
+	_, err := os.Stat(f)
+
+	if err != nil {
+		return "", err
+	}
+
+	return f, nil
 }
 
 type Authenticator int
@@ -235,6 +247,8 @@ func main() {
 			fmt.Printf("failed to create webhook: %s\n", err)
 		}
 	}
+
+	frontend_dir := os.Getenv("FRONTEND_DIR")
 
 	// Create a new user
 	app.Post("/api/users", authMiddleware(db, publicKey, func(c *fiber.Ctx) error {
@@ -1176,6 +1190,45 @@ func main() {
 
 		return c.Redirect("/")
 	})))
+
+	app.Use("/", func(c *fiber.Ctx) error {
+		if strings.HasPrefix(c.Path(), "/api") {
+			return c.Next()
+		}
+
+		if strings.HasPrefix(c.Path(), "/auth") {
+			return c.Next()
+		}
+
+		if strings.HasPrefix(c.Path(), "/discord") {
+			return c.Next()
+		}
+
+		// path := c.Path()
+		request := path.Clean(c.Path())
+		if request != c.Path() {
+			return c.Redirect(request, fiber.StatusMovedPermanently)
+		}
+
+		if path.Ext(path.Base(c.Path())) == "" {
+			file, err := tryPath(c.Path()+".html", frontend_dir)
+			if err == nil {
+				return c.SendFile(file)
+			}
+
+			file, err = tryPath(path.Join(c.Path(), "index.html"), frontend_dir)
+			if err == nil {
+				return c.SendFile(file)
+			}
+		} else {
+			file, err := tryPath(c.Path(), frontend_dir)
+			if err == nil {
+				return c.SendFile(file)
+			}
+		}
+
+		return c.SendStatus(fiber.StatusNotFound)
+	})
 
 	log.Printf("Starting server on port %s\n", HOST)
 	app.Listen(HOST)

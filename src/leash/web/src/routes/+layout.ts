@@ -11,6 +11,7 @@ import { user } from '$lib/src/stores';
 
 export const prerender = true;
 export const ssr = false;
+export const trailingSlash = 'never';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
