@@ -1,31 +1,35 @@
+
+FROM node:lts-alpine3.17 AS build
+
+COPY ./src/leash/web/package.json ./
+COPY ./src/leash/web/package-lock.json ./
+RUN npm install
+
+COPY ./src/leash/web/assets ./assets
+COPY ./src/leash/web/src ./src
+COPY ./src/leash/web/static ./static
+COPY ./src/leash/web/tsconfig.json ./
+COPY ./src/leash/web/svelte.config.js ./
+COPY ./src/leash/web/vite.config.ts ./
+
+RUN npm run build
+
+
 FROM golang:1.20-alpine
 
 WORKDIR /app
 
 COPY go.mod ./
 COPY go.sum ./
+
 RUN go mod download
 
-COPY ./ ./
+COPY ./src/ ./src
 
 RUN go build -o /leash src/leash/leash.go
 
-RUN apk add --update nodejs npm
-RUN cd src/leash/web && npm install && npm run build
-RUN adduser -D -g 'www' www
-RUN mkdir /www && chown -R www:www /www
-RUN cp -r src/leash/web/build/* /www
-RUN chown -R www:www /www
-RUN cd ../../../
+COPY --from=build ./build /web
 
-EXPOSE 8080
+EXPOSE 8000
 
-RUN apk update && apk add nginx
-COPY src/leash/nginx.conf /etc/nginx/nginx.conf
-RUN chown -R www:www /var/lib/nginx
-
-RUN echo "nginx" >> start.sh
-RUN echo "/leash" >> start.sh
-RUN chmod +x start.sh
-
-CMD ./start.sh
+CMD [ "/leash" ]
