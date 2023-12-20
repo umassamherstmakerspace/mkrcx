@@ -1,4 +1,4 @@
-module github.com/spectrum-control/spectrum
+module github.com/mkrcx/mkrcx
 
 go 1.20
 

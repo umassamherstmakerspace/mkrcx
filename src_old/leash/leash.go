@@ -73,6 +73,44 @@ func tryPath(file string, dir string) (string, error) {
 	return f, nil
 }
 
+type Authenticator int
+
+const (
+	AUTHENTICATOR_LOGGED_OUT Authenticator = iota
+	AUTHENTICATOR_USER
+	AUTHENTICATOR_APIKEY
+)
+
+type Authentication struct {
+	User          models.User
+	Authenticator Authenticator
+	Data          interface{}
+}
+
+func (auth *Authentication) Authenticate(minimumRole UserRole, permissions ...string) error {
+	switch auth.Authenticator {
+	case AUTHENTICATOR_LOGGED_OUT:
+		return errors.New("not logged in")
+	case AUTHENTICATOR_USER:
+		role, err := parseUserRole(auth.User.Role)
+		if err != nil {
+			return err
+		}
+
+		if role < minimumRole {
+			return errors.New("insufficient permissions")
+		}
+	case AUTHENTICATOR_APIKEY:
+		apiKey := auth.Data.(models.APIKey)
+		for _, permission := range permissions {
+			if !models.APIKeyValidate(apiKey, permission) {
+				return errors.New("insufficient permissions")
+			}
+		}
+	}
+	return nil
+}
+
 type UserIDReq struct {
 	ID    uint   `json:"id" xml:"id" form:"id" query:"id" validate:"required_without=Email"`
 	Email string `json:"email" xml:"email" form:"email" query:"email" validate:"required_without=ID"`
@@ -1154,7 +1192,44 @@ func main() {
 		return c.Redirect("/")
 	})))
 
-	SetupFrontend(app, "/", frontend_dir)
+	app.Use("/", func(c *fiber.Ctx) error {
+		if strings.HasPrefix(c.Path(), "/api") {
+			return c.Next()
+		}
+
+		if strings.HasPrefix(c.Path(), "/auth") {
+			return c.Next()
+		}
+
+		if strings.HasPrefix(c.Path(), "/discord") {
+			return c.Next()
+		}
+
+		// path := c.Path()
+		request := path.Clean(c.Path())
+		if request != c.Path() {
+			return c.Redirect(request, fiber.StatusMovedPermanently)
+		}
+
+		if path.Ext(path.Base(c.Path())) == "" {
+			file, err := tryPath(c.Path()+".html", frontend_dir)
+			if err == nil {
+				return c.SendFile(file)
+			}
+
+			file, err = tryPath(path.Join(c.Path(), "index.html"), frontend_dir)
+			if err == nil {
+				return c.SendFile(file)
+			}
+		} else {
+			file, err := tryPath(c.Path(), frontend_dir)
+			if err == nil {
+				return c.SendFile(file)
+			}
+		}
+
+		return c.SendStatus(fiber.StatusNotFound)
+	})
 
 	log.Printf("Starting server on port %s\n", HOST)
 	app.Listen(HOST)
