@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-playground/validator/v10"
-	val "github.com/go-playground/validator/v10/non-standard/validators"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/lestrrat-go/jwx/v2/jwa"
@@ -77,39 +75,13 @@ type UserIDReq struct {
 const SYSTEM_USER_EMAIL = "makerspace@umass.edu"
 const HOST = ":8000"
 
-var validate = validator.New()
-
-type ErrorResponse struct {
-	FailedField string
-	Tag         string
-	Value       string
-}
-
-func ValidateStruct(s interface{}) []*ErrorResponse {
-	var errors []*ErrorResponse
-	err := validate.Struct(s)
-	if err != nil {
-		for _, err := range err.(validator.ValidationErrors) {
-			var element ErrorResponse
-			element.FailedField = err.StructNamespace()
-			element.Tag = err.Tag()
-			element.Value = err.Param()
-			errors = append(errors, &element)
-		}
-	}
-	return errors
-}
-
 func main() {
 	db, err := gorm.Open(mysql.Open(os.Getenv("DB")), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
 	}
 
-	err = validate.RegisterValidation("notblank", val.NotBlank)
-	if err != nil {
-		panic(err)
-	}
+	models.SetupValidator()
 
 	// Migrate the schema
 	db.AutoMigrate(&models.APIKey{})
@@ -185,7 +157,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -262,7 +234,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -415,7 +387,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -506,7 +478,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -556,7 +528,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -624,7 +596,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -684,7 +656,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -736,7 +708,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -811,7 +783,7 @@ func main() {
 		}
 
 		{
-			errors := ValidateStruct(req)
+			errors := models.ValidateStruct(req)
 			if errors != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(errors)
 			}
@@ -865,7 +837,7 @@ func main() {
 			}
 
 			{
-				errors := ValidateStruct(userinfo)
+				errors := models.ValidateStruct(userinfo)
 				if errors != nil {
 					return c.Status(fiber.StatusBadRequest).JSON(errors)
 				}
@@ -1013,7 +985,7 @@ func main() {
 	// 	}
 
 	// 	{
-	// 		errors := ValidateStruct(req)
+	// 		errors := models.ValidateStruct(req)
 	// 		if errors != nil {
 	// 			return c.Status(fiber.StatusBadRequest).JSON(errors)
 	// 		}

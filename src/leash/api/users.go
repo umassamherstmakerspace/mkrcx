@@ -1,11 +1,17 @@
 package leash_backend_api
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
 )
+
+var userCreateCallbacks []func(UserEvent)
+var userUpdateCallbacks []func(UserUpdateEvent)
+var userDeleteCallbacks []func(UserEvent)
 
 func selfMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
@@ -54,9 +60,63 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 	user_ep.Get("/", userGatedEndpointMiddleware("read", func(c *fiber.Ctx) error {
 		return c.JSON(c.Locals("target_user"))
 	}))
+	user_ep.Get("/", userGatedEndpointMiddleware("read", func(c *fiber.Ctx) error {
+		return c.JSON(c.Locals("target_user"))
+	}))
 }
 
 func registerUserEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+	api.Post("/", leash_auth.AuthorizationMiddleware("leash.users.create", func(c *fiber.Ctx) error {
+		type request struct {
+			Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
+			Name     string `json:"name" xml:"name" form:"name" validate:"required"`
+			Role     string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
+			Type     string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
+			GradYear int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+			Major    string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		}
+
+		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+			req := c.Locals("body").(request)
+			// Check if the user already exists
+			{
+				var user models.User
+				res := db.Find(&user, "email = ?", req.Email)
+				if res.RowsAffected > 0 {
+					// The user already exists
+					return c.Status(fiber.StatusConflict).SendString("User already exists")
+				}
+			}
+
+			// Create a new user in the database
+			user := models.User{
+				Email:          req.Email,
+				Name:           req.Name,
+				Role:           req.Role,
+				Type:           req.Type,
+				GraduationYear: req.GradYear,
+				Major:          req.Major,
+				Enabled:        false,
+			}
+			db.Create(&user)
+
+			event := UserEvent{
+				Target:    user,
+				Agent:     leash_auth.GetAuthentication(c).User,
+				Timestamp: time.Now().Unix(),
+			}
+
+			for _, callback := range userCreateCallbacks {
+				callback(event)
+			}
+
+			// Write a success message to the response
+			return c.SendString("User created successfully")
+		})
+
+		return next(c)
+	}))
+
 	self_ep := api.Group("/self", selfMiddleware)
 	commonUserEndpoints(self_ep, db, keys)
 

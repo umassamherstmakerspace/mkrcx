@@ -3,6 +3,8 @@ package models
 import (
 	"time"
 
+	"github.com/go-playground/validator/v10"
+	val "github.com/go-playground/validator/v10/non-standard/validators"
 	"gorm.io/gorm"
 )
 
@@ -85,4 +87,31 @@ type UserUpdate struct {
 	Field    string
 	NewValue string
 	OldValue string
+}
+
+var validate = validator.New()
+
+type ErrorResponse struct {
+	FailedField string
+	Tag         string
+	Value       string
+}
+
+func ValidateStruct(s interface{}) []*ErrorResponse {
+	var errors []*ErrorResponse
+	err := validate.Struct(s)
+	if err != nil {
+		for _, err := range err.(validator.ValidationErrors) {
+			var element ErrorResponse
+			element.FailedField = err.StructNamespace()
+			element.Tag = err.Tag()
+			element.Value = err.Param()
+			errors = append(errors, &element)
+		}
+	}
+	return errors
+}
+
+func SetupValidator() error {
+	return validate.RegisterValidation("notblank", val.NotBlank)
 }
