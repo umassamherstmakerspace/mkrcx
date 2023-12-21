@@ -21,7 +21,7 @@ type Keys struct {
 	privateKey jwk.Key
 }
 
-func initalizeJWT() Keys {
+func InitalizeJWT() Keys {
 	//read text from file keyfile
 	key_file := os.Getenv("KEY_FILE")
 	if _, err := os.Stat(key_file); os.IsNotExist(err) {

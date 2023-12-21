@@ -2,13 +2,9 @@ package leash_authentication
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
-	"github.com/gofiber/fiber"
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
 )
@@ -27,9 +23,33 @@ type Authentication struct {
 	Data          interface{}
 }
 
+func (a Authentication) IsLoggedOut() bool {
+	return a.Authenticator == AUTHENTICATOR_LOGGED_OUT
+}
+
+func (a Authentication) IsUser() bool {
+	return a.Authenticator == AUTHENTICATOR_USER
+}
+
+func (a Authentication) IsAPIKey() bool {
+	return a.Authenticator == AUTHENTICATOR_APIKEY
+}
+
+func (a Authentication) Authenticate(check string) error {
+	if a.IsLoggedOut() {
+		return errors.New("not logged in")
+	}
+
+	return nil
+}
+
 type ctxAuthKey struct{}
 
-func authenticationMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler) fiber.Handler {
+func GetAuthentication(c *fiber.Ctx) Authentication {
+	return c.Locals(ctxAuthKey{}).(Authentication)
+}
+
+func AuthenticationMiddleware(db *gorm.DB, keys Keys, next fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Make sure DB is alive
 		sql, err := db.DB()
@@ -66,14 +86,9 @@ func authenticationMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler
 			token := strings.TrimPrefix(authorization, "Bearer ")
 
 			// Parse the token
-			tok, err := jwt.ParseString(token, jwt.WithKey(jwa.RS256, publicKey))
+			tok, err := keys.Parse(token)
 			if err != nil {
-				return authentication, err
-			}
-
-			// Validate the token
-			if err := jwt.Validate(tok); err != nil {
-				return authentication, err
+				return authentication, errors.New("invalid token")
 			}
 
 			// Get the email from the token
@@ -126,8 +141,6 @@ func authenticationMiddleware(db *gorm.DB, publicKey jwk.Key, next fiber.Handler
 					// The API key is not valid
 					return authentication, errors.New("invalid API key")
 				}
-
-				fmt.Println(apiKeyRecord.ID)
 
 				var user models.User
 				res = db.First(&user, "id = ?", apiKeyRecord.UserID)

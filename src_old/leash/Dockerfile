@@ -1,16 +1,16 @@
 
 FROM node:lts-alpine3.17 AS build
 
-COPY ./src/leash/web/package.json ./
-COPY ./src/leash/web/package-lock.json ./
+COPY ./src/leash/frontend/web/package.json ./
+COPY ./src/leash/frontend/web/package-lock.json ./
 RUN npm install
 
-COPY ./src/leash/web/assets ./assets
-COPY ./src/leash/web/src ./src
-COPY ./src/leash/web/static ./static
-COPY ./src/leash/web/tsconfig.json ./
-COPY ./src/leash/web/svelte.config.js ./
-COPY ./src/leash/web/vite.config.ts ./
+COPY ./src/leash/frontend/web/assets ./assets
+COPY ./src/leash/frontend/web/src ./src
+COPY ./src/leash/frontend/web/static ./static
+COPY ./src/leash/frontend/web/tsconfig.json ./
+COPY ./src/leash/frontend/web/svelte.config.js ./
+COPY ./src/leash/frontend/web/vite.config.ts ./
 
 RUN npm run build
 

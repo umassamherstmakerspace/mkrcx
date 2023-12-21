@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/gofiber/fiber"
+	"github.com/gofiber/fiber/v2"
 )
 
 func tryPath(file string, dir string) (string, error) {
