@@ -157,7 +157,7 @@ func main() {
 
 	api := app.Group("/api")
 
-	leash_api.RegisterAPIEndpoints(api)
+	leash_api.RegisterAPIEndpoints(api, db, keys)
 
 	// Create a new user
 	app.Post("/api/users", leash_auth.AuthenticationMiddleware(db, keys, func(c *fiber.Ctx) error {

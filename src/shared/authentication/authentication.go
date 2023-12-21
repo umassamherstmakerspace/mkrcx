@@ -35,7 +35,7 @@ func (a Authentication) IsAPIKey() bool {
 	return a.Authenticator == AUTHENTICATOR_APIKEY
 }
 
-func (a Authentication) Authenticate(check string) error {
+func (a Authentication) Authorize(check string) error {
 	if a.IsLoggedOut() {
 		return errors.New("not logged in")
 	}
