@@ -164,7 +164,7 @@ func main() {
 		// Get api user from the request context
 		authentication := leash_auth.GetAuthentication(c)
 
-		if authentication.Authenticate("leash.users:write") != nil {
+		if authentication.Authorize("leash.users:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -240,7 +240,7 @@ func main() {
 		authentication := leash_auth.GetAuthentication(c)
 		apiUser := authentication.User
 
-		if authentication.Authenticate("leash.users:write") != nil {
+		if authentication.Authorize("leash.users:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -277,7 +277,7 @@ func main() {
 		}
 
 		if req.Role != nil {
-			if authentication.Authenticate("leash.users:write") != nil {
+			if authentication.Authorize("leash.users:write") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 		}
@@ -322,7 +322,7 @@ func main() {
 		// Get api user from the request context
 		authentication := leash_auth.GetAuthentication(c)
 
-		if authentication.Authenticate("leash.users:search") != nil {
+		if authentication.Authorize("leash.users:search") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -356,14 +356,14 @@ func main() {
 		con := db.Model(&models.User{})
 
 		if req.WithTrainings {
-			if authentication.Authenticate("leash.trainings:read") != nil {
+			if authentication.Authorize("leash.trainings:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("Trainings")
 		}
 
 		if req.WithUpdates {
-			if authentication.Authenticate("leash.updates:read") != nil {
+			if authentication.Authorize("leash.updates:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("UserUpdates")
@@ -399,7 +399,7 @@ func main() {
 		// Get api user from the request context
 		authentication := leash_auth.GetAuthentication(c)
 
-		if authentication.Authenticate("leash.users:read") != nil {
+		if authentication.Authorize("leash.users:read") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -424,14 +424,14 @@ func main() {
 		con := db.Model(&models.User{})
 
 		if req.WithTrainings {
-			if authentication.Authenticate("leash.trainings:read") != nil {
+			if authentication.Authorize("leash.trainings:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("Trainings")
 		}
 
 		if req.WithUpdates {
-			if authentication.Authenticate("leash.updates:read") != nil {
+			if authentication.Authorize("leash.updates:read") != nil {
 				return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 			}
 			con = con.Preload("UserUpdates")
@@ -541,7 +541,7 @@ func main() {
 		authentication := leash_auth.GetAuthentication(c)
 		apiUser := authentication.User
 
-		if authentication.Authenticate("leash.trainings:write") != nil {
+		if authentication.Authorize("leash.trainings:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -608,7 +608,7 @@ func main() {
 		authentication := leash_auth.GetAuthentication(c)
 		apiUser := authentication.User
 
-		if authentication.Authenticate("leash.trainings:write") != nil {
+		if authentication.Authorize("leash.trainings:write") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -669,7 +669,7 @@ func main() {
 		// Get api user from the request context
 		authentication := leash_auth.GetAuthentication(c)
 
-		if authentication.Authenticate("leash.trainings:read") != nil {
+		if authentication.Authorize("leash.trainings:read") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -722,7 +722,7 @@ func main() {
 		// Get api user from the request context
 		authentication := leash_auth.GetAuthentication(c)
 
-		if authentication.Authenticate("leash.updates:read") != nil {
+		if authentication.Authorize("leash.updates:read") != nil {
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		}
 
@@ -1000,7 +1000,7 @@ func main() {
 	// app.Get("/discord/enable", cookieAuthMiddleware(publicKey, leash_auth.AuthenticationMiddleware(db, keys, func(c *fiber.Ctx) error {
 	// 	authentication := leash_auth.GetAuthentication(c)
 
-	// 	if authentication.Authenticate("leash.users:write") != nil {
+	// 	if authentication.Authorize("leash.users:write") != nil {
 	// 		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 	// 	}
 

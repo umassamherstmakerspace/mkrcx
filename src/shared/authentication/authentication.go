@@ -169,3 +169,14 @@ func AuthenticationMiddleware(db *gorm.DB, keys Keys, next fiber.Handler) fiber.
 		return next(c)
 	}
 }
+
+func AuthorizationMiddleware(permission string, next fiber.Handler) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		authentication := GetAuthentication(c)
+		if authentication.Authorize(permission) != nil {
+			return c.Status(401).SendString("Unauthorized")
+		}
+
+		return next(c)
+	}
+}
