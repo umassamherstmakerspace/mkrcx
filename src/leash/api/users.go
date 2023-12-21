@@ -78,6 +78,7 @@ func registerUserEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) 
 
 		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			req := c.Locals("body").(request)
+
 			// Check if the user already exists
 			{
 				var user models.User

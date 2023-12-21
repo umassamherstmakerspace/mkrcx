@@ -8,8 +8,8 @@ import (
 )
 
 func getBodyMiddleware[V interface{}](structType V, next fiber.Handler) fiber.Handler {
+
 	return func(c *fiber.Ctx) error {
-		body := make(map[string]interface{})
 		var req V
 
 		if err := c.BodyParser(&req); err != nil {
@@ -23,7 +23,7 @@ func getBodyMiddleware[V interface{}](structType V, next fiber.Handler) fiber.Ha
 			return c.Status(fiber.StatusBadRequest).JSON(errors)
 		}
 
-		c.Locals("body", body)
+		c.Locals("body", req)
 		return next(c)
 	}
 }
