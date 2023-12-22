@@ -8,11 +8,13 @@ type UserEvent struct {
 	Timestamp int64       `json:"time"`
 }
 
+type UserChanges struct {
+	Old   string `json:"old"`
+	New   string `json:"new"`
+	Field string `json:"field"`
+}
+
 type UserUpdateEvent struct {
 	UserEvent
-	Changes []struct {
-		Old   string `json:"old"`
-		New   string `json:"new"`
-		Field string `json:"field"`
-	} `json:"changes"`
+	Changes []UserChanges `json:"changes"`
 }
