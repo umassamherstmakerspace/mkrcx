@@ -57,4 +57,6 @@ func RegisterAPIEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	users_ep := api.Group("/users")
 
 	registerUserEndpoints(users_ep, db, keys)
+	registerHoldsEndpoints(users_ep, db, keys)
+	registerTrainingEndpoints(users_ep, db, keys)
 }

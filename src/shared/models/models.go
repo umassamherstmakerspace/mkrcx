@@ -28,6 +28,7 @@ type User struct {
 	Enabled        bool
 
 	Trainings   []Training   `json:",omitempty"`
+	Holds       []Hold       `json:",omitempty"`
 	APIKeys     []APIKey     `json:"-"`
 	UserUpdates []UserUpdate `json:",omitempty"`
 }
@@ -79,6 +80,14 @@ type Training struct {
 	TrainingType string
 	AddedBy      uint `gorm:"foreignKey:user_id"`
 	RemovedBy    uint `gorm:"foreignKey:user_id"`
+}
+
+type Hold struct {
+	Model
+	UserID    uint `gorm:"foreignKey:user_id"`
+	HoldType  string
+	AddedBy   uint `gorm:"foreignKey:user_id"`
+	RemovedBy uint `gorm:"foreignKey:user_id"`
 }
 
 type UserUpdate struct {

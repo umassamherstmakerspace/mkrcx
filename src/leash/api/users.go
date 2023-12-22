@@ -305,6 +305,9 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 
 		return next(c)
 	}))
+
+	addUserTrainingEndpoints(user_ep, db, keys)
+	addUserHoldsEndpoints(user_ep, db, keys)
 }
 
 func otherUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
