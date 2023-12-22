@@ -22,7 +22,6 @@ func selfMiddleware(c *fiber.Ctx) error {
 
 	apiUser := authentication.User
 
-	c.Locals("source_user", apiUser)
 	c.Locals("target_user", apiUser)
 	c.Locals("self", true)
 	c.Locals("permission_prefix", "leash.users.self")
@@ -162,27 +161,18 @@ func userMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 		return c.Status(404).SendString("User not found")
 	}
 
-	c.Locals("source_user", authentication.User)
 	c.Locals("target_user", user)
 	c.Locals("self", false)
 	c.Locals("permission_prefix", "leash.users.other")
 	return c.Next()
 }
 
-func userGatedEndpointMiddleware(permissionSuffix string, next fiber.Handler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		permission := c.Locals("permission_prefix").(string) + "." + permissionSuffix
-		authorize := leash_auth.AuthorizationMiddleware(permission, next)
-		return authorize(c)
-	}
-}
-
 func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	user_ep.Get("/", userGatedEndpointMiddleware("read", func(c *fiber.Ctx) error {
+	user_ep.Get("/", prefixGatedEndpointMiddleware("read", func(c *fiber.Ctx) error {
 		return c.JSON(c.Locals("target_user"))
 	}))
 
-	user_ep.Put("/", userGatedEndpointMiddleware("edit", func(c *fiber.Ctx) error {
+	user_ep.Put("/", prefixGatedEndpointMiddleware("edit", func(c *fiber.Ctx) error {
 		type request struct {
 			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
 			Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
@@ -204,7 +194,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 			event := UserUpdateEvent{
 				UserEvent: UserEvent{
 					Target:    user,
-					Agent:     leash_auth.GetAuthentication(c).User,
+					Agent:     authenticator.User,
 					Timestamp: time.Now().Unix(),
 				},
 				Changes: []UserChanges{},
@@ -311,7 +301,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 }
 
 func otherUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	user_ep.Delete("/", userGatedEndpointMiddleware("delete", func(c *fiber.Ctx) error {
+	user_ep.Delete("/", prefixGatedEndpointMiddleware("delete", func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 
 		event := UserEvent{
