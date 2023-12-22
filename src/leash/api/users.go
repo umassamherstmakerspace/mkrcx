@@ -172,7 +172,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 		return c.JSON(c.Locals("target_user"))
 	}))
 
-	user_ep.Put("/", prefixGatedEndpointMiddleware("edit", func(c *fiber.Ctx) error {
+	user_ep.Patch("/", prefixGatedEndpointMiddleware("edit", func(c *fiber.Ctx) error {
 		type request struct {
 			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
 			Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
