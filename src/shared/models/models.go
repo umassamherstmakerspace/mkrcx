@@ -18,7 +18,8 @@ type Model struct {
 type User struct {
 	Model
 	Email          string `gorm:"unique"`
-	Admin          bool
+	PendingEmail   string `gorm:"unique"`
+	CardID         uint64 `gorm:"unique"`
 	Name           string
 	Role           string
 	Type           string

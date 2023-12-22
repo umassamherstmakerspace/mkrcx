@@ -129,7 +129,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	api.Get("/get/email/:email", leash_auth.AuthorizationMiddleware("leash.users.get.email", func(c *fiber.Ctx) error {
 		email := c.Params("email")
 		var user models.User
-		err := db.First(&user, "email = ?", email).Error
+		err := db.First(&user, "email = ? OR pending_email = ?", email, email).Error
 		if err != nil {
 			return c.Status(404).SendString("User not found")
 		}
@@ -185,7 +185,8 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 	user_ep.Put("/", userGatedEndpointMiddleware("edit", func(c *fiber.Ctx) error {
 		type request struct {
 			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
-			Email    *string `json:"new_email" xml:"new_email" form:"new_email" validate:"omitempty,email"`
+			Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
+			CardId   *uint64 `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
 			Role     *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
 			Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
 			GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
@@ -194,7 +195,11 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 
 		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			req := c.Locals("body").(request)
+			self := c.Locals("self").(bool)
 			user := c.Locals("target_user").(models.User)
+
+			authenticator := leash_auth.GetAuthentication(c)
+			permissionPrefix := c.Locals("permission_prefix").(string)
 
 			event := UserUpdateEvent{
 				UserEvent: UserEvent{
@@ -226,12 +231,49 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 				user.Name = *req.Name
 			}
 
-			if modified(user.Email, req.Email, "email") {
-				user.Email = *req.Email
+			if req.Email != nil && *req.Email != user.Email && *req.Email != user.PendingEmail {
+				var tmpUser models.User
+				res := db.Find(&tmpUser, "email = ? OR pending_email = ?", *req.Email, *req.Email)
+				if res.RowsAffected > 0 {
+					// The user already exists
+					return c.Status(fiber.StatusConflict).SendString("Email already in use")
+				}
+
+				event.Changes = append(event.Changes, UserChanges{
+					Old:   user.PendingEmail,
+					New:   *req.Email,
+					Field: "pending_email",
+				})
+			}
+
+			var cardId *string
+			if req.CardId != nil {
+				cardId = new(string)
+				*cardId = fmt.Sprintf("%d", *req.CardId)
+			}
+
+			if modified(fmt.Sprint(user.CardID), cardId, "card_id") {
+				if !self {
+					if authenticator.Authorize(permissionPrefix+".edit.card_id") != nil {
+						user.CardID = *req.CardId
+					} else {
+						return c.SendStatus(403)
+					}
+				} else {
+					return c.Status(403).SendString("You cannot change your own card id")
+				}
 			}
 
 			if modified(user.Role, req.Role, "role") {
-				user.Role = *req.Role
+				if !self {
+					if authenticator.Authorize(permissionPrefix+".edit.role") != nil {
+						user.Role = *req.Role
+					} else {
+						return c.SendStatus(403)
+					}
+				} else {
+					return c.Status(403).SendString("You cannot change your own role")
+				}
 			}
 
 			if modified(user.Type, req.Type, "type") {
