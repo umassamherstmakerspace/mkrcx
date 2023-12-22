@@ -46,7 +46,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 			// Check if the user already exists
 			{
 				var user models.User
-				res := db.Find(&user, "email = ?", req.Email)
+				res := db.Find(&user, "email = ? OR pending_email = ?", req.Email, req.Email)
 				if res.RowsAffected > 0 {
 					// The user already exists
 					return c.Status(fiber.StatusConflict).SendString("User already exists")
