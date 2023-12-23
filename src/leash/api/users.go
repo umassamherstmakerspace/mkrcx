@@ -296,6 +296,13 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 		return next(c)
 	}))
 
+	user_ep.Get("/updates", prefixGatedEndpointMiddleware("updates.list", func(c *fiber.Ctx) error {
+		user := c.Locals("target_user").(models.User)
+		var updates []models.UserUpdate
+		db.Model(&user).Association("UserUpdates").Find(&updates)
+		return c.JSON(updates)
+	}))
+
 	addUserTrainingEndpoints(user_ep, db, keys)
 	addUserHoldsEndpoints(user_ep, db, keys)
 }
