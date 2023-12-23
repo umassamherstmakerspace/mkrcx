@@ -86,6 +86,9 @@ type Hold struct {
 	Model
 	UserID    uint `gorm:"foreignKey:user_id"`
 	HoldType  string
+	Reason    string
+	HoldStart *time.Time
+	HoldEnd   *time.Time
 	AddedBy   uint `gorm:"foreignKey:user_id"`
 	RemovedBy uint `gorm:"foreignKey:user_id"`
 }
