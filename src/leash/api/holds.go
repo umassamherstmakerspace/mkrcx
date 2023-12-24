@@ -72,7 +72,7 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 			HoldEnd   *int64 `json:"hold_end" validate:"numeric"`
 		}
 
-		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			user := c.Locals("target_user").(models.User)
 			body := c.Locals("body").(request)
 
@@ -101,9 +101,7 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 			db.Save(&hold)
 
 			return c.JSON(hold)
-		})
-
-		return next(c)
+		})(c)
 	}))
 
 	user_hold_ep := hold_ep.Group("/:hold_type", userHoldMiddlware)

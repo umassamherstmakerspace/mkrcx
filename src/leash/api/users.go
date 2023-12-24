@@ -1,6 +1,7 @@
 package leash_backend_api
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -39,7 +40,7 @@ func createEndpoint(api fiber.Router) {
 			Major    string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		}
 
-		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			req := c.Locals("body").(request)
 
 			// Check if the user already exists
@@ -76,9 +77,7 @@ func createEndpoint(api fiber.Router) {
 			}
 
 			return c.JSON(user)
-		})
-
-		return next(c)
+		})(c)
 	}))
 
 	api.Get("/search", leash_auth.AuthorizationMiddleware("leash.users", "search", func(c *fiber.Ctx) error {
@@ -89,7 +88,7 @@ func createEndpoint(api fiber.Router) {
 			Offset *int    `query:"offset" validate:"omitempty,min=0"`
 		}
 
-		next := getQueryMiddleware(request{}, func(c *fiber.Ctx) error {
+		return models.GetQueryMiddleware(request{}, func(c *fiber.Ctx) error {
 			req := c.Locals("query").(request)
 
 			var users []models.User
@@ -121,9 +120,7 @@ func createEndpoint(api fiber.Router) {
 			}
 
 			return c.JSON(response)
-		})
-
-		return next(c)
+		})(c)
 	}))
 
 	api.Get("/get/email/:email", leash_auth.AuthorizationMiddleware("leash.users.get", "email", func(c *fiber.Ctx) error {
@@ -188,7 +185,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 			Major    *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		}
 
-		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			req := c.Locals("body").(request)
 			self := c.Locals("self").(bool)
 			user := c.Locals("target_user").(models.User)
@@ -297,9 +294,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 			}
 
 			return c.JSON(user)
-		})
-
-		return next(c)
+		})(c)
 	}))
 
 	user_ep.Get("/updates", prefixGatedEndpointMiddleware("updates", "list", func(c *fiber.Ctx) error {
@@ -374,4 +369,43 @@ func OnUserUpdate(callback func(UserUpdateEvent)) {
 
 func OnUserDelete(callback func(UserEvent)) {
 	userDeleteCallbacks = append(userDeleteCallbacks, callback)
+}
+
+func UpdatePendingEmail(user models.User, c *fiber.Ctx) (models.User, error) {
+	db := leash_auth.GetDB(c)
+
+	if user.PendingEmail == "" {
+		return user, errors.New("no pending email")
+	}
+
+	event := UserUpdateEvent{
+		UserEvent: UserEvent{
+			c:         c,
+			Target:    user,
+			Agent:     user,
+			Timestamp: time.Now().Unix(),
+		},
+		Changes: []UserChanges{
+			{
+				Old:   user.Email,
+				New:   user.PendingEmail,
+				Field: "email",
+			},
+			{
+				Old:   user.PendingEmail,
+				New:   "",
+				Field: "pending_email",
+			},
+		},
+	}
+
+	user.Email = user.PendingEmail
+	user.PendingEmail = ""
+	db.Save(&user)
+
+	for _, callback := range userUpdateCallbacks {
+		callback(event)
+	}
+
+	return user, nil
 }

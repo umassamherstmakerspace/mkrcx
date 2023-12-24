@@ -66,7 +66,7 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 			TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required"`
 		}
 
-		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			db := leash_auth.GetDB(c)
 			user := c.Locals("target_user").(models.User)
 			authenticator := leash_auth.GetAuthentication(c)
@@ -88,9 +88,7 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 			db.Model(&user).Association("Trainings").Append(&training)
 
 			return c.SendStatus(fiber.StatusCreated)
-		})
-
-		return next(c)
+		})(c)
 	}))
 
 	user_training_ep := training_ep.Group("/:training_type", userTrainingMiddlware)

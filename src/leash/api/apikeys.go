@@ -55,7 +55,7 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 			Permissions *[]string `json:"permissions"`
 		}
 
-		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			db := leash_auth.GetDB(c)
 			apikey := c.Locals("apikey").(models.APIKey)
 			req := c.Locals("body").(request)
@@ -71,9 +71,7 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 			db.Save(&apikey)
 
 			return c.JSON(apikey)
-		})
-
-		return next(c)
+		})(c)
 	}))
 }
 
@@ -95,7 +93,7 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 			Permissions []string `json:"permissions" validate:"required"`
 		}
 
-		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
 			user := c.Locals("target_user").(models.User)
 			req := c.Locals("body").(request)
 
@@ -111,9 +109,7 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 			db.Create(&apikey)
 
 			return c.JSON(apikey)
-		})
-
-		return next(c)
+		})(c)
 	}))
 
 	user_apikey_ep := apikey_ep.Group("/:api_key", userApiKeyMiddlware)

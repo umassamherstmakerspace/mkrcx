@@ -13,6 +13,7 @@ import (
 
 	leash_api "github.com/mkrcx/mkrcx/src/leash/api"
 	leash_frontend "github.com/mkrcx/mkrcx/src/leash/frontend"
+	leash_signin "github.com/mkrcx/mkrcx/src/leash/signin"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	models "github.com/mkrcx/mkrcx/src/shared/models"
 )
@@ -72,9 +73,9 @@ func main() {
 
 	leash_api.RegisterAPIEndpoints(api)
 
-	auth := api.Group("/auth")
+	auth := app.Group("/auth")
 
-	leash_auth.RegisterAuthenticationEndpoints(auth)
+	leash_signin.RegisterAuthenticationEndpoints(auth)
 
 	leash_frontend.SetupFrontend(app, "/", frontend_dir)
 

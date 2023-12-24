@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	val "github.com/go-playground/validator/v10/non-standard/validators"
+	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
@@ -96,4 +97,46 @@ func ValidateStruct(s interface{}) []*ErrorResponse {
 
 func SetupValidator() error {
 	return validate.RegisterValidation("notblank", val.NotBlank)
+}
+
+func GetBodyMiddleware[V interface{}](structType V, next fiber.Handler) fiber.Handler {
+
+	return func(c *fiber.Ctx) error {
+		var req V
+
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+
+		errors := ValidateStruct(req)
+		if errors != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(errors)
+		}
+
+		c.Locals("body", req)
+		return next(c)
+	}
+}
+
+func GetQueryMiddleware[V interface{}](structType V, next fiber.Handler) fiber.Handler {
+
+	return func(c *fiber.Ctx) error {
+		var req V
+
+		if err := c.QueryParser(&req); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+
+		errors := ValidateStruct(req)
+		if errors != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(errors)
+		}
+
+		c.Locals("query", req)
+		return next(c)
+	}
 }
