@@ -4,7 +4,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
-	"gorm.io/gorm"
 )
 
 func getBodyMiddleware[V interface{}](structType V, next fiber.Handler) fiber.Handler {
@@ -49,17 +48,15 @@ func getQueryMiddleware[V interface{}](structType V, next fiber.Handler) fiber.H
 	}
 }
 
-func RegisterAPIEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	api.Use(leash_auth.AuthenticationMiddleware(db, keys, func(c *fiber.Ctx) error {
-		return c.Next()
-	}))
+func RegisterAPIEndpoints(api fiber.Router) {
+	api.Use(leash_auth.AuthenticationMiddleware)
 
 	users_ep := api.Group("/users")
 
-	registerUserEndpoints(users_ep, db, keys)
-	registerHoldsEndpoints(users_ep, db, keys)
-	registerTrainingEndpoints(users_ep, db, keys)
-	registerApiKeyEndpoints(users_ep, db, keys)
+	registerUserEndpoints(users_ep)
+	registerHoldsEndpoints(users_ep)
+	registerTrainingEndpoints(users_ep)
+	registerApiKeyEndpoints(users_ep)
 }
 
 func prefixGatedEndpointMiddleware(permissionSuffix string, permissionAction string, next fiber.Handler) fiber.Handler {

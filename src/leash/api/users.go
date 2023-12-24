@@ -7,7 +7,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
-	"gorm.io/gorm"
 )
 
 var userCreateCallbacks []func(UserEvent)
@@ -28,8 +27,9 @@ func selfMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func createEndpoint(api fiber.Router) {
 	api.Post("/", leash_auth.AuthorizationMiddleware("leash.users", "create", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		type request struct {
 			Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
 			Name     string `json:"name" xml:"name" form:"name" validate:"required"`
@@ -65,6 +65,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 			db.Create(&user)
 
 			event := UserEvent{
+				c:         c,
 				Target:    user,
 				Agent:     leash_auth.GetAuthentication(c).User,
 				Timestamp: time.Now().Unix(),
@@ -82,6 +83,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	}))
 
 	api.Get("/search", leash_auth.AuthorizationMiddleware("leash.users", "search", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		type request struct {
 			Query  *string `query:"query" validate:"required"`
 			Limit  *int    `query:"limit" validate:"omitempty,min=1,max=100"`
@@ -126,6 +128,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	}))
 
 	api.Get("/get/email/:email", leash_auth.AuthorizationMiddleware("leash.users.get", "email", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		email := c.Params("email")
 		var user models.User
 		err := db.First(&user, "email = ? OR pending_email = ?", email, email).Error
@@ -137,6 +140,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	}))
 
 	api.Get("/get/card/:card", leash_auth.AuthorizationMiddleware("leash.users.get", "card", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		card := c.Params("card")
 		var user models.User
 		err := db.First(&user, "card_id = ?", card).Error
@@ -148,7 +152,8 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	}))
 }
 
-func userMiddleware(c *fiber.Ctx, db *gorm.DB) error {
+func userMiddleware(c *fiber.Ctx) error {
+	db := leash_auth.GetDB(c)
 	authentication := leash_auth.GetAuthentication(c)
 	if authentication.Authorize("leash.target", "others") != nil {
 		return c.Status(401).SendString("Unauthorized")
@@ -167,12 +172,13 @@ func userMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 	return c.Next()
 }
 
-func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func commonUserEndpoints(user_ep fiber.Router) {
 	user_ep.Get("/", prefixGatedEndpointMiddleware("", "read", func(c *fiber.Ctx) error {
 		return c.JSON(c.Locals("target_user"))
 	}))
 
 	user_ep.Patch("/", prefixGatedEndpointMiddleware("", "edit", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		type request struct {
 			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
 			Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
@@ -193,6 +199,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 
 			event := UserUpdateEvent{
 				UserEvent: UserEvent{
+					c:         c,
 					Target:    user,
 					Agent:     authenticator.User,
 					Timestamp: time.Now().Unix(),
@@ -297,22 +304,24 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 	}))
 
 	user_ep.Get("/updates", prefixGatedEndpointMiddleware("updates", "list", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var updates []models.UserUpdate
 		db.Model(&user).Association("UserUpdates").Find(&updates)
 		return c.JSON(updates)
 	}))
 
-	addUserTrainingEndpoints(user_ep, db, keys)
-	addUserHoldsEndpoints(user_ep, db, keys)
-	addUserApiKeyEndpoints(user_ep, db, keys)
+	addUserTrainingEndpoints(user_ep)
+	addUserHoldsEndpoints(user_ep)
+	addUserApiKeyEndpoints(user_ep)
 }
 
-func otherUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func otherUserEndpoints(user_ep fiber.Router) {
 	user_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 
 		event := UserEvent{
+			c:         c,
 			Target:    user,
 			Agent:     leash_auth.GetAuthentication(c).User,
 			Timestamp: time.Now().Unix(),
@@ -326,14 +335,14 @@ func otherUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys)
 	}))
 }
 
-func registerUserEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func registerUserEndpoints(api fiber.Router) {
 	userCreateCallbacks = []func(UserEvent){}
 	userUpdateCallbacks = []func(UserUpdateEvent){}
 	userDeleteCallbacks = []func(UserEvent){}
 
 	OnUserUpdate(func(event UserUpdateEvent) {
 		for _, change := range event.Changes {
-
+			db := leash_auth.GetDB(event.GetCtx())
 			update := models.UserUpdate{
 				Field:    change.Field,
 				NewValue: change.New,
@@ -346,16 +355,14 @@ func registerUserEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) 
 		}
 	})
 
-	createEndpoint(api, db, keys)
+	createEndpoint(api)
 
 	self_ep := api.Group("/self", selfMiddleware)
-	commonUserEndpoints(self_ep, db, keys)
+	commonUserEndpoints(self_ep)
 
-	user_ep := api.Group("/:user_id", func(c *fiber.Ctx) error {
-		return userMiddleware(c, db)
-	})
-	commonUserEndpoints(user_ep, db, keys)
-	otherUserEndpoints(user_ep, db, keys)
+	user_ep := api.Group("/:user_id", userMiddleware)
+	commonUserEndpoints(user_ep)
+	otherUserEndpoints(user_ep)
 }
 
 func OnUserCreate(callback func(UserEvent)) {

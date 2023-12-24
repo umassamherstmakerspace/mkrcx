@@ -4,10 +4,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
-	"gorm.io/gorm"
 )
 
-func userTrainingMiddlware(c *fiber.Ctx, db *gorm.DB) error {
+func userTrainingMiddlware(c *fiber.Ctx) error {
+	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
 	var training models.Training
 	if err := db.Model(&user).Where("training_type = ?", c.Params("training_type")).Association("Trainings").Find(&training); err != nil {
@@ -20,7 +20,8 @@ func userTrainingMiddlware(c *fiber.Ctx, db *gorm.DB) error {
 	return c.Next()
 }
 
-func generalTrainingMiddleware(c *fiber.Ctx, db *gorm.DB) error {
+func generalTrainingMiddleware(c *fiber.Ctx) error {
+	db := leash_auth.GetDB(c)
 	var training models.Training
 	if err := db.Where("id = ?", c.Params("training_id")).First(&training).Error; err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Training not found")
@@ -31,13 +32,14 @@ func generalTrainingMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 	return c.Next()
 }
 
-func addCommonTrainingEndpoints(training_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func addCommonTrainingEndpoints(training_ep fiber.Router) {
 	training_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
 		training := c.Locals("training").(models.Training)
 		return c.JSON(training)
 	}))
 
 	training_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		training := c.Locals("training").(models.Training)
 		training.RemovedBy = leash_auth.GetAuthentication(c).User.ID
 
@@ -48,10 +50,11 @@ func addCommonTrainingEndpoints(training_ep fiber.Router, db *gorm.DB, keys leas
 	}))
 }
 
-func addUserTrainingEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func addUserTrainingEndpoints(user_ep fiber.Router) {
 	training_ep := user_ep.Group("/trainings")
 
 	training_ep.Get("/", prefixGatedEndpointMiddleware("trainings", "list", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var trainings []models.Training
 		db.Model(&user).Association("Trainings").Find(&trainings)
@@ -64,6 +67,7 @@ func addUserTrainingEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth
 		}
 
 		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+			db := leash_auth.GetDB(c)
 			user := c.Locals("target_user").(models.User)
 			authenticator := leash_auth.GetAuthentication(c)
 			req := c.Locals("body").(request)
@@ -89,19 +93,15 @@ func addUserTrainingEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth
 		return next(c)
 	}))
 
-	user_training_ep := training_ep.Group("/:training_type", func(c *fiber.Ctx) error {
-		return userTrainingMiddlware(c, db)
-	})
+	user_training_ep := training_ep.Group("/:training_type", userTrainingMiddlware)
 
-	addCommonTrainingEndpoints(user_training_ep, db, keys)
+	addCommonTrainingEndpoints(user_training_ep)
 }
 
-func registerTrainingEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func registerTrainingEndpoints(api fiber.Router) {
 	trainings_ep := api.Group("/trainings")
 
-	single_training_ep := trainings_ep.Group("/:training_id", func(c *fiber.Ctx) error {
-		return generalTrainingMiddleware(c, db)
-	})
+	single_training_ep := trainings_ep.Group("/:training_id", generalTrainingMiddleware)
 
-	addCommonTrainingEndpoints(single_training_ep, db, keys)
+	addCommonTrainingEndpoints(single_training_ep)
 }

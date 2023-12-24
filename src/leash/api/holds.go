@@ -6,10 +6,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
-	"gorm.io/gorm"
 )
 
-func userHoldMiddlware(c *fiber.Ctx, db *gorm.DB) error {
+func userHoldMiddlware(c *fiber.Ctx) error {
+	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
 	var hold models.Hold
 	if err := db.Model(&user).Where("hold_type = ?", c.Params("hold_type")).Association("Holds").Find(&hold); err != nil {
@@ -22,7 +22,8 @@ func userHoldMiddlware(c *fiber.Ctx, db *gorm.DB) error {
 	return c.Next()
 }
 
-func generalHoldMiddleware(c *fiber.Ctx, db *gorm.DB) error {
+func generalHoldMiddleware(c *fiber.Ctx) error {
+	db := leash_auth.GetDB(c)
 	var hold models.Hold
 	if err := db.Where("id = ?", c.Params("hold_id")).First(&hold).Error; err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
@@ -33,13 +34,14 @@ func generalHoldMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 	return c.Next()
 }
 
-func addCommonHoldEndpoints(hold_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func addCommonHoldEndpoints(hold_ep fiber.Router) {
 	hold_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
 		hold := c.Locals("hold").(models.Hold)
 		return c.JSON(hold)
 	}))
 
 	hold_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		hold := c.Locals("hold").(models.Hold)
 		hold.RemovedBy = leash_auth.GetAuthentication(c).User.ID
 
@@ -50,10 +52,11 @@ func addCommonHoldEndpoints(hold_ep fiber.Router, db *gorm.DB, keys leash_auth.K
 	}))
 }
 
-func addUserHoldsEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func addUserHoldsEndpoints(user_ep fiber.Router) {
 	hold_ep := user_ep.Group("/holds")
 
 	hold_ep.Get("/", prefixGatedEndpointMiddleware("holds", "list", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var holds []models.Hold
 		db.Model(&user).Association("Holds").Find(&holds)
@@ -61,6 +64,7 @@ func addUserHoldsEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Ke
 	}))
 
 	hold_ep.Post("/", prefixGatedEndpointMiddleware("holds", "create", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		type request struct {
 			HoldType  string `json:"hold_type" validate:"required"`
 			Reason    string `json:"reason" validate:"required"`
@@ -102,19 +106,15 @@ func addUserHoldsEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Ke
 		return next(c)
 	}))
 
-	user_hold_ep := hold_ep.Group("/:hold_type", func(c *fiber.Ctx) error {
-		return userHoldMiddlware(c, db)
-	})
+	user_hold_ep := hold_ep.Group("/:hold_type", userHoldMiddlware)
 
-	addCommonHoldEndpoints(user_hold_ep, db, keys)
+	addCommonHoldEndpoints(user_hold_ep)
 }
 
-func registerHoldsEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func registerHoldsEndpoints(api fiber.Router) {
 	holds_ep := api.Group("/holds")
 
-	single_hold_ep := holds_ep.Group("/:hold_id", func(c *fiber.Ctx) error {
-		return generalHoldMiddleware(c, db)
-	})
+	single_hold_ep := holds_ep.Group("/:hold_id", generalHoldMiddleware)
 
-	addCommonHoldEndpoints(single_hold_ep, db, keys)
+	addCommonHoldEndpoints(single_hold_ep)
 }

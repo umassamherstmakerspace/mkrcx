@@ -61,15 +61,20 @@ func main() {
 	// JWT Key
 	keys := leash_auth.InitalizeJWT()
 
+	// Initalize RBAC
+	enforcer := leash_auth.InitalizeCasbin(db)
+
+	app.Use(leash_auth.LocalsMiddleware(db, keys, google, enforcer))
+
 	frontend_dir := os.Getenv("FRONTEND_DIR")
 
 	api := app.Group("/api")
 
-	leash_api.RegisterAPIEndpoints(api, db, keys)
+	leash_api.RegisterAPIEndpoints(api)
 
 	auth := api.Group("/auth")
 
-	leash_auth.RegisterAuthenticationEndpoints(auth, db, keys, google)
+	leash_auth.RegisterAuthenticationEndpoints(auth)
 
 	leash_frontend.SetupFrontend(app, "/", frontend_dir)
 

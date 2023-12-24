@@ -7,10 +7,10 @@ import (
 	"github.com/google/uuid"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
-	"gorm.io/gorm"
 )
 
-func userApiKeyMiddlware(c *fiber.Ctx, db *gorm.DB) error {
+func userApiKeyMiddlware(c *fiber.Ctx) error {
+	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
 	var apikey models.APIKey
 	if err := db.Model(&user).Where("key = ?", c.Params("api_key")).Association("APIKeys").Find(&apikey); err != nil {
@@ -23,7 +23,8 @@ func userApiKeyMiddlware(c *fiber.Ctx, db *gorm.DB) error {
 	return c.Next()
 }
 
-func generalApiKeyMiddleware(c *fiber.Ctx, db *gorm.DB) error {
+func generalApiKeyMiddleware(c *fiber.Ctx) error {
+	db := leash_auth.GetDB(c)
 	var apikey models.APIKey
 	if err := db.Where("key = ?", c.Params("api_key")).First(&apikey).Error; err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
@@ -34,13 +35,14 @@ func generalApiKeyMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 	return c.Next()
 }
 
-func addCommonApiKeyEndpoints(apikey_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 	apikey_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
 		apikey := c.Locals("apikey").(models.APIKey)
 		return c.JSON(apikey)
 	}))
 
 	apikey_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		apikey := c.Locals("apikey").(models.APIKey)
 
 		db.Delete(&apikey)
@@ -54,6 +56,7 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router, db *gorm.DB, keys leash_au
 		}
 
 		next := getBodyMiddleware(request{}, func(c *fiber.Ctx) error {
+			db := leash_auth.GetDB(c)
 			apikey := c.Locals("apikey").(models.APIKey)
 			req := c.Locals("body").(request)
 
@@ -74,10 +77,11 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router, db *gorm.DB, keys leash_au
 	}))
 }
 
-func addUserApiKeyEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func addUserApiKeyEndpoints(user_ep fiber.Router) {
 	apikey_ep := user_ep.Group("/apikeys")
 
 	apikey_ep.Get("/", prefixGatedEndpointMiddleware("apikeys", "list", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var apikeys []models.APIKey
 		db.Model(&user).Association("APIKeys").Find(&apikeys)
@@ -85,6 +89,7 @@ func addUserApiKeyEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.K
 	}))
 
 	apikey_ep.Post("/", prefixGatedEndpointMiddleware("apikeys", "create", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		type request struct {
 			Description string   `json:"description" validate:"required"`
 			Permissions []string `json:"permissions" validate:"required"`
@@ -111,18 +116,14 @@ func addUserApiKeyEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.K
 		return next(c)
 	}))
 
-	user_apikey_ep := apikey_ep.Group("/:api_key", func(c *fiber.Ctx) error {
-		return userApiKeyMiddlware(c, db)
-	})
-	addCommonApiKeyEndpoints(user_apikey_ep, db, keys)
+	user_apikey_ep := apikey_ep.Group("/:api_key", userApiKeyMiddlware)
+	addCommonApiKeyEndpoints(user_apikey_ep)
 }
 
-func registerApiKeyEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
+func registerApiKeyEndpoints(api fiber.Router) {
 	apikey_ep := api.Group("/apikeys")
 
-	single_apikey_ep := apikey_ep.Group("/:api_key", func(c *fiber.Ctx) error {
-		return generalApiKeyMiddleware(c, db)
-	})
+	single_apikey_ep := apikey_ep.Group("/:api_key", generalApiKeyMiddleware)
 
-	addCommonApiKeyEndpoints(single_apikey_ep, db, keys)
+	addCommonApiKeyEndpoints(single_apikey_ep)
 }

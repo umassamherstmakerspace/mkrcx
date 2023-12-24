@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
+	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v2/model"
+	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/mkrcx/mkrcx/src/shared/models"
@@ -54,8 +58,10 @@ func GetAuthentication(c *fiber.Ctx) Authentication {
 	return c.Locals(ctxAuthKey{}).(Authentication)
 }
 
-func AuthenticationMiddleware(db *gorm.DB, keys Keys, next fiber.Handler) fiber.Handler {
+func AuthenticationMiddleware(next fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		db := GetDB(c)
+		keys := GetKeys(c)
 		// Make sure DB is alive
 		sql, err := db.DB()
 		if err != nil {
@@ -186,8 +192,10 @@ func AuthorizationMiddleware(permissionObject string, permissionAction string, n
 	}
 }
 
-func RegisterAuthenticationEndpoints(auth_ep fiber.Router, db *gorm.DB, keys Keys, google *oauth2.Config) {
+func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 	auth_ep.Get("/login", func(c *fiber.Ctx) error {
+		keys := GetKeys(c)
+		google := GetGoogle(c)
 		var req struct {
 			Return string `query:"return"`
 		}
@@ -223,6 +231,9 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router, db *gorm.DB, keys Key
 	})
 
 	auth_ep.Get("/callback", func(c *fiber.Ctx) error {
+		db := GetDB(c)
+		keys := GetKeys(c)
+		google := GetGoogle(c)
 		var req struct {
 			Code  string `query:"code" validate:"required"`
 			State string `query:"state" validate:"required"`
@@ -375,7 +386,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router, db *gorm.DB, keys Key
 		return c.Redirect("/")
 	})
 
-	auth_ep.Get("/validate", AuthenticationMiddleware(db, keys, func(c *fiber.Ctx) error {
+	auth_ep.Get("/validate", AuthenticationMiddleware(func(c *fiber.Ctx) error {
 		authentication := GetAuthentication(c)
 
 		if !authentication.IsUser() {
@@ -385,7 +396,8 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router, db *gorm.DB, keys Key
 		return c.SendString("Authorized")
 	}))
 
-	auth_ep.Get("/auth/refresh", AuthenticationMiddleware(db, keys, func(c *fiber.Ctx) error {
+	auth_ep.Get("/auth/refresh", AuthenticationMiddleware(func(c *fiber.Ctx) error {
+		keys := GetKeys(c)
 		authentication := GetAuthentication(c)
 
 		if !authentication.IsUser() {
@@ -418,4 +430,65 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router, db *gorm.DB, keys Key
 			ExpiresAt: tok.Expiration(),
 		})
 	}))
+}
+
+func InitalizeCasbin(db *gorm.DB) *casbin.Enforcer {
+	adapter, err := gormadapter.NewAdapterByDB(db)
+	if err != nil {
+		log.Fatalf("error: adapter: %s", err)
+	}
+
+	model, err := model.NewModelFromString(`
+	[request_definition]
+	r = sub, obj, act
+
+	[policy_definition]
+	p = sub, obj, act
+
+	[policy_effect]
+	e = some(where (p.eft == allow))
+
+	[matchers]
+	m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
+	`)
+	if err != nil {
+		log.Fatalf("error: model: %s", err)
+	}
+	enforcer, err := casbin.NewEnforcer(model, adapter)
+	if err != nil {
+		log.Fatalf("error: enforcer: %s", err)
+	}
+
+	return enforcer
+}
+
+type ctxDBKey struct{}
+type ctxKeysKey struct{}
+type ctxGoogleKey struct{}
+type ctxEnforcerKey struct{}
+
+func LocalsMiddleware(db *gorm.DB, keys Keys, google *oauth2.Config, enforcer *casbin.Enforcer) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Locals(ctxDBKey{}, db)
+		c.Locals(ctxKeysKey{}, keys)
+		c.Locals(ctxGoogleKey{}, google)
+		c.Locals(ctxEnforcerKey{}, enforcer)
+		return c.Next()
+	}
+}
+
+func GetDB(c *fiber.Ctx) *gorm.DB {
+	return c.Locals(ctxDBKey{}).(*gorm.DB)
+}
+
+func GetKeys(c *fiber.Ctx) Keys {
+	return c.Locals(ctxKeysKey{}).(Keys)
+}
+
+func GetGoogle(c *fiber.Ctx) *oauth2.Config {
+	return c.Locals(ctxGoogleKey{}).(*oauth2.Config)
+}
+
+func GetEnforcer(c *fiber.Ctx) *casbin.Enforcer {
+	return c.Locals(ctxEnforcerKey{}).(*casbin.Enforcer)
 }
