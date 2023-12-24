@@ -30,6 +30,7 @@ type Authentication struct {
 	Authenticator Authenticator
 	User          models.User
 	Data          interface{}
+	Enforcer      *casbin.Enforcer
 }
 
 func (a Authentication) IsLoggedOut() bool {
@@ -44,9 +45,41 @@ func (a Authentication) IsAPIKey() bool {
 	return a.Authenticator == AUTHENTICATOR_APIKEY
 }
 
+func (a Authentication) tryAuthorize(subject string, object string, action string) error {
+	val, err := a.Enforcer.Enforce(subject, object, action)
+	if err != nil {
+		return err
+	}
+
+	if !val {
+		return errors.New("not authorized")
+	}
+
+	return nil
+}
+
 func (a Authentication) Authorize(permissionObeject string, permissionAction string) error {
 	if a.IsLoggedOut() {
 		return errors.New("not logged in")
+	}
+
+	if a.IsAPIKey() {
+		err := a.tryAuthorize(fmt.Sprintf("apikey:%d"+a.Data.(models.APIKey).Key), permissionObeject, permissionAction)
+		if err != nil {
+			return err
+		}
+	}
+
+	subjects := []string{
+		fmt.Sprintf("user:%d", a.User.ID),
+		fmt.Sprintf("role:%s", a.User.Role),
+	}
+
+	for _, subject := range subjects {
+		err := a.tryAuthorize(subject, permissionObeject, permissionAction)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -78,6 +111,7 @@ func AuthenticationMiddleware(next fiber.Handler) fiber.Handler {
 		authentication, err := func() (Authentication, error) {
 			authentication := Authentication{
 				Authenticator: AUTHENTICATOR_LOGGED_OUT,
+				Enforcer:      GetEnforcer(c),
 			}
 
 			authLocal := c.Locals("Authorization")
@@ -128,6 +162,7 @@ func AuthenticationMiddleware(next fiber.Handler) fiber.Handler {
 			authentication = Authentication{
 				Authenticator: AUTHENTICATOR_USER,
 				User:          user,
+				Enforcer:      GetEnforcer(c),
 			}
 
 			return authentication, nil
@@ -138,6 +173,7 @@ func AuthenticationMiddleware(next fiber.Handler) fiber.Handler {
 			authentication, err = func() (Authentication, error) {
 				authentication := Authentication{
 					Authenticator: AUTHENTICATOR_LOGGED_OUT,
+					Enforcer:      GetEnforcer(c),
 				}
 
 				apiKey := c.Get("API-Key")
@@ -164,6 +200,7 @@ func AuthenticationMiddleware(next fiber.Handler) fiber.Handler {
 					Authenticator: AUTHENTICATOR_APIKEY,
 					User:          user,
 					Data:          apiKeyRecord,
+					Enforcer:      GetEnforcer(c),
 				}
 
 				return authentication, nil
@@ -172,6 +209,7 @@ func AuthenticationMiddleware(next fiber.Handler) fiber.Handler {
 			if err != nil {
 				authentication = Authentication{
 					Authenticator: AUTHENTICATOR_LOGGED_OUT,
+					Enforcer:      GetEnforcer(c),
 				}
 			}
 		}
