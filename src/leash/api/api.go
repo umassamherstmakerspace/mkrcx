@@ -59,6 +59,7 @@ func RegisterAPIEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	registerUserEndpoints(users_ep, db, keys)
 	registerHoldsEndpoints(users_ep, db, keys)
 	registerTrainingEndpoints(users_ep, db, keys)
+	registerApiKeyEndpoints(users_ep, db, keys)
 }
 
 func prefixGatedEndpointMiddleware(permissionSuffix string, next fiber.Handler) fiber.Handler {

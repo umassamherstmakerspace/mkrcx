@@ -139,7 +139,7 @@ func AuthenticationMiddleware(db *gorm.DB, keys Keys, next fiber.Handler) fiber.
 					return authentication, errors.New("no API-Key header")
 				}
 
-				var apiKeyRecord = models.APIKey{ID: apiKey}
+				var apiKeyRecord = models.APIKey{Key: apiKey}
 
 				res := db.First(&apiKeyRecord)
 				if errors.Is(res.Error, gorm.ErrRecordNotFound) {
