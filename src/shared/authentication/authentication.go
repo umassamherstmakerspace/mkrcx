@@ -40,7 +40,7 @@ func (a Authentication) IsAPIKey() bool {
 	return a.Authenticator == AUTHENTICATOR_APIKEY
 }
 
-func (a Authentication) Authorize(check string) error {
+func (a Authentication) Authorize(permissionObeject string, permissionAction string) error {
 	if a.IsLoggedOut() {
 		return errors.New("not logged in")
 	}
@@ -175,10 +175,10 @@ func AuthenticationMiddleware(db *gorm.DB, keys Keys, next fiber.Handler) fiber.
 	}
 }
 
-func AuthorizationMiddleware(permission string, next fiber.Handler) fiber.Handler {
+func AuthorizationMiddleware(permissionObject string, permissionAction string, next fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authentication := GetAuthentication(c)
-		if authentication.Authorize(permission) != nil {
+		if authentication.Authorize(permissionObject, permissionAction) != nil {
 			return c.Status(401).SendString("Unauthorized")
 		}
 

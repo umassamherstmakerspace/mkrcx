@@ -62,10 +62,10 @@ func RegisterAPIEndpoints(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	registerApiKeyEndpoints(users_ep, db, keys)
 }
 
-func prefixGatedEndpointMiddleware(permissionSuffix string, next fiber.Handler) fiber.Handler {
+func prefixGatedEndpointMiddleware(permissionSuffix string, permissionAction string, next fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		permission := c.Locals("permission_prefix").(string) + "." + permissionSuffix
-		authorize := leash_auth.AuthorizationMiddleware(permission, next)
+		permissionObject := c.Locals("permission_prefix").(string) + "." + permissionSuffix
+		authorize := leash_auth.AuthorizationMiddleware(permissionObject, permissionAction, next)
 		return authorize(c)
 	}
 }

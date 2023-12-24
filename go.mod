@@ -5,13 +5,15 @@ go 1.20
 require (
 	github.com/gofiber/fiber/v2 v2.45.0
 	gorm.io/driver/mysql v1.5.0
-	gorm.io/gorm v1.25.1
+	gorm.io/gorm v1.25.5
 )
 
 require (
 	cloud.google.com/go/compute v1.20.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/casbin/casbin/v2 v2.80.0 // indirect
+	github.com/casbin/govaluate v1.1.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/disgoorg/disgo v0.16.7 // indirect
 	github.com/disgoorg/json v1.1.0 // indirect

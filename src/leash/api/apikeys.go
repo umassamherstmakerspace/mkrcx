@@ -35,19 +35,19 @@ func generalApiKeyMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 }
 
 func addCommonApiKeyEndpoints(apikey_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	apikey_ep.Get("/", prefixGatedEndpointMiddleware("get", func(c *fiber.Ctx) error {
+	apikey_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
 		apikey := c.Locals("apikey").(models.APIKey)
 		return c.JSON(apikey)
 	}))
 
-	apikey_ep.Delete("/", prefixGatedEndpointMiddleware("delete", func(c *fiber.Ctx) error {
+	apikey_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
 		apikey := c.Locals("apikey").(models.APIKey)
 
 		db.Delete(&apikey)
 		return c.SendStatus(fiber.StatusNoContent)
 	}))
 
-	apikey_ep.Patch("/", prefixGatedEndpointMiddleware("update", func(c *fiber.Ctx) error {
+	apikey_ep.Patch("/", prefixGatedEndpointMiddleware("", "update", func(c *fiber.Ctx) error {
 		type request struct {
 			Description *string   `json:"description"`
 			Permissions *[]string `json:"permissions"`
@@ -77,14 +77,14 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router, db *gorm.DB, keys leash_au
 func addUserApiKeyEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	apikey_ep := user_ep.Group("/apikeys")
 
-	apikey_ep.Get("/", prefixGatedEndpointMiddleware("apikeys.list", func(c *fiber.Ctx) error {
+	apikey_ep.Get("/", prefixGatedEndpointMiddleware("apikeys", "list", func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 		var apikeys []models.APIKey
 		db.Model(&user).Association("APIKeys").Find(&apikeys)
 		return c.JSON(apikeys)
 	}))
 
-	apikey_ep.Post("/", prefixGatedEndpointMiddleware("apikeys.create", func(c *fiber.Ctx) error {
+	apikey_ep.Post("/", prefixGatedEndpointMiddleware("apikeys", "create", func(c *fiber.Ctx) error {
 		type request struct {
 			Description string   `json:"description" validate:"required"`
 			Permissions []string `json:"permissions" validate:"required"`

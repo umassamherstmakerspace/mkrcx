@@ -34,12 +34,12 @@ func generalHoldMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 }
 
 func addCommonHoldEndpoints(hold_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	hold_ep.Get("/", prefixGatedEndpointMiddleware("get", func(c *fiber.Ctx) error {
+	hold_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
 		hold := c.Locals("hold").(models.Hold)
 		return c.JSON(hold)
 	}))
 
-	hold_ep.Delete("/", prefixGatedEndpointMiddleware("delete", func(c *fiber.Ctx) error {
+	hold_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
 		hold := c.Locals("hold").(models.Hold)
 		hold.RemovedBy = leash_auth.GetAuthentication(c).User.ID
 
@@ -53,14 +53,14 @@ func addCommonHoldEndpoints(hold_ep fiber.Router, db *gorm.DB, keys leash_auth.K
 func addUserHoldsEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	hold_ep := user_ep.Group("/holds")
 
-	hold_ep.Get("/", prefixGatedEndpointMiddleware("holds.list", func(c *fiber.Ctx) error {
+	hold_ep.Get("/", prefixGatedEndpointMiddleware("holds", "list", func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 		var holds []models.Hold
 		db.Model(&user).Association("Holds").Find(&holds)
 		return c.JSON(holds)
 	}))
 
-	hold_ep.Post("/", prefixGatedEndpointMiddleware("holds.create", func(c *fiber.Ctx) error {
+	hold_ep.Post("/", prefixGatedEndpointMiddleware("holds", "create", func(c *fiber.Ctx) error {
 		type request struct {
 			HoldType  string `json:"hold_type" validate:"required"`
 			Reason    string `json:"reason" validate:"required"`

@@ -32,12 +32,12 @@ func generalTrainingMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 }
 
 func addCommonTrainingEndpoints(training_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	training_ep.Get("/", prefixGatedEndpointMiddleware("get", func(c *fiber.Ctx) error {
+	training_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
 		training := c.Locals("training").(models.Training)
 		return c.JSON(training)
 	}))
 
-	training_ep.Delete("/", prefixGatedEndpointMiddleware("delete", func(c *fiber.Ctx) error {
+	training_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
 		training := c.Locals("training").(models.Training)
 		training.RemovedBy = leash_auth.GetAuthentication(c).User.ID
 
@@ -51,14 +51,14 @@ func addCommonTrainingEndpoints(training_ep fiber.Router, db *gorm.DB, keys leas
 func addUserTrainingEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 	training_ep := user_ep.Group("/trainings")
 
-	training_ep.Get("/", prefixGatedEndpointMiddleware("trainings.list", func(c *fiber.Ctx) error {
+	training_ep.Get("/", prefixGatedEndpointMiddleware("trainings", "list", func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 		var trainings []models.Training
 		db.Model(&user).Association("Trainings").Find(&trainings)
 		return c.JSON(trainings)
 	}))
 
-	training_ep.Post("/", prefixGatedEndpointMiddleware("trainings.create", func(c *fiber.Ctx) error {
+	training_ep.Post("/", prefixGatedEndpointMiddleware("trainings", "create", func(c *fiber.Ctx) error {
 		type request struct {
 			TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required"`
 		}

@@ -16,7 +16,7 @@ var userDeleteCallbacks []func(UserEvent)
 
 func selfMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
-	if authentication.Authorize("leash.target.self") != nil {
+	if authentication.Authorize("leash.target", "self") != nil {
 		return c.Status(401).SendString("Unauthorized")
 	}
 
@@ -29,7 +29,7 @@ func selfMiddleware(c *fiber.Ctx) error {
 }
 
 func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	api.Post("/", leash_auth.AuthorizationMiddleware("leash.users.create", func(c *fiber.Ctx) error {
+	api.Post("/", leash_auth.AuthorizationMiddleware("leash.users", "create", func(c *fiber.Ctx) error {
 		type request struct {
 			Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
 			Name     string `json:"name" xml:"name" form:"name" validate:"required"`
@@ -81,7 +81,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 		return next(c)
 	}))
 
-	api.Get("/search", leash_auth.AuthorizationMiddleware("leash.users.search", func(c *fiber.Ctx) error {
+	api.Get("/search", leash_auth.AuthorizationMiddleware("leash.users", "search", func(c *fiber.Ctx) error {
 		type request struct {
 			Query  *string `query:"query" validate:"required"`
 			Limit  *int    `query:"limit" validate:"omitempty,min=1,max=100"`
@@ -125,7 +125,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 		return next(c)
 	}))
 
-	api.Get("/get/email/:email", leash_auth.AuthorizationMiddleware("leash.users.get.email", func(c *fiber.Ctx) error {
+	api.Get("/get/email/:email", leash_auth.AuthorizationMiddleware("leash.users.get", "email", func(c *fiber.Ctx) error {
 		email := c.Params("email")
 		var user models.User
 		err := db.First(&user, "email = ? OR pending_email = ?", email, email).Error
@@ -136,7 +136,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 		return c.JSON(user)
 	}))
 
-	api.Get("/get/card/:card", leash_auth.AuthorizationMiddleware("leash.users.get.card", func(c *fiber.Ctx) error {
+	api.Get("/get/card/:card", leash_auth.AuthorizationMiddleware("leash.users.get", "card", func(c *fiber.Ctx) error {
 		card := c.Params("card")
 		var user models.User
 		err := db.First(&user, "card_id = ?", card).Error
@@ -150,7 +150,7 @@ func createEndpoint(api fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
 
 func userMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 	authentication := leash_auth.GetAuthentication(c)
-	if authentication.Authorize("leash.target.others") != nil {
+	if authentication.Authorize("leash.target", "others") != nil {
 		return c.Status(401).SendString("Unauthorized")
 	}
 
@@ -168,11 +168,11 @@ func userMiddleware(c *fiber.Ctx, db *gorm.DB) error {
 }
 
 func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	user_ep.Get("/", prefixGatedEndpointMiddleware("read", func(c *fiber.Ctx) error {
+	user_ep.Get("/", prefixGatedEndpointMiddleware("", "read", func(c *fiber.Ctx) error {
 		return c.JSON(c.Locals("target_user"))
 	}))
 
-	user_ep.Patch("/", prefixGatedEndpointMiddleware("edit", func(c *fiber.Ctx) error {
+	user_ep.Patch("/", prefixGatedEndpointMiddleware("", "edit", func(c *fiber.Ctx) error {
 		type request struct {
 			Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
 			Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
@@ -244,7 +244,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 
 			if modified(fmt.Sprint(user.CardID), cardId, "card_id") {
 				if !self {
-					if authenticator.Authorize(permissionPrefix+".edit.card_id") != nil {
+					if authenticator.Authorize(permissionPrefix+".edit", "card_id") != nil {
 						user.CardID = *req.CardId
 					} else {
 						return c.SendStatus(403)
@@ -256,7 +256,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 
 			if modified(user.Role, req.Role, "role") {
 				if !self {
-					if authenticator.Authorize(permissionPrefix+".edit.role") != nil {
+					if authenticator.Authorize(permissionPrefix+".edit", "role") != nil {
 						user.Role = *req.Role
 					} else {
 						return c.SendStatus(403)
@@ -296,7 +296,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 		return next(c)
 	}))
 
-	user_ep.Get("/updates", prefixGatedEndpointMiddleware("updates.list", func(c *fiber.Ctx) error {
+	user_ep.Get("/updates", prefixGatedEndpointMiddleware("updates", "list", func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 		var updates []models.UserUpdate
 		db.Model(&user).Association("UserUpdates").Find(&updates)
@@ -309,7 +309,7 @@ func commonUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys
 }
 
 func otherUserEndpoints(user_ep fiber.Router, db *gorm.DB, keys leash_auth.Keys) {
-	user_ep.Delete("/", prefixGatedEndpointMiddleware("delete", func(c *fiber.Ctx) error {
+	user_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 
 		event := UserEvent{
