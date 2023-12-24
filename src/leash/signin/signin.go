@@ -199,7 +199,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		return c.SendString("Authorized")
 	})
 
-	auth_ep.Get("/auth/refresh", func(c *fiber.Ctx) error {
+	auth_ep.Get("/refresh", func(c *fiber.Ctx) error {
 		keys := leash_auth.GetKeys(c)
 		authentication := leash_auth.GetAuthentication(c)
 
