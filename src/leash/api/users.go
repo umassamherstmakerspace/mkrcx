@@ -75,8 +75,7 @@ func createEndpoint(api fiber.Router) {
 				callback(event)
 			}
 
-			// Write a success message to the response
-			return c.SendString("User created successfully")
+			return c.JSON(user)
 		})
 
 		return next(c)
@@ -297,7 +296,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 				callback(event)
 			}
 
-			return c.SendString("User updated successfully")
+			return c.JSON(user)
 		})
 
 		return next(c)
@@ -331,7 +330,7 @@ func otherUserEndpoints(user_ep fiber.Router) {
 			callback(event)
 		}
 
-		return c.SendString("User deleted successfully")
+		return c.SendStatus(fiber.StatusNoContent)
 	}))
 }
 
