@@ -1,6 +1,7 @@
 package leash_backend_api
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -17,9 +18,6 @@ func userApiKeyMiddlware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
 	}
 	c.Locals("apikey", apikey)
-
-	permission_prefix := c.Locals("permission_prefix").(string)
-	c.Locals("permission_prefix", permission_prefix+".apikeys")
 	return c.Next()
 }
 
@@ -31,93 +29,96 @@ func generalApiKeyMiddleware(c *fiber.Ctx) error {
 	}
 	c.Locals("apikey", apikey)
 
-	c.Locals("permission_prefix", "leash.apikeys")
 	return c.Next()
 }
 
 func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
-	apikey_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
+	apikey_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), func(c *fiber.Ctx) error {
 		apikey := c.Locals("apikey").(models.APIKey)
 		return c.JSON(apikey)
-	}))
+	})
 
-	apikey_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
+	apikey_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		apikey := c.Locals("apikey").(models.APIKey)
+		enforcer := leash_auth.GetEnforcer(c)
+		enforcer.DeletePermissionsForUser(fmt.Sprintf("apikey:%s", apikey.Key))
 
 		db.Delete(&apikey)
 		return c.SendStatus(fiber.StatusNoContent)
-	}))
+	})
 
-	apikey_ep.Patch("/", prefixGatedEndpointMiddleware("", "update", func(c *fiber.Ctx) error {
-		type request struct {
-			Description *string   `json:"description"`
-			Permissions *[]string `json:"permissions"`
+	type apikeyUpdateRequest struct {
+		Description *string   `json:"description" xml:"description" form:"description"`
+		Permissions *[]string `json:"permissions" xml:"permissions" form:"permissions"`
+	}
+
+	apikey_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[apikeyUpdateRequest], func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		apikey := c.Locals("apikey").(models.APIKey)
+		req := c.Locals("body").(apikeyUpdateRequest)
+
+		if req.Description != nil {
+			apikey.Description = *req.Description
 		}
 
-		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
-			db := leash_auth.GetDB(c)
-			apikey := c.Locals("apikey").(models.APIKey)
-			req := c.Locals("body").(request)
+		if req.Permissions != nil {
+			apikey.Permissions = strings.Join(*req.Permissions, ",")
 
-			if req.Description != nil {
-				apikey.Description = *req.Description
+			enforcer := leash_auth.GetEnforcer(c)
+			apiSubject := fmt.Sprintf("apikey:%s", apikey.Key)
+			enforcer.DeletePermissionsForUser(apiSubject)
+			for _, permission := range *req.Permissions {
+				enforcer.AddPermissionForUser(apiSubject, permission)
 			}
+		}
 
-			if req.Permissions != nil {
-				apikey.Permissions = strings.Join(*req.Permissions, ",")
-			}
+		db.Save(&apikey)
 
-			db.Save(&apikey)
-
-			return c.JSON(apikey)
-		})(c)
-	}))
+		return c.JSON(apikey)
+	})
 }
 
 func addUserApiKeyEndpoints(user_ep fiber.Router) {
-	apikey_ep := user_ep.Group("/apikeys")
+	apikey_ep := user_ep.Group("/apikeys", leash_auth.ConcatPermissionPrefixMiddleware("apikeys"))
 
-	apikey_ep.Get("/", prefixGatedEndpointMiddleware("apikeys", "list", func(c *fiber.Ctx) error {
+	apikey_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var apikeys []models.APIKey
 		db.Model(&user).Association("APIKeys").Find(&apikeys)
 		return c.JSON(apikeys)
-	}))
+	})
 
-	apikey_ep.Post("/", prefixGatedEndpointMiddleware("apikeys", "create", func(c *fiber.Ctx) error {
+	type apikeyCreateRequest struct {
+		Description string   `json:"description" validate:"required"`
+		Permissions []string `json:"permissions" validate:"required"`
+	}
+	apikey_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[apikeyCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
-		type request struct {
-			Description string   `json:"description" validate:"required"`
-			Permissions []string `json:"permissions" validate:"required"`
+		user := c.Locals("target_user").(models.User)
+		req := c.Locals("body").(apikeyCreateRequest)
+
+		key := uuid.New()
+
+		apikey := models.APIKey{
+			Description: req.Description,
+			UserID:      user.ID,
+			Permissions: strings.Join(req.Permissions, ","),
+			Key:         key.String(),
 		}
 
-		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
-			user := c.Locals("target_user").(models.User)
-			req := c.Locals("body").(request)
+		db.Create(&apikey)
 
-			key := uuid.New()
-
-			apikey := models.APIKey{
-				Description: req.Description,
-				UserID:      user.ID,
-				Permissions: strings.Join(req.Permissions, ","),
-				Key:         key.String(),
-			}
-
-			db.Create(&apikey)
-
-			return c.JSON(apikey)
-		})(c)
-	}))
+		return c.JSON(apikey)
+	})
 
 	user_apikey_ep := apikey_ep.Group("/:api_key", userApiKeyMiddlware)
 	addCommonApiKeyEndpoints(user_apikey_ep)
 }
 
 func registerApiKeyEndpoints(api fiber.Router) {
-	apikey_ep := api.Group("/apikeys")
+	apikey_ep := api.Group("/apikeys", leash_auth.ConcatPermissionPrefixMiddleware("apikeys"))
 
 	single_apikey_ep := apikey_ep.Group("/:api_key", generalApiKeyMiddleware)
 

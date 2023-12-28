@@ -99,44 +99,38 @@ func SetupValidator() error {
 	return validate.RegisterValidation("notblank", val.NotBlank)
 }
 
-func GetBodyMiddleware[V interface{}](structType V, next fiber.Handler) fiber.Handler {
+func GetBodyMiddleware[V interface{}](c *fiber.Ctx) error {
+	var req V
 
-	return func(c *fiber.Ctx) error {
-		var req V
-
-		if err := c.BodyParser(&req); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"message": err.Error(),
-			})
-		}
-
-		errors := ValidateStruct(req)
-		if errors != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(errors)
-		}
-
-		c.Locals("body", req)
-		return next(c)
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
 	}
+
+	errors := ValidateStruct(req)
+	if errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(errors)
+	}
+
+	c.Locals("body", req)
+	return c.Next()
 }
 
-func GetQueryMiddleware[V interface{}](structType V, next fiber.Handler) fiber.Handler {
+func GetQueryMiddleware[V interface{}](c *fiber.Ctx) error {
+	var req V
 
-	return func(c *fiber.Ctx) error {
-		var req V
-
-		if err := c.QueryParser(&req); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"message": err.Error(),
-			})
-		}
-
-		errors := ValidateStruct(req)
-		if errors != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(errors)
-		}
-
-		c.Locals("query", req)
-		return next(c)
+	if err := c.QueryParser(&req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
 	}
+
+	errors := ValidateStruct(req)
+	if errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(errors)
+	}
+
+	c.Locals("query", req)
+	return c.Next()
 }

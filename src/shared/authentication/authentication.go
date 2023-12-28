@@ -42,11 +42,8 @@ func (a Authentication) IsAPIKey() bool {
 	return a.Authenticator == AUTHENTICATOR_APIKEY
 }
 
-func (a Authentication) tryAuthorize(subject string, object string, action string) error {
-	val, err := a.Enforcer.Enforce(subject, object, action)
-	if err != nil {
-		return err
-	}
+func (a Authentication) tryAuthorize(subject string, permission string) error {
+	val := a.Enforcer.HasPermissionForUser(subject, permission)
 
 	if !val {
 		return errors.New("not authorized")
@@ -55,31 +52,19 @@ func (a Authentication) tryAuthorize(subject string, object string, action strin
 	return nil
 }
 
-func (a Authentication) Authorize(permissionObeject string, permissionAction string) error {
+func (a Authentication) Authorize(permission string) error {
 	if a.IsLoggedOut() {
 		return errors.New("not logged in")
 	}
 
 	if a.IsAPIKey() {
-		err := a.tryAuthorize(fmt.Sprintf("apikey:%d"+a.Data.(models.APIKey).Key), permissionObeject, permissionAction)
+		err := a.tryAuthorize(fmt.Sprintf("apikey:%d"+a.Data.(models.APIKey).Key), permission)
 		if err != nil {
 			return err
 		}
 	}
 
-	subjects := []string{
-		fmt.Sprintf("user:%d", a.User.ID),
-		fmt.Sprintf("role:%s", a.User.Role),
-	}
-
-	for _, subject := range subjects {
-		err := a.tryAuthorize(subject, permissionObeject, permissionAction)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return a.tryAuthorize(fmt.Sprintf("user:%d", a.User.ID), permission)
 }
 
 func SignInAuthentication(user models.User, c *fiber.Ctx) Authentication {
@@ -222,14 +207,36 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func AuthorizationMiddleware(permissionObject string, permissionAction string, next fiber.Handler) fiber.Handler {
+func AuthorizationMiddleware(permission string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authentication := GetAuthentication(c)
-		if authentication.Authorize(permissionObject, permissionAction) != nil {
+		if authentication.Authorize(permission) != nil {
 			return c.Status(401).SendString("Unauthorized")
 		}
 
-		return next(c)
+		return c.Next()
+	}
+}
+
+func SetPermissionPrefixMiddleware(prefix string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Locals("permission_prefix", prefix)
+		return c.Next()
+	}
+}
+
+func ConcatPermissionPrefixMiddleware(prefix string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		permission_prefix := c.Locals("permission_prefix").(string)
+		c.Locals("permission_prefix", permission_prefix+"."+prefix)
+		return c.Next()
+	}
+}
+
+func PrefixAuthorizationMiddleware(action string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		permission := c.Locals("permission_prefix").(string) + ":" + action
+		return AuthorizationMiddleware(permission)(c)
 	}
 }
 
@@ -246,11 +253,15 @@ func InitalizeCasbin(db *gorm.DB) *casbin.Enforcer {
 	[policy_definition]
 	p = sub, obj, act
 
+	[role_definition]
+	g = _, _
+	g2 = _, _
+
 	[policy_effect]
 	e = some(where (p.eft == allow))
 
 	[matchers]
-	m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
+	m = g(r.sub, p.sub) && g2(r.obj, p.obj) && r.act == p.act
 	`)
 	if err != nil {
 		log.Fatalf("error: model: %s", err)

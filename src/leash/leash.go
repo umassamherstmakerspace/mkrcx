@@ -69,7 +69,7 @@ func main() {
 
 	frontend_dir := os.Getenv("FRONTEND_DIR")
 
-	api := app.Group("/api")
+	api := app.Group("/api", leash_auth.SetPermissionPrefixMiddleware("leash"))
 
 	leash_api.RegisterAPIEndpoints(api)
 

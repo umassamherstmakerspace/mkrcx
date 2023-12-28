@@ -15,8 +15,6 @@ func userTrainingMiddlware(c *fiber.Ctx) error {
 	}
 	c.Locals("training", training)
 
-	permission_prefix := c.Locals("permission_prefix").(string)
-	c.Locals("permission_prefix", permission_prefix+".trainings")
 	return c.Next()
 }
 
@@ -28,17 +26,16 @@ func generalTrainingMiddleware(c *fiber.Ctx) error {
 	}
 	c.Locals("training", training)
 
-	c.Locals("permission_prefix", "leash.trainings")
 	return c.Next()
 }
 
 func addCommonTrainingEndpoints(training_ep fiber.Router) {
-	training_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
+	training_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), func(c *fiber.Ctx) error {
 		training := c.Locals("training").(models.Training)
 		return c.JSON(training)
-	}))
+	})
 
-	training_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
+	training_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		training := c.Locals("training").(models.Training)
 		training.RemovedBy = leash_auth.GetAuthentication(c).User.ID
@@ -47,49 +44,46 @@ func addCommonTrainingEndpoints(training_ep fiber.Router) {
 
 		db.Delete(&training)
 		return c.SendStatus(fiber.StatusNoContent)
-	}))
+	})
 }
 
 func addUserTrainingEndpoints(user_ep fiber.Router) {
-	training_ep := user_ep.Group("/trainings")
+	training_ep := user_ep.Group("/trainings", leash_auth.PrefixAuthorizationMiddleware("trainings"))
 
-	training_ep.Get("/", prefixGatedEndpointMiddleware("trainings", "list", func(c *fiber.Ctx) error {
+	training_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var trainings []models.Training
 		db.Model(&user).Association("Trainings").Find(&trainings)
 		return c.JSON(trainings)
-	}))
+	})
 
-	training_ep.Post("/", prefixGatedEndpointMiddleware("trainings", "create", func(c *fiber.Ctx) error {
-		type request struct {
-			TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required"`
+	type trainingCreateRequest struct {
+		TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required"`
+	}
+	training_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[trainingCreateRequest], func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		user := c.Locals("target_user").(models.User)
+		authenticator := leash_auth.GetAuthentication(c)
+		req := c.Locals("body").(trainingCreateRequest)
+
+		// Check if training already exists for user
+		var existingTraining models.Training
+		db.Model(&user).Where("training_type = ?", req.TrainingType).Association("Trainings").Find(&existingTraining)
+
+		if existingTraining.ID != 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "Training already exists for user")
 		}
 
-		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
-			db := leash_auth.GetDB(c)
-			user := c.Locals("target_user").(models.User)
-			authenticator := leash_auth.GetAuthentication(c)
-			req := c.Locals("body").(request)
+		training := models.Training{
+			TrainingType: req.TrainingType,
+			AddedBy:      authenticator.User.ID,
+		}
 
-			// Check if training already exists for user
-			var existingTraining models.Training
-			db.Model(&user).Where("training_type = ?", req.TrainingType).Association("Trainings").Find(&existingTraining)
+		db.Model(&user).Association("Trainings").Append(&training)
 
-			if existingTraining.ID != 0 {
-				return fiber.NewError(fiber.StatusBadRequest, "Training already exists for user")
-			}
-
-			training := models.Training{
-				TrainingType: req.TrainingType,
-				AddedBy:      authenticator.User.ID,
-			}
-
-			db.Model(&user).Association("Trainings").Append(&training)
-
-			return c.SendStatus(fiber.StatusCreated)
-		})(c)
-	}))
+		return c.SendStatus(fiber.StatusCreated)
+	})
 
 	user_training_ep := training_ep.Group("/:training_type", userTrainingMiddlware)
 

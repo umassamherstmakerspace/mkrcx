@@ -54,75 +54,74 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		return c.Redirect(url)
 	})
 
-	auth_ep.Get("/callback", func(c *fiber.Ctx) error {
+	type signinCallbackRequest struct {
+		Code  string `query:"code" validate:"required"`
+		State string `query:"state" validate:"required"`
+	}
+
+	auth_ep.Get("/callback", models.GetQueryMiddleware[signinCallbackRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		keys := leash_auth.GetKeys(c)
 		google := leash_auth.GetGoogle(c)
-		type request struct {
-			Code  string `query:"code" validate:"required"`
-			State string `query:"state" validate:"required"`
+		req := c.Locals("query").(signinCallbackRequest)
+
+		ret := "/"
+		{
+			tok, err := keys.Parse(req.State)
+			if err != nil {
+				fmt.Printf("failed to parse token: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
+			}
+
+			val, valid := tok.Get("return")
+			if !valid {
+				fmt.Printf("failed to get return value: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
+			}
+
+			ret = val.(string)
 		}
 
-		return models.GetQueryMiddleware(request{}, func(c *fiber.Ctx) error {
-			req := c.Locals("query").(request)
+		userinfo := &struct {
+			Email string `json:"email" validate:"required,email"`
+		}{}
 
-			ret := "/"
-			{
-				tok, err := keys.Parse(req.State)
-				if err != nil {
-					fmt.Printf("failed to parse token: %s\n", err)
-					return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
-				}
-
-				val, valid := tok.Get("return")
-				if !valid {
-					fmt.Printf("failed to get return value: %s\n", err)
-					return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
-				}
-
-				ret = val.(string)
+		{
+			tok, err := google.Exchange(c.Context(), req.Code)
+			if err != nil {
+				fmt.Printf("failed to exchange token: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
 			}
 
-			userinfo := &struct {
-				Email string `json:"email" validate:"required,email"`
-			}{}
+			client := google.Client(c.Context(), tok)
+			resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+			if err != nil {
+				fmt.Printf("failed to get userinfo: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
+			}
+			defer resp.Body.Close()
 
-			{
-				tok, err := google.Exchange(c.Context(), req.Code)
-				if err != nil {
-					fmt.Printf("failed to exchange token: %s\n", err)
-					return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
-				}
-
-				client := google.Client(c.Context(), tok)
-				resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
-				if err != nil {
-					fmt.Printf("failed to get userinfo: %s\n", err)
-					return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
-				}
-				defer resp.Body.Close()
-
-				err = json.NewDecoder(resp.Body).Decode(userinfo)
-				if err != nil {
-					fmt.Printf("failed to decode userinfo: %s\n", err)
-					return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
-				}
-
-				{
-					errors := models.ValidateStruct(userinfo)
-					if errors != nil {
-						return c.Status(fiber.StatusBadRequest).JSON(errors)
-					}
-				}
+			err = json.NewDecoder(resp.Body).Decode(userinfo)
+			if err != nil {
+				fmt.Printf("failed to decode userinfo: %s\n", err)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
 			}
 
-			var user models.User
-			res := db.First(&user, "email = ? OR pending_email = ?", userinfo.Email, userinfo.Email)
-			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-				// The user does not exist
-				c.Set("Content-Type", "text/html")
-				return c.Status(fiber.StatusUnauthorized).SendString(
-					fmt.Sprintf(`
+			{
+				errors := models.ValidateStruct(userinfo)
+				if errors != nil {
+					return c.Status(fiber.StatusBadRequest).JSON(errors)
+				}
+			}
+		}
+
+		var user models.User
+		res := db.First(&user, "email = ? OR pending_email = ?", userinfo.Email, userinfo.Email)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			// The user does not exist
+			c.Set("Content-Type", "text/html")
+			return c.Status(fiber.StatusUnauthorized).SendString(
+				fmt.Sprintf(`
 				<html>
 					<head>
 						<title>Unauthorized</title>
@@ -139,49 +138,48 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 					</body>
 				</html>
 			`, ret))
-			}
+		}
 
-			if user.PendingEmail == userinfo.Email {
-				var err error
-				user, err = leash_api.UpdatePendingEmail(user, c)
+		if user.PendingEmail == userinfo.Email {
+			var err error
+			user, err = leash_api.UpdatePendingEmail(user, c)
 
-				if err != nil {
-					fmt.Printf("failed to update pending email: %s\n", err)
-					return c.SendStatus(fiber.StatusInternalServerError)
-				}
-			}
-
-			authenticator := leash_auth.SignInAuthentication(user, c)
-
-			if authenticator.Authorize("leash", "login") != nil {
-				return c.SendStatus(fiber.StatusUnauthorized)
-			}
-
-			tok, err := jwt.NewBuilder().
-				Issuer(`mkrcx`).
-				IssuedAt(time.Now()).
-				Expiration(time.Now().Add(24*time.Hour)).
-				Claim("email", userinfo.Email).
-				Build()
 			if err != nil {
-				fmt.Printf("failed to build token: %s\n", err)
+				fmt.Printf("failed to update pending email: %s\n", err)
 				return c.SendStatus(fiber.StatusInternalServerError)
 			}
+		}
 
-			signed, err := keys.Sign(tok)
-			if err != nil {
-				fmt.Printf("failed to sign token: %s\n", err)
-				return c.SendStatus(fiber.StatusInternalServerError)
-			}
+		authenticator := leash_auth.SignInAuthentication(user, c)
 
-			cookie := new(fiber.Cookie)
-			cookie.Name = "token"
-			cookie.Value = string(signed)
-			cookie.Expires = tok.Expiration()
+		if authenticator.Authorize("leash:login") != nil {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
 
-			c.Cookie(cookie)
-			return c.Redirect(ret)
-		})(c)
+		tok, err := jwt.NewBuilder().
+			Issuer(`mkrcx`).
+			IssuedAt(time.Now()).
+			Expiration(time.Now().Add(24*time.Hour)).
+			Claim("email", userinfo.Email).
+			Build()
+		if err != nil {
+			fmt.Printf("failed to build token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		signed, err := keys.Sign(tok)
+		if err != nil {
+			fmt.Printf("failed to sign token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		cookie := new(fiber.Cookie)
+		cookie.Name = "token"
+		cookie.Value = string(signed)
+		cookie.Expires = tok.Expiration()
+
+		c.Cookie(cookie)
+		return c.Redirect(ret)
 	})
 
 	auth_ep.Get("/logout", func(c *fiber.Ctx) error {

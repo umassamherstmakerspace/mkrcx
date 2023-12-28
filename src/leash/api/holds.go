@@ -17,8 +17,6 @@ func userHoldMiddlware(c *fiber.Ctx) error {
 	}
 	c.Locals("hold", hold)
 
-	permission_prefix := c.Locals("permission_prefix").(string)
-	c.Locals("permission_prefix", permission_prefix+".holds")
 	return c.Next()
 }
 
@@ -30,17 +28,16 @@ func generalHoldMiddleware(c *fiber.Ctx) error {
 	}
 	c.Locals("hold", hold)
 
-	c.Locals("permission_prefix", "leash.holds")
 	return c.Next()
 }
 
 func addCommonHoldEndpoints(hold_ep fiber.Router) {
-	hold_ep.Get("/", prefixGatedEndpointMiddleware("", "get", func(c *fiber.Ctx) error {
+	hold_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), func(c *fiber.Ctx) error {
 		hold := c.Locals("hold").(models.Hold)
 		return c.JSON(hold)
-	}))
+	})
 
-	hold_ep.Delete("/", prefixGatedEndpointMiddleware("", "delete", func(c *fiber.Ctx) error {
+	hold_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		hold := c.Locals("hold").(models.Hold)
 		hold.RemovedBy = leash_auth.GetAuthentication(c).User.ID
@@ -49,60 +46,57 @@ func addCommonHoldEndpoints(hold_ep fiber.Router) {
 
 		db.Delete(&hold)
 		return c.SendStatus(fiber.StatusNoContent)
-	}))
+	})
 }
 
 func addUserHoldsEndpoints(user_ep fiber.Router) {
-	hold_ep := user_ep.Group("/holds")
+	hold_ep := user_ep.Group("/holds", leash_auth.PrefixAuthorizationMiddleware("holds"))
 
-	hold_ep.Get("/", prefixGatedEndpointMiddleware("holds", "list", func(c *fiber.Ctx) error {
+	hold_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var holds []models.Hold
 		db.Model(&user).Association("Holds").Find(&holds)
 		return c.JSON(holds)
-	}))
+	})
 
-	hold_ep.Post("/", prefixGatedEndpointMiddleware("holds", "create", func(c *fiber.Ctx) error {
+	type holdCreateRequest struct {
+		HoldType  string `json:"hold_type" xml:"hold_type" form:"hold_type" validate:"required"`
+		Reason    string `json:"reason" xml:"reason" form:"reason" validate:"required"`
+		HoldStart *int64 `json:"hold_start" xml:"hold_start" form:"hold_start" validate:"numeric"`
+		HoldEnd   *int64 `json:"hold_end" xml:"hold_end" form:"hold_end" validate:"numeric"`
+	}
+	hold_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[holdCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
-		type request struct {
-			HoldType  string `json:"hold_type" validate:"required"`
-			Reason    string `json:"reason" validate:"required"`
-			HoldStart *int64 `json:"hold_start" validate:"numeric"`
-			HoldEnd   *int64 `json:"hold_end" validate:"numeric"`
+		user := c.Locals("target_user").(models.User)
+		body := c.Locals("body").(holdCreateRequest)
+
+		// Check if the user already has a hold of this type
+		var existingHold models.Hold
+		if err := db.Model(&user).Where("hold_type = ?", body.HoldType).Association("Holds").Find(&existingHold); err == nil {
+			return fiber.NewError(fiber.StatusBadRequest, "User already has a hold of this type")
 		}
 
-		return models.GetBodyMiddleware(request{}, func(c *fiber.Ctx) error {
-			user := c.Locals("target_user").(models.User)
-			body := c.Locals("body").(request)
+		hold := models.Hold{
+			HoldType: body.HoldType,
+			Reason:   body.Reason,
+			UserID:   user.ID,
+		}
 
-			// Check if the user already has a hold of this type
-			var existingHold models.Hold
-			if err := db.Model(&user).Where("hold_type = ?", body.HoldType).Association("Holds").Find(&existingHold); err == nil {
-				return fiber.NewError(fiber.StatusBadRequest, "User already has a hold of this type")
-			}
+		if body.HoldStart != nil {
+			holdStart := time.Unix(*body.HoldStart, 0)
+			hold.HoldStart = &holdStart
+		}
 
-			hold := models.Hold{
-				HoldType: body.HoldType,
-				Reason:   body.Reason,
-				UserID:   user.ID,
-			}
+		if body.HoldEnd != nil {
+			holdEnd := time.Unix(*body.HoldEnd, 0)
+			hold.HoldEnd = &holdEnd
+		}
 
-			if body.HoldStart != nil {
-				holdStart := time.Unix(*body.HoldStart, 0)
-				hold.HoldStart = &holdStart
-			}
+		db.Save(&hold)
 
-			if body.HoldEnd != nil {
-				holdEnd := time.Unix(*body.HoldEnd, 0)
-				hold.HoldEnd = &holdEnd
-			}
-
-			db.Save(&hold)
-
-			return c.JSON(hold)
-		})(c)
-	}))
+		return c.JSON(hold)
+	})
 
 	user_hold_ep := hold_ep.Group("/:hold_type", userHoldMiddlware)
 
@@ -110,7 +104,7 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 }
 
 func registerHoldsEndpoints(api fiber.Router) {
-	holds_ep := api.Group("/holds")
+	holds_ep := api.Group("/holds", leash_auth.PrefixAuthorizationMiddleware("holds"))
 
 	single_hold_ep := holds_ep.Group("/:hold_id", generalHoldMiddleware)
 
