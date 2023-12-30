@@ -27,7 +27,7 @@ type Authentication struct {
 	Authenticator Authenticator
 	User          models.User
 	Data          interface{}
-	Enforcer      *casbin.Enforcer
+	Enforcer      EnforcerWrapper
 }
 
 func (a Authentication) IsLoggedOut() bool {
@@ -42,36 +42,68 @@ func (a Authentication) IsAPIKey() bool {
 	return a.Authenticator == AUTHENTICATOR_APIKEY
 }
 
-func (a Authentication) tryAuthorize(subject string, permission string) error {
-	val := a.Enforcer.HasPermissionForUser(subject, permission)
-
-	if !val {
-		return errors.New("not authorized")
-	}
-
-	return nil
-}
-
 func (a Authentication) Authorize(permission string) error {
 	if a.IsLoggedOut() {
 		return errors.New("not logged in")
 	}
 
 	if a.IsAPIKey() {
-		err := a.tryAuthorize(fmt.Sprintf("apikey:%d"+a.Data.(models.APIKey).Key), permission)
-		if err != nil {
-			return err
+		if !a.Enforcer.HasPermissionForAPIKey(a.Data.(models.APIKey), permission) {
+			return errors.New("not authorized")
 		}
 	}
 
-	return a.tryAuthorize(fmt.Sprintf("user:%d", a.User.ID), permission)
+	if a.Enforcer.HasPermissionForUser(a.User, permission) {
+		return nil
+	}
+
+	return errors.New("not authorized")
+}
+
+type EnforcerWrapper struct {
+	e *casbin.Enforcer
+}
+
+func (e EnforcerWrapper) HasPermissionForAPIKey(apikey models.APIKey, permission string) bool {
+	return e.e.HasPermissionForUser(fmt.Sprintf("apikey:%d"+apikey.Key, apikey.Key), permission)
+}
+
+func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission string) bool {
+	return e.e.HasPermissionForUser(fmt.Sprintf("user:%d", user.ID), permission)
+}
+
+func (e EnforcerWrapper) AddPermissionForUser(user models.User, permission string) {
+	e.e.AddPermissionForUser(fmt.Sprintf("user:%d", user.ID), permission)
+}
+
+func (e EnforcerWrapper) SetUserRole(user models.User, role string) {
+	user_id := fmt.Sprintf("user:%d", user.ID)
+	e.e.DeleteRolesForUser(user_id)
+	e.e.AddRoleForUser(user_id, role)
+
+	e.e.SavePolicy()
+}
+
+func (e EnforcerWrapper) RemoveUserRole(user models.User) {
+	user_id := fmt.Sprintf("user:%d", user.ID)
+	e.e.DeleteRolesForUser(user_id)
+}
+
+func (e EnforcerWrapper) SetPermissionsForAPIKey(apikey models.APIKey, permissions []string) {
+	apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
+	e.e.DeletePermissionsForUser(apikey_id)
+	for _, permission := range permissions {
+		e.e.AddPermissionForUser(apikey_id, permission)
+	}
 }
 
 func SignInAuthentication(user models.User, c *fiber.Ctx) Authentication {
 	return Authentication{
 		Authenticator: AUTHENTICATOR_USER,
 		User:          user,
-		Enforcer:      GetEnforcer(c),
+		Enforcer: EnforcerWrapper{
+			e: GetEnforcer(c),
+		},
 	}
 }
 
@@ -96,11 +128,15 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("Database connection error")
 	}
 
+	enforcer := EnforcerWrapper{
+		e: GetEnforcer(c),
+	}
+
 	// Get the token from the request header
 	authentication, err := func() (Authentication, error) {
 		authentication := Authentication{
 			Authenticator: AUTHENTICATOR_LOGGED_OUT,
-			Enforcer:      GetEnforcer(c),
+			Enforcer:      enforcer,
 		}
 
 		authLocal := c.Locals("Authorization")
@@ -151,7 +187,7 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 		authentication = Authentication{
 			Authenticator: AUTHENTICATOR_USER,
 			User:          user,
-			Enforcer:      GetEnforcer(c),
+			Enforcer:      enforcer,
 		}
 
 		return authentication, nil
@@ -162,7 +198,7 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 		authentication, err = func() (Authentication, error) {
 			authentication := Authentication{
 				Authenticator: AUTHENTICATOR_LOGGED_OUT,
-				Enforcer:      GetEnforcer(c),
+				Enforcer:      enforcer,
 			}
 
 			apiKey := c.Get("API-Key")
@@ -189,7 +225,7 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 				Authenticator: AUTHENTICATOR_APIKEY,
 				User:          user,
 				Data:          apiKeyRecord,
-				Enforcer:      GetEnforcer(c),
+				Enforcer:      enforcer,
 			}
 
 			return authentication, nil
@@ -198,7 +234,7 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 		if err != nil {
 			authentication = Authentication{
 				Authenticator: AUTHENTICATOR_LOGGED_OUT,
-				Enforcer:      GetEnforcer(c),
+				Enforcer:      enforcer,
 			}
 		}
 	}

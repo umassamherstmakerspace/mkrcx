@@ -65,12 +65,7 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 		if req.Permissions != nil {
 			apikey.Permissions = strings.Join(*req.Permissions, ",")
 
-			enforcer := leash_auth.GetEnforcer(c)
-			apiSubject := fmt.Sprintf("apikey:%s", apikey.Key)
-			enforcer.DeletePermissionsForUser(apiSubject)
-			for _, permission := range *req.Permissions {
-				enforcer.AddPermissionForUser(apiSubject, permission)
-			}
+			leash_auth.GetAuthentication(c).Enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions)
 		}
 
 		db.Save(&apikey)
@@ -109,6 +104,8 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 		}
 
 		db.Create(&apikey)
+
+		leash_auth.GetAuthentication(c).Enforcer.SetPermissionsForAPIKey(apikey, req.Permissions)
 
 		return c.JSON(apikey)
 	})

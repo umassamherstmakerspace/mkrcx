@@ -79,6 +79,8 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		}
 		db.Create(&user)
 
+		leash_auth.GetAuthentication(c).Enforcer.SetUserRole(user, req.Role)
+
 		event := UserEvent{
 			c:         c,
 			Target:    user,
@@ -275,6 +277,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 		if modified(user.Role, req.Role, "role") {
 			if authenticator.Authorize(permissionPrefix+":edit_role") != nil {
 				user.Role = *req.Role
+				authenticator.Enforcer.SetUserRole(user, *req.Role)
 			} else {
 				return c.SendStatus(403)
 			}
