@@ -91,7 +91,7 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 }
 
 func registerTrainingEndpoints(api fiber.Router) {
-	trainings_ep := api.Group("/trainings")
+	trainings_ep := api.Group("/trainings", leash_auth.PrefixAuthorizationMiddleware("trainings"))
 
 	single_training_ep := trainings_ep.Group("/:training_id", generalTrainingMiddleware)
 

@@ -79,7 +79,7 @@ func (e EnforcerWrapper) AddPermissionForUser(user models.User, permission strin
 func (e EnforcerWrapper) SetUserRole(user models.User, role string) {
 	user_id := fmt.Sprintf("user:%d", user.ID)
 	e.e.DeleteRolesForUser(user_id)
-	e.e.AddRoleForUser(user_id, role)
+	e.e.AddRoleForUser(user_id, "role:"+role)
 
 	e.e.SavePolicy()
 }

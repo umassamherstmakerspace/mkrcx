@@ -16,7 +16,7 @@ var userDeleteCallbacks []func(UserEvent)
 
 func selfMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
-	if authentication.Authorize("leash.target:self") != nil {
+	if authentication.Authorize("leash.users:target_self") != nil {
 		return c.Status(401).SendString("Unauthorized")
 	}
 
@@ -29,7 +29,7 @@ func selfMiddleware(c *fiber.Ctx) error {
 func userMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	authentication := leash_auth.GetAuthentication(c)
-	if authentication.Authorize("leash.target:others") != nil {
+	if authentication.Authorize("leash.users:target_others") != nil {
 		return c.Status(401).SendString("Unauthorized")
 	}
 
@@ -53,7 +53,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		GradYear int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		Major    string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
-	users_ep.Post("/", leash_auth.AuthorizationMiddleware("create"), models.GetBodyMiddleware[userCreateRequest], func(c *fiber.Ctx) error {
+	users_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[userCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("body").(userCreateRequest)
 
@@ -100,7 +100,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		Limit  *int    `query:"limit" validate:"omitempty,min=1,max=100"`
 		Offset *int    `query:"offset" validate:"omitempty,min=0"`
 	}
-	users_ep.Get("/search", leash_auth.AuthorizationMiddleware("search"), models.GetBodyMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
+	users_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("search"), models.GetBodyMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("query").(userSearchQuery)
 
@@ -163,9 +163,9 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 }
 
 func addUserUpdateEndpoints(user_ep fiber.Router) {
-	update_ep := user_ep.Group("/update", leash_auth.ConcatPermissionPrefixMiddleware("update"))
+	update_ep := user_ep.Group("/updates", leash_auth.ConcatPermissionPrefixMiddleware("updates"))
 
-	update_ep.Get("/updates", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
+	update_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		var updates []models.UserUpdate
@@ -188,7 +188,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 		GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		Major    *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
-	user_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("edit"), models.GetBodyMiddleware[userUpdateRequest], func(c *fiber.Ctx) error {
+	user_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[userUpdateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("body").(userUpdateRequest)
 		user := c.Locals("target_user").(models.User)
@@ -267,7 +267,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 		}
 
 		if modified(fmt.Sprint(user.CardID), cardId, "card_id") {
-			if authenticator.Authorize(permissionPrefix+":edit_card_id") != nil {
+			if authenticator.Authorize(permissionPrefix+":update_card_id") != nil {
 				user.CardID = *req.CardId
 			} else {
 				return c.SendStatus(403)
@@ -275,7 +275,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 		}
 
 		if modified(user.Role, req.Role, "role") {
-			if authenticator.Authorize(permissionPrefix+":edit_role") != nil {
+			if authenticator.Authorize(permissionPrefix+":update_role") != nil {
 				user.Role = *req.Role
 				authenticator.Enforcer.SetUserRole(user, *req.Role)
 			} else {

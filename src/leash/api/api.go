@@ -9,7 +9,7 @@ func RegisterAPIEndpoints(api fiber.Router) {
 	api.Use(leash_auth.AuthenticationMiddleware)
 
 	registerUserEndpoints(api)
-	registerHoldsEndpoints(api)
 	registerTrainingEndpoints(api)
+	registerHoldsEndpoints(api)
 	registerApiKeyEndpoints(api)
 }
