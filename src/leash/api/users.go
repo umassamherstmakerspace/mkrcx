@@ -96,16 +96,31 @@ func createBaseEndpoints(users_ep fiber.Router) {
 	})
 
 	type userSearchQuery struct {
-		Query  *string `query:"query" validate:"required"`
-		Limit  *int    `query:"limit" validate:"omitempty,min=1,max=100"`
-		Offset *int    `query:"offset" validate:"omitempty,min=0"`
+		Query           *string `query:"query" validate:"required"`
+		Limit           *int    `query:"limit" validate:"omitempty,min=1,max=100"`
+		Offset          *int    `query:"offset" validate:"omitempty,min=0"`
+		PreloadTraining *bool   `query:"preload_training" validate:"omitempty"`
+		PreloadHolds    *bool   `query:"preload_holds" validate:"omitempty"`
 	}
 	users_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("search"), models.GetBodyMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("query").(userSearchQuery)
+		authenticator := leash_auth.GetAuthentication(c)
 
 		var users []models.User
 		con := db.Where("name LIKE ?", "%"+*req.Query+"%").Or("email LIKE ?", "%"+*req.Query+"%")
+
+		if req.PreloadTraining != nil && *req.PreloadTraining {
+			if authenticator.Authorize("leash.users.others.trainings:list") != nil {
+				con = con.Preload("Trainings")
+			}
+		}
+
+		if req.PreloadHolds != nil && *req.PreloadHolds {
+			if authenticator.Authorize("leash.users.others.holds:list") != nil {
+				con = con.Preload("Holds")
+			}
+		}
 
 		total := int64(0)
 		con.Model(&models.User{}).Count(&total)
