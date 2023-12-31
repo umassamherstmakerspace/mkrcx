@@ -344,10 +344,10 @@ func registerUserEndpoints(api fiber.Router) {
 	get_ep := users_ep.Group("/get", leash_auth.ConcatPermissionPrefixMiddleware("get"))
 	createGetUserEndpoints(get_ep)
 
-	self_ep := api.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware)
+	self_ep := users_ep.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware)
 	commonUserEndpoints(self_ep)
 
-	user_ep := api.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware)
+	user_ep := users_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware)
 	commonUserEndpoints(user_ep)
 	otherUserEndpoints(user_ep)
 }

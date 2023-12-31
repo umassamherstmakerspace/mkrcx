@@ -13,6 +13,7 @@ import (
 
 	leash_api "github.com/mkrcx/mkrcx/src/leash/api"
 	leash_frontend "github.com/mkrcx/mkrcx/src/leash/frontend"
+	leash_helpers "github.com/mkrcx/mkrcx/src/leash/helpers"
 	leash_signin "github.com/mkrcx/mkrcx/src/leash/signin"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	models "github.com/mkrcx/mkrcx/src/shared/models"
@@ -64,6 +65,9 @@ func main() {
 
 	// Initalize RBAC
 	enforcer := leash_auth.InitalizeCasbin(db)
+	leash_helpers.SetupCasbin(enforcer)
+	leash_helpers.MigrateUserPermissions(db, enforcer)
+	leash_helpers.MigrateAPIKeyPermissions(db, enforcer)
 
 	app.Use(leash_auth.LocalsMiddleware(db, keys, google, enforcer))
 

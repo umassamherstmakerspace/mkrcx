@@ -1,25 +1,37 @@
-package main
+package leash_helpers
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/casbin/casbin/v2"
+	"github.com/mkrcx/mkrcx/src/shared/models"
+	"gorm.io/gorm"
 )
 
-func setupCasbin(enforcer *casbin.Enforcer) {
-	//member volunteer staff admin
-
-	member := "role:member"
-	volunteer := "role:volunteer"
-	staff := "role:staff"
-	admin := "role:admin"
+func SetupCasbin(enforcer *casbin.Enforcer) {
+	member := "leash:member"
+	volunteer := "leash:volunteer"
+	staff := "leash:staff"
+	admin := "leash:admin"
 
 	enforcer.DeleteRole(member)
 	enforcer.DeleteRole(volunteer)
 	enforcer.DeleteRole(staff)
 	enforcer.DeleteRole(admin)
 
+	fmt.Println("Setting up casbin")
+
 	enforcer.AddRoleForUser(admin, staff)
 	enforcer.AddRoleForUser(staff, volunteer)
 	enforcer.AddRoleForUser(volunteer, member)
+
+	fmt.Println("Setting up permissions")
+
+	enforcer.AddRoleForUser("role:admin", "leash:admin")
+	enforcer.AddRoleForUser("role:staff", "leash:staff")
+	enforcer.AddRoleForUser("role:volunteer", "leash:volunteer")
+	enforcer.AddRoleForUser("role:member", "leash:member")
 
 	// User Target Permissions
 	enforcer.AddPermissionForUser(member, "leash.users:target_self")
@@ -98,4 +110,60 @@ func setupCasbin(enforcer *casbin.Enforcer) {
 
 	// Sign In EPs
 	enforcer.AddPermissionForUser(member, "leash:login")
+
+	enforcer.SavePolicy()
+}
+
+func MigrateUserPermissions(db *gorm.DB, enforcer *casbin.Enforcer) {
+	fmt.Println("Migrating user permissions")
+	var users []models.User
+	db.Find(&users)
+
+	for _, user := range users {
+		user_id := fmt.Sprintf("user:%d", user.ID)
+
+		role := "role:member"
+		if user.Role == "volunteer" {
+			role = "role:volunteer"
+		} else if user.Role == "staff" {
+			role = "role:staff"
+		} else if user.Role == "admin" {
+			role = "role:admin"
+		}
+
+		val, err := enforcer.HasRoleForUser(user_id, role)
+		if err != nil {
+			panic(err)
+		}
+
+		if val {
+			continue
+		}
+
+		enforcer.DeleteRolesForUser(user_id)
+		enforcer.AddRoleForUser(user_id, role)
+	}
+
+	enforcer.SavePolicy()
+}
+
+func MigrateAPIKeyPermissions(db *gorm.DB, enforcer *casbin.Enforcer) {
+	fmt.Println("Migrating apikey permissions")
+	var apikeys []models.APIKey
+	db.Find(&apikeys)
+
+	for _, apikey := range apikeys {
+		apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
+
+		enforcer.DeletePermissionsForUser(apikey_id)
+
+		permissions := strings.Split(apikey.Permissions, ",")
+		for _, permission := range permissions {
+			if permission != "" {
+				enforcer.AddPermissionForUser(apikey_id, permission)
+			}
+		}
+	}
+
+	enforcer.SavePolicy()
 }

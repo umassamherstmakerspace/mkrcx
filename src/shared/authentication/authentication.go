@@ -65,11 +65,21 @@ type EnforcerWrapper struct {
 }
 
 func (e EnforcerWrapper) HasPermissionForAPIKey(apikey models.APIKey, permission string) bool {
-	return e.e.HasPermissionForUser(fmt.Sprintf("apikey:%d"+apikey.Key, apikey.Key), permission)
+	val, err := e.e.Enforce(fmt.Sprintf("apikey:%s", apikey.Key), permission)
+	if err != nil {
+		return false
+	}
+
+	return val
 }
 
 func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission string) bool {
-	return e.e.HasPermissionForUser(fmt.Sprintf("user:%d", user.ID), permission)
+	val, err := e.e.Enforce(fmt.Sprintf("user:%d", user.ID), permission)
+	if err != nil {
+		return false
+	}
+
+	return val
 }
 
 func (e EnforcerWrapper) AddPermissionForUser(user models.User, permission string) {
@@ -284,20 +294,19 @@ func InitalizeCasbin(db *gorm.DB) *casbin.Enforcer {
 
 	model, err := model.NewModelFromString(`
 	[request_definition]
-	r = sub, obj, act
+	r = sub, perm
 
 	[policy_definition]
-	p = sub, obj, act
+	p = sub, perm
 
 	[role_definition]
 	g = _, _
-	g2 = _, _
 
 	[policy_effect]
 	e = some(where (p.eft == allow))
 
 	[matchers]
-	m = g(r.sub, p.sub) && g2(r.obj, p.obj) && r.act == p.act
+	m = g(r.sub, p.sub) && r.perm == p.perm
 	`)
 	if err != nil {
 		log.Fatalf("error: model: %s", err)
