@@ -2,7 +2,6 @@ package leash_backend_api
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -13,20 +12,34 @@ import (
 func userApiKeyMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
-	var apikey models.APIKey
-	if err := db.Model(&user).Where("key = ?", c.Params("api_key")).Association("APIKeys").Find(&apikey); err != nil {
+	var apikey = models.APIKey{
+		UserID: user.ID,
+		Key:    c.Params("api_key"),
+	}
+
+	if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
 	}
+
+	apikey.LoadPermissions(leash_auth.GetEnforcer(c))
+
 	c.Locals("apikey", apikey)
+
 	return c.Next()
 }
 
 func generalApiKeyMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
-	var apikey models.APIKey
-	if err := db.Where("key = ?", c.Params("api_key")).First(&apikey).Error; err != nil {
+	var apikey = models.APIKey{
+		Key: c.Params("api_key"),
+	}
+
+	if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
 	}
+
+	apikey.LoadPermissions(leash_auth.GetEnforcer(c))
+
 	c.Locals("apikey", apikey)
 
 	return c.Next()
@@ -51,6 +64,7 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 	type apikeyUpdateRequest struct {
 		Description *string   `json:"description" xml:"description" form:"description"`
 		Permissions *[]string `json:"permissions" xml:"permissions" form:"permissions"`
+		FullAccess  *bool     `json:"full_access" xml:"full_access" form:"full_access"`
 	}
 
 	apikey_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[apikeyUpdateRequest], func(c *fiber.Ctx) error {
@@ -63,9 +77,12 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 		}
 
 		if req.Permissions != nil {
-			apikey.Permissions = strings.Join(*req.Permissions, ",")
-
 			leash_auth.GetAuthentication(c).Enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions)
+		}
+
+		if req.FullAccess != nil {
+			apikey.FullAccess = *req.FullAccess
+			leash_auth.GetAuthentication(c).Enforcer.SetAPIKeyFullAccess(apikey, *req.FullAccess)
 		}
 
 		db.Save(&apikey)
@@ -88,6 +105,7 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 	type apikeyCreateRequest struct {
 		Description string   `json:"description" validate:"required"`
 		Permissions []string `json:"permissions" validate:"required"`
+		FullAccess  bool     `json:"full_access" validate:"required"`
 	}
 	apikey_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[apikeyCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -99,7 +117,7 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 		apikey := models.APIKey{
 			Description: req.Description,
 			UserID:      user.ID,
-			Permissions: strings.Join(req.Permissions, ","),
+			FullAccess:  req.FullAccess,
 			Key:         key.String(),
 		}
 

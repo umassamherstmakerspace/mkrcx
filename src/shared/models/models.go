@@ -1,8 +1,10 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/go-playground/validator/v10"
 	val "github.com/go-playground/validator/v10/non-standard/validators"
 	"github.com/gofiber/fiber/v2"
@@ -32,16 +34,32 @@ type User struct {
 	Holds       []Hold       `json:",omitempty"`
 	APIKeys     []APIKey     `json:"-"`
 	UserUpdates []UserUpdate `json:",omitempty"`
+
+	Permissions []string `gorm:"-"`
+}
+
+func (u *User) LoadPermissions(enforcer *casbin.Enforcer) {
+	for _, p := range enforcer.GetPermissionsForUser(fmt.Sprintf("user:%d", u.ID)) {
+		u.Permissions = append(u.Permissions, p[1])
+	}
 }
 
 type APIKey struct {
-	Key         string `gorm:"primaryKey"`
+	Key         string `gorm:"column:api_key;primaryKey"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
 	UserID      uint           `gorm:"foreignKey:user_id"`
 	Description string
-	Permissions string
+	FullAccess  bool
+
+	Permissions []string `gorm:"-"`
+}
+
+func (a *APIKey) LoadPermissions(enforcer *casbin.Enforcer) {
+	for _, p := range enforcer.GetPermissionsForUser("apikey:" + a.Key) {
+		a.Permissions = append(a.Permissions, p[1])
+	}
 }
 
 type Training struct {

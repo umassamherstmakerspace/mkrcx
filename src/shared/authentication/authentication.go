@@ -107,6 +107,15 @@ func (e EnforcerWrapper) SetPermissionsForAPIKey(apikey models.APIKey, permissio
 	}
 }
 
+func (e EnforcerWrapper) SetAPIKeyFullAccess(apikey models.APIKey, full_access bool) {
+	apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
+	user_id := fmt.Sprintf("user:%d", apikey.UserID)
+	e.e.DeleteRolesForUser(apikey_id)
+	if full_access {
+		e.e.AddRoleForUser(apikey_id, user_id)
+	}
+}
+
 func SignInAuthentication(user models.User, c *fiber.Ctx) Authentication {
 	return Authentication{
 		Authenticator: AUTHENTICATOR_USER,
@@ -257,7 +266,7 @@ func AuthorizationMiddleware(permission string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authentication := GetAuthentication(c)
 		if authentication.Authorize(permission) != nil {
-			return c.Status(401).SendString("Unauthorized")
+			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 
 		return c.Next()

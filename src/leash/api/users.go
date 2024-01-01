@@ -3,24 +3,39 @@ package leash_backend_api
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
+	"gorm.io/gorm"
 )
 
 var userCreateCallbacks []func(UserEvent)
 var userUpdateCallbacks []func(UserUpdateEvent)
 var userDeleteCallbacks []func(UserEvent)
 
+func searchEmail(db *gorm.DB, email string) (models.User, error) {
+	var user models.User
+
+	res := db.Limit(1).Where(&models.User{Email: email}).Or(&models.User{PendingEmail: email}).Find(&user)
+
+	if res.Error != nil || res.RowsAffected == 0 {
+		return user, errors.New("user not found")
+	}
+
+	return user, nil
+}
+
 func selfMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
 	if authentication.Authorize("leash.users:target_self") != nil {
-		return c.Status(401).SendString("Unauthorized")
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	apiUser := authentication.User
+	apiUser.LoadPermissions(leash_auth.GetEnforcer(c))
 
 	c.Locals("target_user", apiUser)
 	return c.Next()
@@ -30,15 +45,23 @@ func userMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	authentication := leash_auth.GetAuthentication(c)
 	if authentication.Authorize("leash.users:target_others") != nil {
-		return c.Status(401).SendString("Unauthorized")
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	user_id := c.Params("user_id")
-	var user models.User
-	err := db.First(&user, "id = ?", user_id).Error
+	user_id, err := strconv.Atoi(c.Params("user_id"))
+
 	if err != nil {
-		return c.Status(404).SendString("User not found")
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
 	}
+
+	var user = models.User{}
+	user.ID = uint(user_id)
+
+	if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "User not found")
+	}
+
+	user.LoadPermissions(leash_auth.GetEnforcer(c))
 
 	c.Locals("target_user", user)
 	return c.Next()
@@ -58,13 +81,9 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		req := c.Locals("body").(userCreateRequest)
 
 		// Check if the user already exists
-		{
-			var user models.User
-			res := db.Find(&user, "email = ? OR pending_email = ?", req.Email, req.Email)
-			if res.RowsAffected > 0 {
-				// The user already exists
-				return c.Status(fiber.StatusConflict).SendString("User already exists")
-			}
+		_, err := searchEmail(db, req.Email)
+		if err == nil {
+			return fiber.NewError(fiber.StatusConflict, "User already exists")
 		}
 
 		// Create a new user in the database
@@ -101,6 +120,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		Offset          *int    `query:"offset" validate:"omitempty,min=0"`
 		PreloadTraining *bool   `query:"preload_training" validate:"omitempty"`
 		PreloadHolds    *bool   `query:"preload_holds" validate:"omitempty"`
+		ShowService     *bool   `query:"show_service" validate:"omitempty"`
 	}
 	users_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("search"), models.GetBodyMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -108,7 +128,11 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		authenticator := leash_auth.GetAuthentication(c)
 
 		var users []models.User
-		con := db.Where("name LIKE ?", "%"+*req.Query+"%").Or("email LIKE ?", "%"+*req.Query+"%")
+		con := db.Where("name LIKE ?", "%"+*req.Query+"%").Or("email LIKE ?", "%"+*req.Query+"%").Or("pending_email LIKE ?", "%"+*req.Query+"%")
+
+		if req.ShowService == nil || !*req.ShowService {
+			con = con.Where("role <> ?", "service")
+		}
 
 		if req.PreloadTraining != nil && *req.PreloadTraining {
 			if authenticator.Authorize("leash.users.others.trainings:list") != nil {
@@ -155,10 +179,10 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 	get_ep.Get("/email/:email", leash_auth.AuthorizationMiddleware("email"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		email := c.Params("email")
-		var user models.User
-		err := db.First(&user, "email = ? OR pending_email = ?", email, email).Error
+		user, err := searchEmail(db, email)
+
 		if err != nil {
-			return c.Status(404).SendString("User not found")
+			return fiber.NewError(fiber.StatusNotFound, "User not found")
 		}
 
 		return c.JSON(user)
@@ -170,7 +194,7 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 		var user models.User
 		err := db.First(&user, "card_id = ?", card).Error
 		if err != nil {
-			return c.Status(404).SendString("User not found")
+			return fiber.NewError(fiber.StatusNotFound, "User not found")
 		}
 
 		return c.JSON(user)
@@ -285,7 +309,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 			if authenticator.Authorize(permissionPrefix+":update_card_id") != nil {
 				user.CardID = *req.CardId
 			} else {
-				return c.SendStatus(403)
+				return c.SendStatus(fiber.StatusUnauthorized)
 			}
 		}
 
@@ -294,7 +318,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 				user.Role = *req.Role
 				authenticator.Enforcer.SetUserRole(user, *req.Role)
 			} else {
-				return c.SendStatus(403)
+				return c.SendStatus(fiber.StatusUnauthorized)
 			}
 		}
 

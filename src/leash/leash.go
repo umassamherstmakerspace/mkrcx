@@ -66,8 +66,8 @@ func main() {
 	// Initalize RBAC
 	enforcer := leash_auth.InitalizeCasbin(db)
 	leash_helpers.SetupCasbin(enforcer)
-	leash_helpers.MigrateUserPermissions(db, enforcer)
-	leash_helpers.MigrateAPIKeyPermissions(db, enforcer)
+	leash_helpers.MigrateUserRoles(db, enforcer)
+	leash_helpers.MigrateAPIKeyAccess(db, enforcer)
 
 	app.Use(leash_auth.LocalsMiddleware(db, keys, google, enforcer))
 

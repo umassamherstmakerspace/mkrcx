@@ -1,6 +1,7 @@
 package leash_backend_api
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,8 +12,11 @@ import (
 func userHoldMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
-	var hold models.Hold
-	if err := db.Model(&user).Where("hold_type = ?", c.Params("hold_type")).Association("Holds").Find(&hold); err != nil {
+	var hold = models.Hold{
+		UserID:   user.ID,
+		HoldType: c.Params("hold_type"),
+	}
+	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
 	}
 	c.Locals("hold", hold)
@@ -22,8 +26,16 @@ func userHoldMiddlware(c *fiber.Ctx) error {
 
 func generalHoldMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
+
+	hold_id, err := strconv.Atoi(c.Params("hold_id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid hold ID")
+	}
+
 	var hold models.Hold
-	if err := db.Where("id = ?", c.Params("hold_id")).First(&hold).Error; err != nil {
+	hold.ID = uint(hold_id)
+
+	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
 	}
 	c.Locals("hold", hold)
@@ -72,9 +84,12 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 		body := c.Locals("body").(holdCreateRequest)
 
 		// Check if the user already has a hold of this type
-		var existingHold models.Hold
-		if err := db.Model(&user).Where("hold_type = ?", body.HoldType).Association("Holds").Find(&existingHold); err == nil {
-			return fiber.NewError(fiber.StatusBadRequest, "User already has a hold of this type")
+		var existingHold = models.Hold{
+			UserID:   user.ID,
+			HoldType: body.HoldType,
+		}
+		if res := db.Limit(1).Where(&existingHold).Find(&existingHold); res.Error == nil && res.RowsAffected != 0 {
+			return fiber.NewError(fiber.StatusConflict, "User already has a hold of this type")
 		}
 
 		hold := models.Hold{

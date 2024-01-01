@@ -1,6 +1,8 @@
 package leash_backend_api
 
 import (
+	"strconv"
+
 	"github.com/gofiber/fiber/v2"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
@@ -9,10 +11,15 @@ import (
 func userTrainingMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
-	var training models.Training
-	if err := db.Model(&user).Where("training_type = ?", c.Params("training_type")).Association("Trainings").Find(&training); err != nil {
+	var training = models.Training{
+		UserID:       user.ID,
+		TrainingType: c.Params("training_type"),
+	}
+
+	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Training not found")
 	}
+
 	c.Locals("training", training)
 
 	return c.Next()
@@ -20,10 +27,19 @@ func userTrainingMiddlware(c *fiber.Ctx) error {
 
 func generalTrainingMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
-	var training models.Training
-	if err := db.Where("id = ?", c.Params("training_id")).First(&training).Error; err != nil {
+
+	training_id, err := strconv.Atoi(c.Params("training_id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid training ID")
+	}
+
+	var training = models.Training{}
+	training.ID = uint(training_id)
+
+	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Training not found")
 	}
+
 	c.Locals("training", training)
 
 	return c.Next()
@@ -68,11 +84,12 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 		req := c.Locals("body").(trainingCreateRequest)
 
 		// Check if training already exists for user
-		var existingTraining models.Training
-		db.Model(&user).Where("training_type = ?", req.TrainingType).Association("Trainings").Find(&existingTraining)
-
-		if existingTraining.ID != 0 {
-			return fiber.NewError(fiber.StatusBadRequest, "Training already exists for user")
+		var existingTraining = models.Training{
+			UserID:       user.ID,
+			TrainingType: req.TrainingType,
+		}
+		if res := db.Limit(1).Where(&existingTraining).Find(&existingTraining); res.Error == nil && res.RowsAffected != 0 {
+			return fiber.NewError(fiber.StatusConflict, "User already has this training")
 		}
 
 		training := models.Training{
@@ -82,7 +99,7 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 
 		db.Model(&user).Association("Trainings").Append(&training)
 
-		return c.SendStatus(fiber.StatusCreated)
+		return c.JSON(training)
 	})
 
 	user_training_ep := training_ep.Group("/:training_type", userTrainingMiddlware)

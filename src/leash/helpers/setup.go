@@ -2,7 +2,6 @@ package leash_helpers
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/mkrcx/mkrcx/src/shared/models"
@@ -114,8 +113,8 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.SavePolicy()
 }
 
-func MigrateUserPermissions(db *gorm.DB, enforcer *casbin.Enforcer) {
-	fmt.Println("Migrating user permissions")
+func MigrateUserRoles(db *gorm.DB, enforcer *casbin.Enforcer) {
+	fmt.Println("Migrating user roles")
 	var users []models.User
 	db.Find(&users)
 
@@ -147,21 +146,29 @@ func MigrateUserPermissions(db *gorm.DB, enforcer *casbin.Enforcer) {
 	enforcer.SavePolicy()
 }
 
-func MigrateAPIKeyPermissions(db *gorm.DB, enforcer *casbin.Enforcer) {
-	fmt.Println("Migrating apikey permissions")
+func MigrateAPIKeyAccess(db *gorm.DB, enforcer *casbin.Enforcer) {
+	fmt.Println("Migrating apikey access")
 	var apikeys []models.APIKey
 	db.Find(&apikeys)
 
 	for _, apikey := range apikeys {
 		apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
+		user_id := fmt.Sprintf("user:%d", apikey.UserID)
 
-		enforcer.DeletePermissionsForUser(apikey_id)
+		val, err := enforcer.HasRoleForUser(apikey_id, user_id)
 
-		permissions := strings.Split(apikey.Permissions, ",")
-		for _, permission := range permissions {
-			if permission != "" {
-				enforcer.AddPermissionForUser(apikey_id, permission)
-			}
+		if err != nil {
+			panic(err)
+		}
+
+		if val == apikey.FullAccess {
+			continue
+		}
+
+		if apikey.FullAccess {
+			enforcer.AddRoleForUser(apikey_id, user_id)
+		} else {
+			enforcer.DeleteRolesForUser(apikey_id)
 		}
 	}
 
