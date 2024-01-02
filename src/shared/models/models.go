@@ -35,7 +35,6 @@ type User struct {
 	Type           string
 	GraduationYear int
 	Major          string
-	Enabled        bool
 
 	Trainings   []Training   `json:",omitempty"`
 	Holds       []Hold       `json:",omitempty"`

@@ -78,14 +78,18 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 			apikey.Description = *req.Description
 		}
 
+		enforcer := leash_auth.GetAuthentication(c).Enforcer
+
 		if req.Permissions != nil {
-			leash_auth.GetAuthentication(c).Enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions)
+			enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions)
 		}
 
 		if req.FullAccess != nil {
 			apikey.FullAccess = *req.FullAccess
-			leash_auth.GetAuthentication(c).Enforcer.SetAPIKeyFullAccess(apikey, *req.FullAccess)
+			enforcer.SetAPIKeyFullAccess(apikey, *req.FullAccess)
 		}
+
+		enforcer.SavePolicy()
 
 		db.Save(&apikey)
 
@@ -156,7 +160,9 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 
 		db.Create(&apikey)
 
-		leash_auth.GetAuthentication(c).Enforcer.SetPermissionsForAPIKey(apikey, req.Permissions)
+		enforcer := leash_auth.GetAuthentication(c).Enforcer
+		enforcer.SetPermissionsForAPIKey(apikey, req.Permissions)
+		enforcer.SavePolicy()
 
 		return c.JSON(apikey)
 	})

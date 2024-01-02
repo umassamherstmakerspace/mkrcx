@@ -87,9 +87,18 @@ func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission strin
 	return val
 }
 
-// AddPermissionForUser adds a permission for the user supplied
-func (e EnforcerWrapper) AddPermissionForUser(user models.User, permission string) {
-	e.e.AddPermissionForUser(fmt.Sprintf("user:%d", user.ID), permission)
+// SavePolicy saves the policy
+func (e EnforcerWrapper) SavePolicy() error {
+	return e.e.SavePolicy()
+}
+
+// AddPermissionsForUser adds the permissions for the user supplied
+func (e EnforcerWrapper) SetPermissionsForUser(user models.User, permissions []string) {
+	user_id := fmt.Sprintf("user:%d", user.ID)
+	e.e.DeletePermissionsForUser(user_id)
+	for _, permission := range permissions {
+		e.e.AddPermissionForUser(user_id, permission)
+	}
 }
 
 // SetUserRole sets the role for the user supplied
@@ -97,14 +106,6 @@ func (e EnforcerWrapper) SetUserRole(user models.User, role string) {
 	user_id := fmt.Sprintf("user:%d", user.ID)
 	e.e.DeleteRolesForUser(user_id)
 	e.e.AddRoleForUser(user_id, "role:"+role)
-
-	e.e.SavePolicy()
-}
-
-// RemoveUserRole removes the role for the user supplied
-func (e EnforcerWrapper) RemoveUserRole(user models.User) {
-	user_id := fmt.Sprintf("user:%d", user.ID)
-	e.e.DeleteRolesForUser(user_id)
 }
 
 // SetPermissionsForAPIKey sets the permissions for the api key supplied
