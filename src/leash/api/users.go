@@ -20,26 +20,47 @@ type userGetRequest struct {
 }
 
 // Preload preloads the user with the specified fields
-func (req *userGetRequest) Preload(db *gorm.DB, user *models.User) {
+func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User) error {
+	prefix := c.Locals("permission_prefix").(string)
+	authenticator := leash_auth.GetAuthentication(c)
+
 	if req.WithTrainings != nil && *req.WithTrainings {
-		user.Trainings = []models.Training{}
-		db.Model(&user).Association("Trainings").Find(&user.Trainings)
+		if authenticator.Authorize(prefix+":trainings:list") == nil {
+			user.Trainings = []models.Training{}
+			db.Model(&user).Association("Trainings").Find(&user.Trainings)
+		} else {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view trainings")
+		}
 	}
 
 	if req.WithHolds != nil && *req.WithHolds {
-		user.Holds = []models.Hold{}
-		db.Model(&user).Association("Holds").Find(&user.Holds)
+		if authenticator.Authorize(prefix+":holds:list") == nil {
+			user.Holds = []models.Hold{}
+			db.Model(&user).Association("Holds").Find(&user.Holds)
+		} else {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view holds")
+		}
 	}
 
 	if req.WithApiKeys != nil && *req.WithApiKeys {
-		user.APIKeys = []models.APIKey{}
-		db.Model(&user).Association("APIKeys").Find(&user.APIKeys)
+		if authenticator.Authorize(prefix+":apikeys:list") == nil {
+			user.APIKeys = []models.APIKey{}
+			db.Model(&user).Association("APIKeys").Find(&user.APIKeys)
+		} else {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view api keys")
+		}
 	}
 
 	if req.WithUpdates != nil && *req.WithUpdates {
-		user.UserUpdates = []models.UserUpdate{}
-		db.Model(&user).Association("UserUpdates").Find(&user.UserUpdates)
+		if authenticator.Authorize(prefix+":updates:list") == nil {
+			user.UserUpdates = []models.UserUpdate{}
+			db.Model(&user).Association("UserUpdates").Find(&user.UserUpdates)
+		} else {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view updates")
+		}
 	}
+
+	return nil
 }
 
 var userCreateCallbacks []func(UserEvent)
@@ -64,7 +85,7 @@ func selfMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
 	// Check if the user is authorized to perform the action
 	if authentication.Authorize("leash.users:target_self") != nil {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target yourself")
 	}
 
 	// Get the user from the authentication
@@ -80,7 +101,7 @@ func userMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
 	// Check if the user is authorized to perform the action
 	if authentication.Authorize("leash.users:target_others") != nil {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target other users")
 	}
 
 	// Get the user ID from the URL
@@ -101,17 +122,38 @@ func userMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// noServiceMiddleware is a middleware that prevents targetting service accounts
+func noServiceMiddleware(c *fiber.Ctx) error {
+	user := c.Locals("target_user").(models.User)
+
+	if user.Role == "service" {
+		return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint cannot target service accounts")
+	}
+
+	return c.Next()
+}
+
+// onlyServiceMiddleware is a middleware that prevents targetting non-service accounts
+func onlyServiceMiddleware(c *fiber.Ctx) error {
+	user := c.Locals("target_user").(models.User)
+
+	if user.Role != "service" {
+		return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint can only target service accounts")
+	}
+
+	return c.Next()
+}
+
 // createBaseEndpoints creates the common endpoints for the base user endpoint
 func createBaseEndpoints(users_ep fiber.Router) {
 	// Create a new user endpoint
 	type userCreateRequest struct {
-		Email       string   `json:"email" xml:"email" form:"email" validate:"required,email"`
-		Name        string   `json:"name" xml:"name" form:"name" validate:"required"`
-		Role        string   `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin service"`
-		Type        string   `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
-		GradYear    int      `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Major       string   `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Permissions []string `json:"permissions" xml:"permissions" form:"permissions" validate:"required_if=Role service,excluded_unless=Role service"`
+		Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
+		Name     string `json:"name" xml:"name" form:"name" validate:"required"`
+		Role     string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
+		Type     string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
+		GradYear int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Major    string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
 	users_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[userCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -131,7 +173,6 @@ func createBaseEndpoints(users_ep fiber.Router) {
 			Type:           req.Type,
 			GraduationYear: req.GradYear,
 			Major:          req.Major,
-			Permissions:    req.Permissions,
 		}
 
 		db.Create(&user)
@@ -140,7 +181,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		enforcer := leash_auth.GetAuthentication(c).Enforcer
 
 		enforcer.SetUserRole(user, req.Role)
-		enforcer.SetPermissionsForUser(user, req.Permissions)
+		enforcer.SavePolicy()
 
 		event := UserEvent{
 			c:         c,
@@ -260,7 +301,9 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 
 		// Preload the user with the specified fields
 		req := c.Locals("query").(userGetRequest)
-		req.Preload(db, &user)
+		if err := req.Preload(c, db, &user); err != nil {
+			return err
+		}
 
 		return c.JSON(user)
 	})
@@ -285,7 +328,9 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 
 		// Preload the user with the specified fields
 		req := c.Locals("query").(userGetRequest)
-		req.Preload(db, &user)
+		if err := req.Preload(c, db, &user); err != nil {
+			return err
+		}
 
 		return c.JSON(user)
 	})
@@ -334,28 +379,31 @@ func addUserUpdateEndpoints(user_ep fiber.Router) {
 	})
 }
 
-// commonUserEndpoints creates the endpoints for both self and others
-func commonUserEndpoints(user_ep fiber.Router) {
+func getUserEndpoint(user_ep fiber.Router) {
 	// Get the current user endpoint
 	user_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("read"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		req := c.Locals("query").(userGetRequest)
 		user := c.Locals("target_user").(models.User)
 
 		// Preload the user with the specified fields
-		req.Preload(leash_auth.GetDB(c), &user)
+		if err := req.Preload(c, leash_auth.GetDB(c), &user); err != nil {
+			return err
+		}
 		return c.JSON(user)
 	})
+}
 
+// updateUserEndpoints creates the endpoints for updating users
+func updateUserEndpoint(user_ep fiber.Router) {
 	// Update the current user endpoint
 	type userUpdateRequest struct {
-		Name        *string  `json:"name" xml:"name" form:"name" validate:"omitempty"`
-		Email       *string  `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
-		CardId      *uint64  `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
-		Role        *string  `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
-		Type        *string  `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
-		GradYear    *int     `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Major       *string  `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Permissions []string `json:"permissions" xml:"permissions" form:"permissions" validate:"required_if=Role service,excluded_unless=Role service"`
+		Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
+		Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
+		CardId   *uint64 `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
+		Role     *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
+		Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
+		GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Major    *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
 	user_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[userUpdateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -442,7 +490,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 			if authenticator.Authorize(permissionPrefix+":update_card_id") != nil {
 				user.CardID = *req.CardId
 			} else {
-				return c.SendStatus(fiber.StatusUnauthorized)
+				return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to update the card ID")
 			}
 		}
 
@@ -451,16 +499,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 				user.Role = *req.Role
 				authenticator.Enforcer.SetUserRole(user, *req.Role)
 			} else {
-				return c.SendStatus(fiber.StatusUnauthorized)
-			}
-		}
-
-		if req.Permissions != nil {
-			if authenticator.Authorize(permissionPrefix+":update_permissions") != nil {
-				user.Permissions = req.Permissions
-				authenticator.Enforcer.SetPermissionsForUser(user, req.Permissions)
-			} else {
-				return c.SendStatus(fiber.StatusUnauthorized)
+				return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to update the role")
 			}
 		}
 
@@ -475,16 +514,10 @@ func commonUserEndpoints(user_ep fiber.Router) {
 
 		return c.JSON(user)
 	})
-
-	// Add sub-endpoints
-	addUserUpdateEndpoints(user_ep)
-	addUserTrainingEndpoints(user_ep)
-	addUserHoldsEndpoints(user_ep)
-	addUserApiKeyEndpoints(user_ep)
 }
 
-// otherUserEndpoints creates the endpoints for other users
-func otherUserEndpoints(user_ep fiber.Router) {
+// deleteUserEndpoints creates the endpoints for deleting users
+func deleteUserEndpoint(user_ep fiber.Router) {
 	user_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 
@@ -501,6 +534,108 @@ func otherUserEndpoints(user_ep fiber.Router) {
 
 		return c.SendStatus(fiber.StatusNoContent)
 	})
+}
+
+// serviceEndpoints creates the endpoints for service accounts
+func serviceEndpoints(service_ep fiber.Router) {
+	// Create a new service user endpoint
+	type serviceUserCreateRequest struct {
+		Name        string   `json:"name" xml:"name" form:"name" validate:"required"`
+		Permissions []string `json:"permissions" xml:"permissions" form:"permissions" validate:"required"`
+	}
+	service_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[serviceUserCreateRequest], func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		req := c.Locals("body").(serviceUserCreateRequest)
+
+		// Create a new user in the database
+		user := models.User{
+			Name: req.Name,
+			Role: "service",
+			Type: "other",
+		}
+
+		db.Create(&user)
+
+		// Set the user's permissions in the RBAC
+		enforcer := leash_auth.GetAuthentication(c).Enforcer
+
+		enforcer.SetPermissionsForUser(user, req.Permissions)
+		enforcer.SavePolicy()
+
+		event := UserEvent{
+			c:         c,
+			Target:    user,
+			Agent:     leash_auth.GetAuthentication(c).User,
+			Timestamp: time.Now().Unix(),
+		}
+
+		for _, callback := range userCreateCallbacks {
+			callback(event)
+		}
+
+		return c.JSON(user)
+	})
+
+	specific_ep := service_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware, onlyServiceMiddleware)
+	getUserEndpoint(specific_ep)
+
+	// Update the current service user endpoint
+	type serviceUserUpdateRequest struct {
+		Name        *string   `json:"name" xml:"name" form:"name" validate:"omitempty"`
+		Permissions *[]string `json:"permissions" xml:"permissions" form:"permissions" validate:"omitempty"`
+	}
+
+	specific_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[serviceUserUpdateRequest], func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		req := c.Locals("body").(serviceUserUpdateRequest)
+		user := c.Locals("target_user").(models.User)
+
+		authenticator := leash_auth.GetAuthentication(c)
+
+		// Base for the update event
+		event := UserUpdateEvent{
+			UserEvent: UserEvent{
+				c:         c,
+				Target:    user,
+				Agent:     authenticator.User,
+				Timestamp: time.Now().Unix(),
+			},
+
+			Changes: []UserChanges{},
+		}
+
+		if req.Name != nil && *req.Name != user.Name {
+			event.Changes = append(event.Changes, UserChanges{
+				Old:   user.Name,
+				New:   *req.Name,
+				Field: "name",
+			})
+
+			user.Name = *req.Name
+		}
+
+		if req.Permissions != nil {
+			enforcer := leash_auth.GetAuthentication(c).Enforcer
+
+			enforcer.SetPermissionsForUser(user, *req.Permissions)
+			enforcer.SavePolicy()
+		}
+
+		db.Save(&user)
+
+		// Run the update callbacks
+		for _, callback := range userUpdateCallbacks {
+			callback(event)
+		}
+
+		return c.JSON(user)
+	})
+
+	deleteUserEndpoint(specific_ep)
+	addUserUpdateEndpoints(specific_ep)
+	addUserTrainingEndpoints(specific_ep)
+	addUserHoldsEndpoints(specific_ep)
+	addUserApiKeyEndpoints(specific_ep)
 }
 
 // registerUserEndpoints registers all the User endpoints for Leash
@@ -532,12 +667,25 @@ func registerUserEndpoints(api fiber.Router) {
 	get_ep := users_ep.Group("/get", leash_auth.ConcatPermissionPrefixMiddleware("get"))
 	createGetUserEndpoints(get_ep)
 
-	self_ep := users_ep.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware)
-	commonUserEndpoints(self_ep)
+	self_ep := users_ep.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware, noServiceMiddleware)
+	getUserEndpoint(self_ep)
+	updateUserEndpoint(self_ep)
+	addUserUpdateEndpoints(self_ep)
+	addUserTrainingEndpoints(self_ep)
+	addUserHoldsEndpoints(self_ep)
+	addUserApiKeyEndpoints(self_ep)
 
-	user_ep := users_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware)
-	commonUserEndpoints(user_ep)
-	otherUserEndpoints(user_ep)
+	user_ep := users_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware, noServiceMiddleware)
+	getUserEndpoint(user_ep)
+	updateUserEndpoint(user_ep)
+	deleteUserEndpoint(user_ep)
+	addUserUpdateEndpoints(user_ep)
+	addUserTrainingEndpoints(user_ep)
+	addUserHoldsEndpoints(user_ep)
+	addUserApiKeyEndpoints(user_ep)
+
+	service_ep := users_ep.Group("/service", leash_auth.ConcatPermissionPrefixMiddleware("service"))
+	serviceEndpoints(service_ep)
 }
 
 // OnUserCreate registers a callback to be called when a user is created

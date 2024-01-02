@@ -50,7 +50,6 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(member, "leash.users.self:update")
 	enforcer.AddPermissionForUser(admin, "leash.users.self:update_card_id")
 	enforcer.AddPermissionForUser(admin, "leash.users.self:update_role")
-	enforcer.AddPermissionForUser(admin, "leash.users.self:update_permissions")
 	// --No self delete EP--
 	//   Updates
 	enforcer.AddPermissionForUser(member, "leash.users.self.updates:list")
@@ -76,7 +75,6 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(staff, "leash.users.others:update")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:update_card_id")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:update_role")
-	enforcer.AddPermissionForUser(admin, "leash.users.others:update_permissions")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:delete")
 	//   Updates
 	enforcer.AddPermissionForUser(volunteer, "leash.users.others.updates:list")
@@ -96,6 +94,31 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(admin, "leash.users.others.apikeys:get")
 	enforcer.AddPermissionForUser(admin, "leash.users.others.apikeys:delete")
 	enforcer.AddPermissionForUser(admin, "leash.users.others.apikeys:update")
+
+	// Service EPs
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service:read")
+	enforcer.AddPermissionForUser(admin, "leash.users.service:update")
+	enforcer.AddPermissionForUser(admin, "leash.users.service:update_card_id")
+	enforcer.AddPermissionForUser(admin, "leash.users.service:update_role")
+	enforcer.AddPermissionForUser(admin, "leash.users.service:delete")
+	//   Updates
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service.updates:list")
+	//   Trainings
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service.trainings:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service.trainings:get")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.trainings:create")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.trainings:delete")
+	//   Holds
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service.holds:list")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.holds:create")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service.holds:get")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.holds:delete")
+	//   API Keys
+	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:list")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:create")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:get")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:delete")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:update")
 
 	// Training EPs
 	enforcer.AddPermissionForUser(volunteer, "leash.trainings:get")
