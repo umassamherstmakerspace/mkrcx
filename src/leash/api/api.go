@@ -6,8 +6,9 @@ import (
 )
 
 type listRequest struct {
-	Limit  *int `query:"limit" validate:"omitempty,min=1,max=100"`
-	Offset *int `query:"offset" validate:"omitempty,min=0"`
+	Limit   *int  `query:"limit" validate:"omitempty,min=1,max=100"`
+	Offset  *int  `query:"offset" validate:"omitempty,min=0"`
+	LoadAll *bool `query:"load_all" validate:"omitempty"`
 }
 
 // RegisterAPIEndpoints registers all the API endpoints for Leash

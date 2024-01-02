@@ -84,16 +84,18 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 		// Paginate the results
 		var trainings []models.Training
 		con := db.Model(&trainings).Where(models.Training{UserID: user.ID})
-		if req.Limit != nil {
-			con = con.Limit(*req.Limit)
-		} else {
-			con = con.Limit(10)
-		}
+		if req.LoadAll != nil && *req.LoadAll {
+			if req.Limit != nil {
+				con = con.Limit(*req.Limit)
+			} else {
+				con = con.Limit(10)
+			}
 
-		if req.Offset != nil {
-			con = con.Offset(*req.Offset)
-		} else {
-			con = con.Offset(0)
+			if req.Offset != nil {
+				con = con.Offset(*req.Offset)
+			} else {
+				con = con.Offset(0)
+			}
 		}
 
 		con.Find(&trainings)

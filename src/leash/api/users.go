@@ -353,16 +353,18 @@ func addUserUpdateEndpoints(user_ep fiber.Router) {
 		// Paginate the results
 		var updates []models.UserUpdate
 		con := db.Model(&updates).Where(models.UserUpdate{UserID: user.ID})
-		if req.Limit != nil {
-			con = con.Limit(*req.Limit)
-		} else {
-			con = con.Limit(10)
-		}
+		if req.LoadAll != nil && *req.LoadAll {
+			if req.Limit != nil {
+				con = con.Limit(*req.Limit)
+			} else {
+				con = con.Limit(10)
+			}
 
-		if req.Offset != nil {
-			con = con.Offset(*req.Offset)
-		} else {
-			con = con.Offset(0)
+			if req.Offset != nil {
+				con = con.Offset(*req.Offset)
+			} else {
+				con = con.Offset(0)
+			}
 		}
 
 		con.Find(&updates)
