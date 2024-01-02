@@ -4,13 +4,13 @@ import (
 	"log"
 	"os"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	leash_api "github.com/mkrcx/mkrcx/src/leash/api"
 	leash_frontend "github.com/mkrcx/mkrcx/src/leash/frontend"
 	leash_helpers "github.com/mkrcx/mkrcx/src/leash/helpers"
@@ -19,41 +19,29 @@ import (
 	models "github.com/mkrcx/mkrcx/src/shared/models"
 )
 
-const SYSTEM_USER_EMAIL = "makerspace@umass.edu"
-const HOST = ":8000"
+const DEFAULT_HOST = ":8000"
 
 func main() {
 	db, err := gorm.Open(mysql.Open(os.Getenv("DB")), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		log.Panicln("failed to connect database")
 	}
 
 	models.SetupValidator()
 
 	// Migrate the schema
+	log.Println("Migrating database schema...")
 	db.AutoMigrate(&models.User{})
 	db.AutoMigrate(&models.APIKey{})
 	db.AutoMigrate(&models.Training{})
 	db.AutoMigrate(&models.UserUpdate{})
 	db.AutoMigrate(&models.Hold{})
 
-	app := fiber.New()
-
-	app.Use(cors.New())
-
-	app.Use(cors.New(cors.Config{
-		AllowOriginsFunc: func(origin string) bool {
-			return os.Getenv("ENVIRONMENT") == "development"
-		},
-	}))
-
-	URL := os.Getenv("URL")
-
 	// Google OAuth2
 	google := &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:  URL + "/auth/callback",
+		RedirectURL:  os.Getenv("FRONTEND_URL") + "/auth/callback",
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
 		},
@@ -61,17 +49,60 @@ func main() {
 	}
 
 	// JWT Key
-	keys := leash_auth.InitalizeJWT()
+	log.Println("Initalizing JWT Keys...")
+	key_file := os.Getenv("KEY_FILE")
+	keys, err := leash_auth.InitalizeJWT(key_file)
+	if err != nil {
+		log.Panicln(err)
+	}
 
 	// Initalize RBAC
-	enforcer := leash_auth.InitalizeCasbin(db)
+	log.Println("Initalizing RBAC...")
+	enforcer, err := leash_auth.InitalizeCasbin(db)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	models.SetupEnforcer(enforcer)
+
 	leash_helpers.SetupCasbin(enforcer)
-	leash_helpers.MigrateUserRoles(db, enforcer)
-	leash_helpers.MigrateAPIKeyAccess(db, enforcer)
+
+	log.Println("Migrating User Roles...")
+	err = leash_helpers.MigrateUserRoles(db, enforcer)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	log.Println("Migrating API Key Access...")
+	err = leash_helpers.MigrateAPIKeyAccess(db, enforcer)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	// Create App
+	log.Println("Initalizing Fiber...")
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = DEFAULT_HOST
+	}
+
+	app := fiber.New()
+
+	// Use CORS
+	app.Use(cors.New())
+
+	// Allow all origins in development
+	app.Use(cors.New(cors.Config{
+		AllowOriginsFunc: func(origin string) bool {
+			return os.Getenv("ENVIRONMENT") == "development"
+		},
+	}))
 
 	app.Use(leash_auth.LocalsMiddleware(db, keys, google, enforcer))
 
 	frontend_dir := os.Getenv("FRONTEND_DIR")
+
+	log.Println("Setting up routes...")
 
 	api := app.Group("/api", leash_auth.SetPermissionPrefixMiddleware("leash"))
 
@@ -83,6 +114,6 @@ func main() {
 
 	leash_frontend.SetupFrontend(app, "/", frontend_dir)
 
-	log.Printf("Starting server on port %s\n", HOST)
-	app.Listen(HOST)
+	log.Printf("Starting server on port %s\n", host)
+	app.Listen(host)
 }

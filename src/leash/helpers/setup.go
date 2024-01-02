@@ -8,25 +8,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// SetupCasbin sets up the casbin RBAC for Leash
 func SetupCasbin(enforcer *casbin.Enforcer) {
+	// Roles
 	member := "leash:member"
 	volunteer := "leash:volunteer"
 	staff := "leash:staff"
 	admin := "leash:admin"
 
+	// Delete Leash permission roles
 	enforcer.DeleteRole(member)
 	enforcer.DeleteRole(volunteer)
 	enforcer.DeleteRole(staff)
 	enforcer.DeleteRole(admin)
 
-	fmt.Println("Setting up casbin")
-
+	// Create Leash permission role hierarchy
 	enforcer.AddRoleForUser(admin, staff)
 	enforcer.AddRoleForUser(staff, volunteer)
 	enforcer.AddRoleForUser(volunteer, member)
 
-	fmt.Println("Setting up permissions")
-
+	// Link Leash permission roles to mkr.cx roles
 	enforcer.AddRoleForUser("role:admin", "leash:admin")
 	enforcer.AddRoleForUser("role:staff", "leash:staff")
 	enforcer.AddRoleForUser("role:volunteer", "leash:volunteer")
@@ -113,14 +114,15 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.SavePolicy()
 }
 
-func MigrateUserRoles(db *gorm.DB, enforcer *casbin.Enforcer) {
-	fmt.Println("Migrating user roles")
+// MigrateUserRoles migrates the user roles into the casbin RBAC
+func MigrateUserRoles(db *gorm.DB, enforcer *casbin.Enforcer) error {
 	var users []models.User
 	db.Find(&users)
 
 	for _, user := range users {
 		user_id := fmt.Sprintf("user:%d", user.ID)
 
+		// Convert the user role to a casbin role
 		role := "role:member"
 		if user.Role == "volunteer" {
 			role = "role:volunteer"
@@ -130,24 +132,28 @@ func MigrateUserRoles(db *gorm.DB, enforcer *casbin.Enforcer) {
 			role = "role:admin"
 		}
 
+		// Check if the user already has the role
 		val, err := enforcer.HasRoleForUser(user_id, role)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
+		// If the user already has the role, skip
 		if val {
 			continue
 		}
 
+		// Otherwise, delete all roles and add the new role
 		enforcer.DeleteRolesForUser(user_id)
 		enforcer.AddRoleForUser(user_id, role)
 	}
 
 	enforcer.SavePolicy()
+	return nil
 }
 
-func MigrateAPIKeyAccess(db *gorm.DB, enforcer *casbin.Enforcer) {
-	fmt.Println("Migrating apikey access")
+// MigrateAPIKeyAccess migrates the API key access into the casbin RBAC
+func MigrateAPIKeyAccess(db *gorm.DB, enforcer *casbin.Enforcer) error {
 	var apikeys []models.APIKey
 	db.Find(&apikeys)
 
@@ -155,22 +161,28 @@ func MigrateAPIKeyAccess(db *gorm.DB, enforcer *casbin.Enforcer) {
 		apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
 		user_id := fmt.Sprintf("user:%d", apikey.UserID)
 
+		// Check if the api key is linked to the user's permissions
 		val, err := enforcer.HasRoleForUser(apikey_id, user_id)
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 
+		// Check if the api key is correctly linked to the user's permissions
 		if val == apikey.FullAccess {
 			continue
 		}
 
+		// If the api key is not linked to the user's permissions, fix it
 		if apikey.FullAccess {
+			// Add the role if the key is full access
 			enforcer.AddRoleForUser(apikey_id, user_id)
 		} else {
+			// Otherwise, delete the role
 			enforcer.DeleteRolesForUser(apikey_id)
 		}
 	}
 
 	enforcer.SavePolicy()
+	return nil
 }

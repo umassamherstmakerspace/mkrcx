@@ -8,6 +8,7 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
+// userTrainingMiddlware is a middleware that fetches the training from a user and stores it in the context
 func userTrainingMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
@@ -25,6 +26,7 @@ func userTrainingMiddlware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// generalTrainingMiddleware is a middleware that fetches the training by ID and stores it in the context
 func generalTrainingMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 
@@ -45,12 +47,15 @@ func generalTrainingMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// addCommonTrainingEndpoints adds the common endpoints for training
 func addCommonTrainingEndpoints(training_ep fiber.Router) {
+	// Get current training endpoint
 	training_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), func(c *fiber.Ctx) error {
 		training := c.Locals("training").(models.Training)
 		return c.JSON(training)
 	})
 
+	// Delete current training endpoint
 	training_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		training := c.Locals("training").(models.Training)
@@ -63,17 +68,48 @@ func addCommonTrainingEndpoints(training_ep fiber.Router) {
 	})
 }
 
+// addUserTrainingEndpoints adds the endpoints for user training
 func addUserTrainingEndpoints(user_ep fiber.Router) {
-	training_ep := user_ep.Group("/trainings", leash_auth.PrefixAuthorizationMiddleware("trainings"))
+	training_ep := user_ep.Group("/trainings", leash_auth.ConcatPermissionPrefixMiddleware("trainings"))
 
-	training_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
+	// List trainings endpoint
+	training_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
+		req := c.Locals("query").(listRequest)
+
+		// Count the total number of users
+		total := db.Model(user).Association("Trainings").Count()
+
+		// Paginate the results
 		var trainings []models.Training
-		db.Model(&user).Association("Trainings").Find(&trainings)
-		return c.JSON(trainings)
+		con := db.Model(&trainings).Where(models.Training{UserID: user.ID})
+		if req.Limit != nil {
+			con = con.Limit(*req.Limit)
+		} else {
+			con = con.Limit(10)
+		}
+
+		if req.Offset != nil {
+			con = con.Offset(*req.Offset)
+		} else {
+			con = con.Offset(0)
+		}
+
+		con.Find(&trainings)
+
+		response := struct {
+			Trainings []models.Training `json:"trainings"`
+			Total     int64             `json:"total"`
+		}{
+			Trainings: trainings,
+			Total:     total,
+		}
+
+		return c.JSON(response)
 	})
 
+	// Create training endpoint
 	type trainingCreateRequest struct {
 		TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required"`
 	}
@@ -107,8 +143,9 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 	addCommonTrainingEndpoints(user_training_ep)
 }
 
+// registerTrainingEndpoints registers the training endpoints
 func registerTrainingEndpoints(api fiber.Router) {
-	trainings_ep := api.Group("/trainings", leash_auth.PrefixAuthorizationMiddleware("trainings"))
+	trainings_ep := api.Group("/trainings", leash_auth.ConcatPermissionPrefixMiddleware("trainings"))
 
 	single_training_ep := trainings_ep.Group("/:training_id", generalTrainingMiddleware)
 

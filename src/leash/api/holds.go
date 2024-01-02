@@ -9,6 +9,7 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
+// userHoldMiddlware is a middleware that fetches the hold from a user and stores it in the context
 func userHoldMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
@@ -24,6 +25,7 @@ func userHoldMiddlware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// generalHoldMiddleware is a middleware that fetches the hold by ID and stores it in the context
 func generalHoldMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 
@@ -43,12 +45,15 @@ func generalHoldMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// addCommonHoldEndpoints adds the common endpoints for holds
 func addCommonHoldEndpoints(hold_ep fiber.Router) {
+	// Get current hold endpoint
 	hold_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), func(c *fiber.Ctx) error {
 		hold := c.Locals("hold").(models.Hold)
 		return c.JSON(hold)
 	})
 
+	// Delete current hold endpoint
 	hold_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		hold := c.Locals("hold").(models.Hold)
@@ -61,17 +66,48 @@ func addCommonHoldEndpoints(hold_ep fiber.Router) {
 	})
 }
 
+// addUserHoldsEndpoints adds the endpoints for holds for a user
 func addUserHoldsEndpoints(user_ep fiber.Router) {
-	hold_ep := user_ep.Group("/holds", leash_auth.PrefixAuthorizationMiddleware("holds"))
+	hold_ep := user_ep.Group("/holds", leash_auth.ConcatPermissionPrefixMiddleware("holds"))
 
-	hold_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
+	// List holds endpoint
+	hold_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
+		req := c.Locals("query").(listRequest)
+
+		// Count the total number of users
+		total := db.Model(user).Association("Holds").Count()
+
+		// Paginate the results
 		var holds []models.Hold
-		db.Model(&user).Association("Holds").Find(&holds)
-		return c.JSON(holds)
+		con := db.Model(&holds).Where(models.Hold{UserID: user.ID})
+		if req.Limit != nil {
+			con = con.Limit(*req.Limit)
+		} else {
+			con = con.Limit(10)
+		}
+
+		if req.Offset != nil {
+			con = con.Offset(*req.Offset)
+		} else {
+			con = con.Offset(0)
+		}
+
+		con.Find(&holds)
+
+		response := struct {
+			Holds []models.Hold `json:"holds"`
+			Total int64         `json:"total"`
+		}{
+			Holds: holds,
+			Total: total,
+		}
+
+		return c.JSON(response)
 	})
 
+	// Create hold endpoint
 	type holdCreateRequest struct {
 		HoldType  string `json:"hold_type" xml:"hold_type" form:"hold_type" validate:"required"`
 		Reason    string `json:"reason" xml:"reason" form:"reason" validate:"required"`
@@ -118,8 +154,9 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 	addCommonHoldEndpoints(user_hold_ep)
 }
 
+// registerHoldsEndpoints registers the endpoints for holds
 func registerHoldsEndpoints(api fiber.Router) {
-	holds_ep := api.Group("/holds", leash_auth.PrefixAuthorizationMiddleware("holds"))
+	holds_ep := api.Group("/holds", leash_auth.ConcatPermissionPrefixMiddleware("holds"))
 
 	single_hold_ep := holds_ep.Group("/:hold_id", generalHoldMiddleware)
 

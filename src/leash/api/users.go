@@ -12,10 +12,41 @@ import (
 	"gorm.io/gorm"
 )
 
+type userGetRequest struct {
+	WithTrainings *bool `query:"with_trainings" validate:"omitempty"`
+	WithHolds     *bool `query:"with_holds" validate:"omitempty"`
+	WithApiKeys   *bool `query:"with_api_keys" validate:"omitempty"`
+	WithUpdates   *bool `query:"with_updates" validate:"omitempty"`
+}
+
+// Preload preloads the user with the specified fields
+func (req *userGetRequest) Preload(db *gorm.DB, user *models.User) {
+	if req.WithTrainings != nil && *req.WithTrainings {
+		user.Trainings = []models.Training{}
+		db.Model(&user).Association("Trainings").Find(&user.Trainings)
+	}
+
+	if req.WithHolds != nil && *req.WithHolds {
+		user.Holds = []models.Hold{}
+		db.Model(&user).Association("Holds").Find(&user.Holds)
+	}
+
+	if req.WithApiKeys != nil && *req.WithApiKeys {
+		user.APIKeys = []models.APIKey{}
+		db.Model(&user).Association("APIKeys").Find(&user.APIKeys)
+	}
+
+	if req.WithUpdates != nil && *req.WithUpdates {
+		user.UserUpdates = []models.UserUpdate{}
+		db.Model(&user).Association("UserUpdates").Find(&user.UserUpdates)
+	}
+}
+
 var userCreateCallbacks []func(UserEvent)
 var userUpdateCallbacks []func(UserUpdateEvent)
 var userDeleteCallbacks []func(UserEvent)
 
+// searchEmail searches for a user by email or pending email
 func searchEmail(db *gorm.DB, email string) (models.User, error) {
 	var user models.User
 
@@ -28,26 +59,31 @@ func searchEmail(db *gorm.DB, email string) (models.User, error) {
 	return user, nil
 }
 
+// selfMiddleware is a middleware that sets the target user to the current user
 func selfMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
+	// Check if the user is authorized to perform the action
 	if authentication.Authorize("leash.users:target_self") != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
+	// Get the user from the authentication
 	apiUser := authentication.User
-	apiUser.LoadPermissions(leash_auth.GetEnforcer(c))
 
 	c.Locals("target_user", apiUser)
 	return c.Next()
 }
 
+// userMiddleware is a middleware that sets the target user to the user specified in the URL
 func userMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	authentication := leash_auth.GetAuthentication(c)
+	// Check if the user is authorized to perform the action
 	if authentication.Authorize("leash.users:target_others") != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
+	// Get the user ID from the URL
 	user_id, err := strconv.Atoi(c.Params("user_id"))
 
 	if err != nil {
@@ -61,13 +97,13 @@ func userMiddleware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
 
-	user.LoadPermissions(leash_auth.GetEnforcer(c))
-
 	c.Locals("target_user", user)
 	return c.Next()
 }
 
+// createBaseEndpoints creates the common endpoints for the base user endpoint
 func createBaseEndpoints(users_ep fiber.Router) {
+	// Create a new user endpoint
 	type userCreateRequest struct {
 		Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
 		Name     string `json:"name" xml:"name" form:"name" validate:"required"`
@@ -96,8 +132,10 @@ func createBaseEndpoints(users_ep fiber.Router) {
 			Major:          req.Major,
 			Enabled:        false,
 		}
+
 		db.Create(&user)
 
+		// Set the user's role in the RBAC
 		leash_auth.GetAuthentication(c).Enforcer.SetUserRole(user, req.Role)
 
 		event := UserEvent{
@@ -114,41 +152,69 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		return c.JSON(user)
 	})
 
+	// Search for a user by name or email endpoint
 	type userSearchQuery struct {
-		Query           *string `query:"query" validate:"required"`
-		Limit           *int    `query:"limit" validate:"omitempty,min=1,max=100"`
-		Offset          *int    `query:"offset" validate:"omitempty,min=0"`
-		PreloadTraining *bool   `query:"preload_training" validate:"omitempty"`
-		PreloadHolds    *bool   `query:"preload_holds" validate:"omitempty"`
-		ShowService     *bool   `query:"show_service" validate:"omitempty"`
+		listRequest
+		userGetRequest
+		Query       *string `query:"query" validate:"required"`
+		ShowService *bool   `query:"show_service" validate:"omitempty"`
 	}
-	users_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("search"), models.GetBodyMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
+	users_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("search"), models.GetQueryMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("query").(userSearchQuery)
 		authenticator := leash_auth.GetAuthentication(c)
 
 		var users []models.User
-		con := db.Where("name LIKE ?", "%"+*req.Query+"%").Or("email LIKE ?", "%"+*req.Query+"%").Or("pending_email LIKE ?", "%"+*req.Query+"%")
 
-		if req.ShowService == nil || !*req.ShowService {
-			con = con.Where("role <> ?", "service")
-		}
+		con := db.Model(&models.User{})
 
-		if req.PreloadTraining != nil && *req.PreloadTraining {
-			if authenticator.Authorize("leash.users.others.trainings:list") != nil {
+		// Preload the user with the specified fields
+		if req.WithTrainings != nil && *req.WithTrainings {
+			if authenticator.Authorize("leash.users.others.trainings:list") == nil {
 				con = con.Preload("Trainings")
+			} else {
+				return c.SendStatus(fiber.StatusUnauthorized)
 			}
 		}
 
-		if req.PreloadHolds != nil && *req.PreloadHolds {
-			if authenticator.Authorize("leash.users.others.holds:list") != nil {
+		if req.WithHolds != nil && *req.WithHolds {
+			if authenticator.Authorize("leash.users.others.holds:list") == nil {
 				con = con.Preload("Holds")
+			} else {
+				return c.SendStatus(fiber.StatusUnauthorized)
 			}
 		}
 
+		if req.WithApiKeys != nil && *req.WithApiKeys {
+			if authenticator.Authorize("leash.users.others.apikeys:list") == nil {
+				con = con.Preload("APIKeys")
+			} else {
+				return c.SendStatus(fiber.StatusUnauthorized)
+			}
+		}
+
+		if req.WithUpdates != nil && *req.WithUpdates {
+			if authenticator.Authorize("leash.users.others.updates:list") == nil {
+				con = con.Preload("UserUpdates")
+			} else {
+				return c.SendStatus(fiber.StatusUnauthorized)
+			}
+		}
+
+		q := db.Where("name LIKE ?", "%"+*req.Query+"%").Or("email LIKE ?", "%"+*req.Query+"%").Or("pending_email LIKE ?", "%"+*req.Query+"%")
+
+		// Allow searching for service accounts
+		if req.ShowService == nil || !*req.ShowService {
+			con = con.Where("role <> ?", "service").Where(q)
+		} else {
+			con = con.Where(q)
+		}
+
+		// Count the total number of users
 		total := int64(0)
 		con.Model(&models.User{}).Count(&total)
 
+		// Paginate the results
 		if req.Limit != nil {
 			con = con.Limit(*req.Limit)
 		} else {
@@ -175,49 +241,108 @@ func createBaseEndpoints(users_ep fiber.Router) {
 	})
 }
 
+// createGetUserEndpoints creates the endpoints for getting users
 func createGetUserEndpoints(get_ep fiber.Router) {
-	get_ep.Get("/email/:email", leash_auth.AuthorizationMiddleware("email"), func(c *fiber.Ctx) error {
+	// Get a user by email endpoint
+	get_ep.Get("/email/:email", leash_auth.AuthorizationMiddleware("email"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		email := c.Params("email")
 		user, err := searchEmail(db, email)
 
+		// Check if the user exists
 		if err != nil {
 			return fiber.NewError(fiber.StatusNotFound, "User not found")
 		}
+
+		// Preload the user with the specified fields
+		req := c.Locals("query").(userGetRequest)
+		req.Preload(db, &user)
 
 		return c.JSON(user)
 	})
 
-	get_ep.Get("/get/card/:card", leash_auth.AuthorizationMiddleware("card"), func(c *fiber.Ctx) error {
+	get_ep.Get("/get/card/:card", leash_auth.AuthorizationMiddleware("card"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		card := c.Params("card")
-		var user models.User
-		err := db.First(&user, "card_id = ?", card).Error
+
+		card_id, err := strconv.ParseUint(card, 10, 64)
 		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid card ID")
+		}
+
+		// Check if the user exists
+		var user = models.User{
+			CardID: card_id,
+		}
+
+		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "User not found")
 		}
+
+		// Preload the user with the specified fields
+		req := c.Locals("query").(userGetRequest)
+		req.Preload(db, &user)
 
 		return c.JSON(user)
 	})
 }
 
+// addUserUpdateEndpoints creates the endpoints for user updates
 func addUserUpdateEndpoints(user_ep fiber.Router) {
+	// Create a new user update endpoint group
 	update_ep := user_ep.Group("/updates", leash_auth.ConcatPermissionPrefixMiddleware("updates"))
 
+	// List user updates endpoint
 	update_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
+		req := c.Locals("query").(listRequest)
+
+		// Count the total number of users
+		total := db.Model(user).Association("UserUpdates").Count()
+
+		// Paginate the results
 		var updates []models.UserUpdate
-		db.Model(&user).Association("UserUpdates").Find(&updates)
-		return c.JSON(updates)
+		con := db.Model(&updates).Where(models.UserUpdate{UserID: user.ID})
+		if req.Limit != nil {
+			con = con.Limit(*req.Limit)
+		} else {
+			con = con.Limit(10)
+		}
+
+		if req.Offset != nil {
+			con = con.Offset(*req.Offset)
+		} else {
+			con = con.Offset(0)
+		}
+
+		con.Find(&updates)
+
+		response := struct {
+			Updates []models.UserUpdate `json:"updates"`
+			Total   int64               `json:"total"`
+		}{
+			Updates: updates,
+			Total:   total,
+		}
+
+		return c.JSON(response)
 	})
 }
 
+// commonUserEndpoints creates the endpoints for both self and others
 func commonUserEndpoints(user_ep fiber.Router) {
-	user_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("read"), func(c *fiber.Ctx) error {
-		return c.JSON(c.Locals("target_user"))
+	// Get the current user endpoint
+	user_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("read"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
+		req := c.Locals("query").(userGetRequest)
+		user := c.Locals("target_user").(models.User)
+
+		// Preload the user with the specified fields
+		req.Preload(leash_auth.GetDB(c), &user)
+		return c.JSON(user)
 	})
 
+	// Update the current user endpoint
 	type userUpdateRequest struct {
 		Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
 		Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
@@ -235,6 +360,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 		authenticator := leash_auth.GetAuthentication(c)
 		permissionPrefix := c.Locals("permission_prefix").(string)
 
+		// Base for the update event
 		event := UserUpdateEvent{
 			UserEvent: UserEvent{
 				c:         c,
@@ -245,6 +371,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 			Changes: []UserChanges{},
 		}
 
+		// Helper function to check if a field has been modified and add it to the event
 		modified := func(original string, new *string, field string) bool {
 			if new == nil {
 				return false
@@ -262,14 +389,15 @@ func commonUserEndpoints(user_ep fiber.Router) {
 			return false
 		}
 
+		// Update fields
 		if modified(user.Name, req.Name, "name") {
 			user.Name = *req.Name
 		}
 
+		// Check if the email has been changed
 		if req.Email != nil && *req.Email != user.Email && *req.Email != user.PendingEmail {
-			var tmpUser models.User
-			res := db.Find(&tmpUser, "email = ? OR pending_email = ?", *req.Email, *req.Email)
-			if res.RowsAffected > 0 {
+			_, err := searchEmail(db, *req.Email)
+			if err == nil {
 				// The user already exists
 				return c.Status(fiber.StatusConflict).SendString("Email already in use")
 			}
@@ -324,6 +452,7 @@ func commonUserEndpoints(user_ep fiber.Router) {
 
 		db.Save(&user)
 
+		// Run the update callbacks
 		for _, callback := range userUpdateCallbacks {
 			callback(event)
 		}
@@ -331,12 +460,14 @@ func commonUserEndpoints(user_ep fiber.Router) {
 		return c.JSON(user)
 	})
 
+	// Add sub-endpoints
 	addUserUpdateEndpoints(user_ep)
 	addUserTrainingEndpoints(user_ep)
 	addUserHoldsEndpoints(user_ep)
 	addUserApiKeyEndpoints(user_ep)
 }
 
+// otherUserEndpoints creates the endpoints for other users
 func otherUserEndpoints(user_ep fiber.Router) {
 	user_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
@@ -356,6 +487,7 @@ func otherUserEndpoints(user_ep fiber.Router) {
 	})
 }
 
+// registerUserEndpoints registers all the User endpoints for Leash
 func registerUserEndpoints(api fiber.Router) {
 	users_ep := api.Group("/users", leash_auth.ConcatPermissionPrefixMiddleware("users"))
 
@@ -363,6 +495,7 @@ func registerUserEndpoints(api fiber.Router) {
 	userUpdateCallbacks = []func(UserUpdateEvent){}
 	userDeleteCallbacks = []func(UserEvent){}
 
+	// Register a callback to add user updates to the database
 	OnUserUpdate(func(event UserUpdateEvent) {
 		for _, change := range event.Changes {
 			db := leash_auth.GetDB(event.GetCtx())
@@ -391,18 +524,22 @@ func registerUserEndpoints(api fiber.Router) {
 	otherUserEndpoints(user_ep)
 }
 
+// OnUserCreate registers a callback to be called when a user is created
 func OnUserCreate(callback func(UserEvent)) {
 	userCreateCallbacks = append(userCreateCallbacks, callback)
 }
 
+// OnUserUpdate registers a callback to be called when a user is updated
 func OnUserUpdate(callback func(UserUpdateEvent)) {
 	userUpdateCallbacks = append(userUpdateCallbacks, callback)
 }
 
+// OnUserDelete registers a callback to be called when a user is deleted
 func OnUserDelete(callback func(UserEvent)) {
 	userDeleteCallbacks = append(userDeleteCallbacks, callback)
 }
 
+// UpdateEmail sets the pending email for a user as their email
 func UpdatePendingEmail(user models.User, c *fiber.Ctx) (models.User, error) {
 	db := leash_auth.GetDB(c)
 
@@ -410,6 +547,7 @@ func UpdatePendingEmail(user models.User, c *fiber.Ctx) (models.User, error) {
 		return user, errors.New("no pending email")
 	}
 
+	// If a user has a pending email, update their email
 	event := UserUpdateEvent{
 		UserEvent: UserEvent{
 			c:         c,
@@ -435,6 +573,7 @@ func UpdatePendingEmail(user models.User, c *fiber.Ctx) (models.User, error) {
 	user.PendingEmail = ""
 	db.Save(&user)
 
+	// Run the update callbacks
 	for _, callback := range userUpdateCallbacks {
 		callback(event)
 	}

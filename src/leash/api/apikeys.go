@@ -9,6 +9,7 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
+// userApiKeyMiddlware is a middleware that fetches the api key from a user and stores it in the context
 func userApiKeyMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
@@ -21,13 +22,12 @@ func userApiKeyMiddlware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
 	}
 
-	apikey.LoadPermissions(leash_auth.GetEnforcer(c))
-
 	c.Locals("apikey", apikey)
 
 	return c.Next()
 }
 
+// generalApiKeyMiddleware is a middleware that fetches the api key by ID and stores it in the context
 func generalApiKeyMiddleware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	var apikey = models.APIKey{
@@ -38,19 +38,20 @@ func generalApiKeyMiddleware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
 	}
 
-	apikey.LoadPermissions(leash_auth.GetEnforcer(c))
-
 	c.Locals("apikey", apikey)
 
 	return c.Next()
 }
 
+// addCommonApiKeyEndpoints adds the common endpoints for api keys
 func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
+	// Get current api key endpoint
 	apikey_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), func(c *fiber.Ctx) error {
 		apikey := c.Locals("apikey").(models.APIKey)
 		return c.JSON(apikey)
 	})
 
+	// Delete current api key endpoint
 	apikey_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		apikey := c.Locals("apikey").(models.APIKey)
@@ -61,6 +62,7 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
+	// Update current api key endpoint
 	type apikeyUpdateRequest struct {
 		Description *string   `json:"description" xml:"description" form:"description"`
 		Permissions *[]string `json:"permissions" xml:"permissions" form:"permissions"`
@@ -91,17 +93,48 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 	})
 }
 
+// addUserApiKeyEndpoints adds the endpoints for api keys for a user
 func addUserApiKeyEndpoints(user_ep fiber.Router) {
 	apikey_ep := user_ep.Group("/apikeys", leash_auth.ConcatPermissionPrefixMiddleware("apikeys"))
 
-	apikey_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
+	// List api keys endpoint
+	apikey_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
+		req := c.Locals("query").(listRequest)
+
+		// Count the total number of users
+		total := db.Model(user).Association("APIKeys").Count()
+
+		// Paginate the results
 		var apikeys []models.APIKey
-		db.Model(&user).Association("APIKeys").Find(&apikeys)
-		return c.JSON(apikeys)
+		con := db.Model(&apikeys).Where(models.APIKey{UserID: user.ID})
+		if req.Limit != nil {
+			con = con.Limit(*req.Limit)
+		} else {
+			con = con.Limit(10)
+		}
+
+		if req.Offset != nil {
+			con = con.Offset(*req.Offset)
+		} else {
+			con = con.Offset(0)
+		}
+
+		con.Find(&apikeys)
+
+		response := struct {
+			Keys  []models.APIKey `json:"keys"`
+			Total int64           `json:"total"`
+		}{
+			Keys:  apikeys,
+			Total: total,
+		}
+
+		return c.JSON(response)
 	})
 
+	// Create api key endpoint
 	type apikeyCreateRequest struct {
 		Description string   `json:"description" validate:"required"`
 		Permissions []string `json:"permissions" validate:"required"`
@@ -132,6 +165,7 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 	addCommonApiKeyEndpoints(user_apikey_ep)
 }
 
+// registerApiKeyEndpoints registers the api key endpoints
 func registerApiKeyEndpoints(api fiber.Router) {
 	apikey_ep := api.Group("/apikeys", leash_auth.ConcatPermissionPrefixMiddleware("apikeys"))
 

@@ -12,6 +12,7 @@ type UserEvent struct {
 	Timestamp int64       `json:"time"`
 }
 
+// GetCtx returns the context of the event
 func (e *UserEvent) GetCtx() *fiber.Ctx {
 	return e.c
 }

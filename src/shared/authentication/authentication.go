@@ -3,7 +3,6 @@ package leash_authentication
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/casbin/casbin/v2"
@@ -30,18 +29,22 @@ type Authentication struct {
 	Enforcer      EnforcerWrapper
 }
 
+// IsLoggedOut returns true if the user in the current context is logged out
 func (a Authentication) IsLoggedOut() bool {
 	return a.Authenticator == AUTHENTICATOR_LOGGED_OUT
 }
 
+// IsUser returns true if the user in the current context is using a session
 func (a Authentication) IsUser() bool {
 	return a.Authenticator == AUTHENTICATOR_USER
 }
 
+// IsAPIKey returns true if the user in the current context is using an API key
 func (a Authentication) IsAPIKey() bool {
 	return a.Authenticator == AUTHENTICATOR_APIKEY
 }
 
+// Authorize returns nil if the user in the current context is authorized to perform the given action
 func (a Authentication) Authorize(permission string) error {
 	if a.IsLoggedOut() {
 		return errors.New("not logged in")
@@ -64,6 +67,7 @@ type EnforcerWrapper struct {
 	e *casbin.Enforcer
 }
 
+// HasPermissionForAPIKey returns true if the api key supplied is authorized to perform the given action
 func (e EnforcerWrapper) HasPermissionForAPIKey(apikey models.APIKey, permission string) bool {
 	val, err := e.e.Enforce(fmt.Sprintf("apikey:%s", apikey.Key), permission)
 	if err != nil {
@@ -73,6 +77,7 @@ func (e EnforcerWrapper) HasPermissionForAPIKey(apikey models.APIKey, permission
 	return val
 }
 
+// HasPermissionForUser returns true if the user supplied is authorized to perform the given action
 func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission string) bool {
 	val, err := e.e.Enforce(fmt.Sprintf("user:%d", user.ID), permission)
 	if err != nil {
@@ -82,10 +87,12 @@ func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission strin
 	return val
 }
 
+// AddPermissionForUser adds a permission for the user supplied
 func (e EnforcerWrapper) AddPermissionForUser(user models.User, permission string) {
 	e.e.AddPermissionForUser(fmt.Sprintf("user:%d", user.ID), permission)
 }
 
+// SetUserRole sets the role for the user supplied
 func (e EnforcerWrapper) SetUserRole(user models.User, role string) {
 	user_id := fmt.Sprintf("user:%d", user.ID)
 	e.e.DeleteRolesForUser(user_id)
@@ -94,11 +101,13 @@ func (e EnforcerWrapper) SetUserRole(user models.User, role string) {
 	e.e.SavePolicy()
 }
 
+// RemoveUserRole removes the role for the user supplied
 func (e EnforcerWrapper) RemoveUserRole(user models.User) {
 	user_id := fmt.Sprintf("user:%d", user.ID)
 	e.e.DeleteRolesForUser(user_id)
 }
 
+// SetPermissionsForAPIKey sets the permissions for the api key supplied
 func (e EnforcerWrapper) SetPermissionsForAPIKey(apikey models.APIKey, permissions []string) {
 	apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
 	e.e.DeletePermissionsForUser(apikey_id)
@@ -107,6 +116,7 @@ func (e EnforcerWrapper) SetPermissionsForAPIKey(apikey models.APIKey, permissio
 	}
 }
 
+// SetAPIKeyFullAccess sets the full access flag for the api key supplied
 func (e EnforcerWrapper) SetAPIKeyFullAccess(apikey models.APIKey, full_access bool) {
 	apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
 	user_id := fmt.Sprintf("user:%d", apikey.UserID)
@@ -116,6 +126,7 @@ func (e EnforcerWrapper) SetAPIKeyFullAccess(apikey models.APIKey, full_access b
 	}
 }
 
+// SignInAuthentication returns an Authentication struct for the user supplied (used for signing in)
 func SignInAuthentication(user models.User, c *fiber.Ctx) Authentication {
 	return Authentication{
 		Authenticator: AUTHENTICATOR_USER,
@@ -128,79 +139,67 @@ func SignInAuthentication(user models.User, c *fiber.Ctx) Authentication {
 
 type ctxAuthKey struct{}
 
+// GetAuthentication returns the Authentication struct for the current context
 func GetAuthentication(c *fiber.Ctx) Authentication {
 	return c.Locals(ctxAuthKey{}).(Authentication)
 }
 
+// AuthenticationMiddleware is the middleware that handles authentication
 func AuthenticationMiddleware(c *fiber.Ctx) error {
 	db := GetDB(c)
 	keys := GetKeys(c)
+
 	// Make sure DB is alive
 	sql, err := db.DB()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Database connection error")
+		return fiber.NewError(fiber.StatusInternalServerError, "Database connection error")
 	}
 
 	err = sql.Ping()
 
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Database connection error")
+		return fiber.NewError(fiber.StatusInternalServerError, "Database connection error")
 	}
+
+	// Get the enforcer
 
 	enforcer := EnforcerWrapper{
 		e: GetEnforcer(c),
 	}
 
-	// Get the token from the request header
-	authentication, err := func() (Authentication, error) {
-		authentication := Authentication{
-			Authenticator: AUTHENTICATOR_LOGGED_OUT,
-			Enforcer:      enforcer,
-		}
+	authentication := Authentication{
+		Authenticator: AUTHENTICATOR_LOGGED_OUT,
+		Enforcer:      enforcer,
+	}
 
-		authLocal := c.Locals("Authorization")
+	// Get the authorization header
+	authorization := c.Get("Authorization")
 
-		var authorization string
-		if authLocal == nil {
-			authorization = c.Get("Authorization")
-		} else {
-			authorization = authLocal.(string)
-		}
-
-		if authorization == "" {
-			return authentication, errors.New("no authorization header")
-		}
-
+	// If user has supplied an authorization header, use it
+	if strings.HasPrefix(authorization, "Bearer ") {
 		// Get the token from the authorization header
 		token := strings.TrimPrefix(authorization, "Bearer ")
 
 		// Parse the token
 		tok, err := keys.Parse(token)
 		if err != nil {
-			return authentication, errors.New("invalid token")
+			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
 		}
 
 		// Get the email from the token
 		email, valid := tok.Get("email")
 		if !valid {
-			return authentication, errors.New("token does not contain email")
+			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
 		}
 
 		// Check if the user exists
-		var user models.User
-		res := db.First(&user, "email = ?", email)
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		var user = models.User{
+			Email: email.(string),
+		}
+
+		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
 			// The user does not exist
-			return authentication, errors.New("user not found")
-		}
-
-		if !user.Enabled {
-			// The user is not enabled
-			return authentication, errors.New("user not enabled")
-		}
-
-		if user.Role == "service" {
-			return authentication, errors.New("service account")
+			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
 		}
 
 		authentication = Authentication{
@@ -208,53 +207,34 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 			User:          user,
 			Enforcer:      enforcer,
 		}
+	} else if strings.HasPrefix(authorization, "API-Key ") {
+		// Get the api key from the authorization header
+		key := strings.TrimPrefix(authorization, "API-Key ")
 
-		return authentication, nil
-	}()
+		// Check if the api key exists
+		var apiKey = models.APIKey{
+			Key: key,
+		}
 
-	if err != nil {
-		// Get the api key from the request header
-		authentication, err = func() (Authentication, error) {
-			authentication := Authentication{
-				Authenticator: AUTHENTICATOR_LOGGED_OUT,
-				Enforcer:      enforcer,
-			}
+		if res := db.Limit(1).Where(&apiKey).Find(&apiKey); res.Error != nil || res.RowsAffected == 0 {
+			// The api key does not exist
+			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+		}
 
-			apiKey := c.Get("API-Key")
-			if apiKey == "" {
-				return authentication, errors.New("no API-Key header")
-			}
+		// Check if the user exists
+		var user = models.User{}
+		user.ID = apiKey.UserID
 
-			var apiKeyRecord = models.APIKey{Key: apiKey}
+		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
+			// The user does not exist
+			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+		}
 
-			res := db.First(&apiKeyRecord)
-			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-				// The API key is not valid
-				return authentication, errors.New("invalid API key")
-			}
-
-			var user models.User
-			res = db.First(&user, "id = ?", apiKeyRecord.UserID)
-			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-				// The user does not exist
-				return authentication, errors.New("user not found")
-			}
-
-			authentication = Authentication{
-				Authenticator: AUTHENTICATOR_APIKEY,
-				User:          user,
-				Data:          apiKeyRecord,
-				Enforcer:      enforcer,
-			}
-
-			return authentication, nil
-		}()
-
-		if err != nil {
-			authentication = Authentication{
-				Authenticator: AUTHENTICATOR_LOGGED_OUT,
-				Enforcer:      enforcer,
-			}
+		authentication = Authentication{
+			Authenticator: AUTHENTICATOR_APIKEY,
+			User:          user,
+			Data:          apiKey,
+			Enforcer:      enforcer,
 		}
 	}
 
@@ -262,8 +242,10 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// AuthorizationMiddleware is the middleware that handles authorization
 func AuthorizationMiddleware(permission string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// Check if the user is authorized to perform the action
 		authentication := GetAuthentication(c)
 		if authentication.Authorize(permission) != nil {
 			return c.SendStatus(fiber.StatusUnauthorized)
@@ -273,6 +255,7 @@ func AuthorizationMiddleware(permission string) fiber.Handler {
 	}
 }
 
+// SetPermissionPrefixMiddleware is the middleware that sets the permission prefix
 func SetPermissionPrefixMiddleware(prefix string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals("permission_prefix", prefix)
@@ -280,6 +263,7 @@ func SetPermissionPrefixMiddleware(prefix string) fiber.Handler {
 	}
 }
 
+// ConcatPermissionPrefixMiddleware is the middleware that concatenates the permission prefix
 func ConcatPermissionPrefixMiddleware(prefix string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		permission_prefix := c.Locals("permission_prefix").(string)
@@ -288,6 +272,7 @@ func ConcatPermissionPrefixMiddleware(prefix string) fiber.Handler {
 	}
 }
 
+// PrefixAuthorizationMiddleware is the middleware that handles authorization with a prefix
 func PrefixAuthorizationMiddleware(action string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		permission := c.Locals("permission_prefix").(string) + ":" + action
@@ -295,12 +280,15 @@ func PrefixAuthorizationMiddleware(action string) fiber.Handler {
 	}
 }
 
-func InitalizeCasbin(db *gorm.DB) *casbin.Enforcer {
+// InitalizeCasbin initalizes the casbin enforcer
+func InitalizeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
+	// Initialize the adapter from the DB
 	adapter, err := gormadapter.NewAdapterByDB(db)
 	if err != nil {
-		log.Fatalf("error: adapter: %s", err)
+		return nil, err
 	}
 
+	// Initialize the RBAC model
 	model, err := model.NewModelFromString(`
 	[request_definition]
 	r = sub, perm
@@ -317,15 +305,18 @@ func InitalizeCasbin(db *gorm.DB) *casbin.Enforcer {
 	[matchers]
 	m = g(r.sub, p.sub) && r.perm == p.perm
 	`)
+
 	if err != nil {
-		log.Fatalf("error: model: %s", err)
-	}
-	enforcer, err := casbin.NewEnforcer(model, adapter)
-	if err != nil {
-		log.Fatalf("error: enforcer: %s", err)
+		return nil, err
 	}
 
-	return enforcer
+	// Create the enforcer from the model and adapter
+	enforcer, err := casbin.NewEnforcer(model, adapter)
+	if err != nil {
+		return nil, err
+	}
+
+	return enforcer, nil
 }
 
 type ctxDBKey struct{}
@@ -333,7 +324,8 @@ type ctxKeysKey struct{}
 type ctxGoogleKey struct{}
 type ctxEnforcerKey struct{}
 
-func LocalsMiddleware(db *gorm.DB, keys Keys, google *oauth2.Config, enforcer *casbin.Enforcer) fiber.Handler {
+// LocalsMiddleware is the middleware that sets the locals for common objects
+func LocalsMiddleware(db *gorm.DB, keys *Keys, google *oauth2.Config, enforcer *casbin.Enforcer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals(ctxDBKey{}, db)
 		c.Locals(ctxKeysKey{}, keys)
@@ -343,18 +335,22 @@ func LocalsMiddleware(db *gorm.DB, keys Keys, google *oauth2.Config, enforcer *c
 	}
 }
 
+// GetDB returns the database from the current context
 func GetDB(c *fiber.Ctx) *gorm.DB {
 	return c.Locals(ctxDBKey{}).(*gorm.DB)
 }
 
-func GetKeys(c *fiber.Ctx) Keys {
-	return c.Locals(ctxKeysKey{}).(Keys)
+// GetKeys returns the keys from the current context
+func GetKeys(c *fiber.Ctx) *Keys {
+	return c.Locals(ctxKeysKey{}).(*Keys)
 }
 
+// GetGoogle returns the google oauth2 config from the current context
 func GetGoogle(c *fiber.Ctx) *oauth2.Config {
 	return c.Locals(ctxGoogleKey{}).(*oauth2.Config)
 }
 
+// GetEnforcer returns the casbin enforcer from the current context
 func GetEnforcer(c *fiber.Ctx) *casbin.Enforcer {
 	return c.Locals(ctxEnforcerKey{}).(*casbin.Enforcer)
 }
