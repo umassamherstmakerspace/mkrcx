@@ -50,6 +50,7 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(member, "leash.users.self:update")
 	enforcer.AddPermissionForUser(admin, "leash.users.self:update_card_id")
 	enforcer.AddPermissionForUser(admin, "leash.users.self:update_role")
+	enforcer.AddPermissionForUser(admin, "leash.users.self:update_permissions")
 	// --No self delete EP--
 	//   Updates
 	enforcer.AddPermissionForUser(member, "leash.users.self.updates:list")
@@ -75,6 +76,7 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(staff, "leash.users.others:update")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:update_card_id")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:update_role")
+	enforcer.AddPermissionForUser(admin, "leash.users.others:update_permissions")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:delete")
 	//   Updates
 	enforcer.AddPermissionForUser(volunteer, "leash.users.others.updates:list")
