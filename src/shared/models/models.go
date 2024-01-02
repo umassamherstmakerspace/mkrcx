@@ -22,7 +22,7 @@ type Model struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:",omitempty"`
 }
 
 type User struct {
@@ -58,8 +58,8 @@ type APIKey struct {
 	Key         string `gorm:"column:api_key;primaryKey"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
-	UserID      uint           `gorm:"foreignKey:user_id"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:",omitempty"`
+	UserID      uint
 	Description string
 	FullAccess  bool
 
@@ -78,27 +78,27 @@ func (a *APIKey) AfterFind(tx *gorm.DB) (err error) {
 
 type Training struct {
 	Model
-	UserID       uint `gorm:"foreignKey:user_id"`
+	UserID       uint
 	TrainingType string
-	AddedBy      uint `gorm:"foreignKey:user_id"`
-	RemovedBy    uint `gorm:"foreignKey:user_id"`
+	AddedBy      uint
+	RemovedBy    uint `json:",omitempty"`
 }
 
 type Hold struct {
 	Model
-	UserID    uint `gorm:"foreignKey:user_id"`
+	UserID    uint
 	HoldType  string
 	Reason    string
 	HoldStart *time.Time
 	HoldEnd   *time.Time
-	AddedBy   uint `gorm:"foreignKey:user_id"`
-	RemovedBy uint `gorm:"foreignKey:user_id"`
+	AddedBy   uint
+	RemovedBy uint `json:",omitempty"`
 }
 
 type UserUpdate struct {
 	Model
-	UserID   uint `gorm:"foreignKey:user_id"`
-	EditedBy uint `gorm:"foreignKey:user_id"`
+	UserID   uint
+	EditedBy uint
 	Field    string
 	NewValue string
 	OldValue string
