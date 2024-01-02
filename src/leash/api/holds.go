@@ -81,28 +81,32 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 
 		// Paginate the results
 		var holds []models.Hold
-		con := db.Model(&holds).Where(models.Hold{UserID: user.ID})
-		if req.LoadAll != nil && *req.LoadAll {
-			if req.Limit != nil {
-				con = con.Limit(*req.Limit)
-			} else {
-				con = con.Limit(10)
-			}
 
-			if req.Offset != nil {
-				con = con.Offset(*req.Offset)
-			} else {
-				con = con.Offset(0)
-			}
+		con := db
+		if req.IncludeDeleted != nil && *req.IncludeDeleted {
+			con = con.Unscoped()
+		}
+
+		con = con.Model(&holds).Where(models.Hold{UserID: user.ID})
+		if req.Limit != nil {
+			con = con.Limit(*req.Limit)
+		} else {
+			con = con.Limit(10)
+		}
+
+		if req.Offset != nil {
+			con = con.Offset(*req.Offset)
+		} else {
+			con = con.Offset(0)
 		}
 
 		con.Find(&holds)
 
 		response := struct {
-			Holds []models.Hold `json:"holds"`
+			Data  []models.Hold `json:"data"`
 			Total int64         `json:"total"`
 		}{
-			Holds: holds,
+			Data:  holds,
 			Total: total,
 		}
 

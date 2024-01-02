@@ -275,10 +275,10 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		con.Find(&users)
 
 		response := struct {
-			Users []models.User `json:"users"`
+			Data  []models.User `json:"data"`
 			Total int64         `json:"total"`
 		}{
-			Users: users,
+			Data:  users,
 			Total: total,
 		}
 
@@ -342,7 +342,7 @@ func addUserUpdateEndpoints(user_ep fiber.Router) {
 	update_ep := user_ep.Group("/updates", leash_auth.ConcatPermissionPrefixMiddleware("updates"))
 
 	// List user updates endpoint
-	update_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), func(c *fiber.Ctx) error {
+	update_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		req := c.Locals("query").(listRequest)
@@ -352,29 +352,33 @@ func addUserUpdateEndpoints(user_ep fiber.Router) {
 
 		// Paginate the results
 		var updates []models.UserUpdate
-		con := db.Model(&updates).Where(models.UserUpdate{UserID: user.ID})
-		if req.LoadAll != nil && *req.LoadAll {
-			if req.Limit != nil {
-				con = con.Limit(*req.Limit)
-			} else {
-				con = con.Limit(10)
-			}
 
-			if req.Offset != nil {
-				con = con.Offset(*req.Offset)
-			} else {
-				con = con.Offset(0)
-			}
+		con := db
+		if req.IncludeDeleted != nil && *req.IncludeDeleted {
+			con = con.Unscoped()
+		}
+
+		con = con.Model(&updates).Where(models.UserUpdate{UserID: user.ID})
+		if req.Limit != nil {
+			con = con.Limit(*req.Limit)
+		} else {
+			con = con.Limit(10)
+		}
+
+		if req.Offset != nil {
+			con = con.Offset(*req.Offset)
+		} else {
+			con = con.Offset(0)
 		}
 
 		con.Find(&updates)
 
 		response := struct {
-			Updates []models.UserUpdate `json:"updates"`
-			Total   int64               `json:"total"`
+			Data  []models.UserUpdate `json:"data"`
+			Total int64               `json:"total"`
 		}{
-			Updates: updates,
-			Total:   total,
+			Data:  updates,
+			Total: total,
 		}
 
 		return c.JSON(response)

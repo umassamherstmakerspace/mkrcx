@@ -112,28 +112,32 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 
 		// Paginate the results
 		var apikeys []models.APIKey
-		con := db.Model(&apikeys).Where(models.APIKey{UserID: user.ID})
-		if req.LoadAll != nil && *req.LoadAll {
-			if req.Limit != nil {
-				con = con.Limit(*req.Limit)
-			} else {
-				con = con.Limit(10)
-			}
 
-			if req.Offset != nil {
-				con = con.Offset(*req.Offset)
-			} else {
-				con = con.Offset(0)
-			}
+		con := db
+		if req.IncludeDeleted != nil && *req.IncludeDeleted {
+			con = con.Unscoped()
+		}
+
+		con = con.Model(&apikeys).Where(models.APIKey{UserID: user.ID})
+		if req.Limit != nil {
+			con = con.Limit(*req.Limit)
+		} else {
+			con = con.Limit(10)
+		}
+
+		if req.Offset != nil {
+			con = con.Offset(*req.Offset)
+		} else {
+			con = con.Offset(0)
 		}
 
 		con.Find(&apikeys)
 
 		response := struct {
-			Keys  []models.APIKey `json:"keys"`
+			Data  []models.APIKey `json:"data"`
 			Total int64           `json:"total"`
 		}{
-			Keys:  apikeys,
+			Data:  apikeys,
 			Total: total,
 		}
 
