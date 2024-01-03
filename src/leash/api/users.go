@@ -148,12 +148,12 @@ func onlyServiceMiddleware(c *fiber.Ctx) error {
 func createBaseEndpoints(users_ep fiber.Router) {
 	// Create a new user endpoint
 	type userCreateRequest struct {
-		Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
-		Name     string `json:"name" xml:"name" form:"name" validate:"required"`
-		Role     string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
-		Type     string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
-		GradYear int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Major    string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Email          string `json:"email" xml:"email" form:"email" validate:"required,email"`
+		Name           string `json:"name" xml:"name" form:"name" validate:"required"`
+		Role           string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
+		Type           string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
+		GraduationYear int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Major          string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
 	users_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[userCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -171,7 +171,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 			Name:           req.Name,
 			Role:           req.Role,
 			Type:           req.Type,
-			GraduationYear: req.GradYear,
+			GraduationYear: req.GraduationYear,
 			Major:          req.Major,
 		}
 
@@ -403,13 +403,13 @@ func getUserEndpoint(user_ep fiber.Router) {
 func updateUserEndpoint(user_ep fiber.Router) {
 	// Update the current user endpoint
 	type userUpdateRequest struct {
-		Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
-		Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
-		CardId   *uint64 `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
-		Role     *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
-		Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
-		GradYear *int    `json:"grad_year" xml:"grad_year" form:"grad_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Major    *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Name           *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
+		Email          *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
+		CardId         *uint64 `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
+		Role           *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
+		Type           *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
+		GraduationYear *int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Major          *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
 	user_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[userUpdateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -478,14 +478,14 @@ func updateUserEndpoint(user_ep fiber.Router) {
 			user.Type = *req.Type
 		}
 
-		var gradYear *string
-		if req.GradYear != nil {
-			gradYear = new(string)
-			*gradYear = fmt.Sprintf("%d", *req.GradYear)
+		var graduationYear *string
+		if req.GraduationYear != nil {
+			graduationYear = new(string)
+			*graduationYear = fmt.Sprintf("%d", *req.GraduationYear)
 		}
 
-		if modified(fmt.Sprint(user.GraduationYear), gradYear, "grad_year") {
-			user.GraduationYear = *req.GradYear
+		if modified(fmt.Sprint(user.GraduationYear), graduationYear, "graduation_year") {
+			user.GraduationYear = *req.GraduationYear
 		}
 
 		if modified(user.Major, req.Major, "major") {
