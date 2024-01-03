@@ -1,6 +1,6 @@
 import { CheckCircled, CrossCircled, MinusCircled, Pencil1, PlusCircled } from 'radix-icons-svelte';
-import type { Training, User } from '$lib/src/types';
 import type { Dayjs } from 'dayjs';
+import type { Training, User } from '$lib/src/leash';
 
 export interface UserEvent {
 	timestamp: Dayjs;
@@ -148,9 +148,9 @@ export interface UserInfo {
 }
 
 export async function initalizeUserInfo(user: User): Promise<UserInfo> {
-	const trainings = await user.getTrainings();
-	const updates = await user.getUserUpdates();
-	const userCache = new Map<number, User>();
+	console.log('user', user);
+	const trainings = await user.getAllTrainings();
+	const updates = await user.getAllUserUpdates();
 
 	const timelineItems: UserTimelineItem[] = [];
 
@@ -161,7 +161,7 @@ export async function initalizeUserInfo(user: User): Promise<UserInfo> {
 				trainingType: training.trainingType,
 				active: !training.deletedAt,
 				action: 'created',
-				addedBy: await training.getAddedBy(userCache)
+				addedBy: await training.getAddedBy()
 			})
 		);
 
@@ -172,8 +172,8 @@ export async function initalizeUserInfo(user: User): Promise<UserInfo> {
 					trainingType: training.trainingType,
 					active: true,
 					action: 'deleted',
-					addedBy: await training.getAddedBy(userCache),
-					removedBy: await training.getRemovedBy(userCache)
+					addedBy: await training.getAddedBy(),
+					removedBy: await training.getRemovedBy()
 				})
 			);
 		}
@@ -196,7 +196,7 @@ export async function initalizeUserInfo(user: User): Promise<UserInfo> {
 				field: update.field,
 				oldValue: update.oldValue,
 				newValue: update.newValue,
-				editedBy: await update.getEditedBy(userCache)
+				editedBy: await update.getEditedBy()
 			})
 		);
 	}

@@ -12,7 +12,10 @@
 		Group,
 		Button,
 		Input,
-		SimpleGrid
+		SimpleGrid,
+
+		Skeleton
+
 	} from '@svelteuidev/core';
 	import type { UserInfo } from './userCard';
 
@@ -20,6 +23,7 @@
 
 	import { createEventDispatcher } from 'svelte';
 	import Timestamp from '$lib/components/Timestamp.svelte';
+	import type { Training } from '$lib/src/leash';
 
 	const dispatch = createEventDispatcher();
 
@@ -81,12 +85,6 @@
 				<Text color="dimmed">Last Updated</Text>
 				<Text><Timestamp time={userInfo.user.updatedAt} /></Text>
 
-				<Text color="dimmed">Enabled</Text>
-				<Text>{userInfo.user.enabled ? 'Yes' : 'No'}</Text>
-
-				<Text color="dimmed">Admin</Text>
-				<Text>{userInfo.user.admin ? 'Yes' : 'No'}</Text>
-
 				<Text color="dimmed">Role</Text>
 				<Text>{userInfo.user.role}</Text>
 
@@ -147,7 +145,7 @@
 					<Button
 						color="red"
 						on:click={async () => {
-							await removeTrainingModal.active?.remove();
+							await removeTrainingModal.active?.delete();
 							closeRemoveTrainingModal();
 							refeshUserTraining();
 						}}
@@ -174,7 +172,7 @@
 					<Button
 						color="green"
 						on:click={async () => {
-							await userInfo.user.createTraining(createTrainingModal.value.toLowerCase());
+							await userInfo.user.createTraining({ trainingType: createTrainingModal.value.toLowerCase() });
 							closeCreateTrainingModal();
 							refeshUserTraining();
 						}}
@@ -195,23 +193,37 @@
 			>
 				Create Training
 			</Button>
-			{#each userInfo.trainings as training}
-				{#if training.deletedAt === undefined}
-					<Notification
-						title={training.trainingType}
-						color="blue"
-						withCloseButton={true}
-						on:close={() => {
-							removeTrainingModal = {
-								active: training,
-								open: true
-							};
-						}}
-					/>
+			{#await userInfo.user.getAllTrainings()}
+				<Skeleton />
+			{:then trainings}
+				{#if trainings.length === 0}
+					<Text>No trainings found.</Text>
 				{:else}
-					<Notification title={training.trainingType} color="gray" withCloseButton={false} />
+					<SimpleGrid cols={2}>
+						{#each trainings as training}
+							<Stack>
+								<Text>{training.trainingType}</Text>
+								<Text color="dimmed">Completed: <Timestamp time={training.createdAt} /></Text>
+								<Text color="dimmed">Last Updated: <Timestamp time={training.updatedAt} /></Text>
+								<Button
+									color="red"
+									fullSize
+									on:click={() => {
+										removeTrainingModal = {
+											active: training,
+											open: true
+										};
+									}}
+								>
+									Remove
+								</Button>
+							</Stack>
+						{/each}
+					</SimpleGrid>
 				{/if}
-			{/each}
+			{:catch error}
+				<Text color="red">{error.message}</Text>
+			{/await}
 		</Stack>
 	</Grid.Col>
 </Grid>

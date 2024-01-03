@@ -330,24 +330,24 @@ export class User {
 		this.graduationYear = user.GraduationYear;
 		this.major = user.Major;
 		
-		this.trainingsCache = new Cached(() => listAll(this.getTrainings));
+		this.trainingsCache = new Cached(() => listAll((options) => this.getTrainings(options)));
 		if (user.Trainings) {
 			this.trainingsCache.setValue(user.Trainings.map((training) => new Training(training, `${this.endpointPrefix}/trainings/${training.TrainingType}`)));
 		}
 
-		this.holdsCache = new Cached(() => listAll(this.getHolds));
+		this.holdsCache = new Cached(() => listAll((options) => this.getHolds(options)));
 		if (user.Holds) {
 			this.holdsCache.setValue(user.Holds.map((hold) => new Hold(hold, `${this.endpointPrefix}/holds/${hold.HoldType}`)));
 		}
 
-		this.APIKeysCache = new Cached(() => listAll(this.getAPIKeys));
+		this.APIKeysCache = new Cached(() => listAll((options) => this.getAPIKeys(options)));
 		if (user.APIKeys) {
 			this.APIKeysCache.setValue(user.APIKeys.map((key) => new APIKey(key, `${this.endpointPrefix}/api_keys/${key.Key}`)));
 		}
 
-		this.userUpdatesCache = new Cached(() => listAll(this.getUserUpdates));
+		this.userUpdatesCache = new Cached(() => listAll((options) => this.getUserUpdates(options)));
 		if (user.UserUpdates) {
-			this.userUpdatesCache.setValue(user.UserUpdates.map((update) => new UserUpdate(update, this)));
+			this.userUpdatesCache.setValue(user.UserUpdates.map((update) => new UserUpdate(update)));
 		}
 
 		this.permissions = user.Permissions;
@@ -372,7 +372,9 @@ export class User {
 		}
 	}
 
-	async getTrainings(options: LeashListOptions): Promise<LeashListResponse<Training>> {
+	async getTrainings(options: LeashListOptions = {}): Promise<LeashListResponse<Training>> {
+        console.log('getTrainings', options);
+        console.log('This', this);
         const prefix = `${this.endpointPrefix}/trainings`;
         const res = await leashList<LeashTraining, LeashListOptions>(prefix, options);
         return {
@@ -381,7 +383,11 @@ export class User {
         };
     }
 
-    async getHolds(options: LeashListOptions): Promise<LeashListResponse<Hold>> {
+    async getAllTrainings(): Promise<Training[]> {
+        return this.trainingsCache.get();
+    }
+
+    async getHolds(options: LeashListOptions = {}): Promise<LeashListResponse<Hold>> {
         const prefix = `${this.endpointPrefix}/holds`;
         const res = await leashList<LeashHold, LeashListOptions>(prefix, options);
         return {
@@ -390,7 +396,11 @@ export class User {
         };
     }
 
-    async getAPIKeys(options: LeashListOptions): Promise<LeashListResponse<APIKey>> {
+    async getAllHolds(): Promise<Hold[]> {
+        return this.holdsCache.get();
+    }
+
+    async getAPIKeys(options: LeashListOptions = {}): Promise<LeashListResponse<APIKey>> {
         const prefix = `${this.endpointPrefix}/apikeys`;
         const res = await leashList<LeashAPIKey, LeashListOptions>(prefix, options);
         return {
@@ -399,12 +409,20 @@ export class User {
         };
     }
 
-    async getUserUpdates(options: LeashListOptions): Promise<LeashListResponse<UserUpdate>> {
+    async getAllAPIKeys(): Promise<APIKey[]> {
+        return this.APIKeysCache.get();
+    }
+
+    async getUserUpdates(options: LeashListOptions = {}): Promise<LeashListResponse<UserUpdate>> {
         const res = await leashList<LeashUserUpdate, LeashListOptions>(`${this.endpointPrefix}/updates`, options);
         return {
             count: res.count,
             data: res.data.map((update) => new UserUpdate(update))
         };
+    }
+
+    async getAllUserUpdates(): Promise<UserUpdate[]> {
+        return this.userUpdatesCache.get();
     }
 
     async get(): Promise<User> {
@@ -765,7 +783,7 @@ export class UserUpdate {
     oldValue: string;
     newValue: string;
 
-    constructor(update: LeashUserUpdate, user?: User) {
+    constructor(update: LeashUserUpdate) {
         this.id = update.ID;
         this.createdAt = dayjs(update.CreatedAt);
         this.updatedAt = dayjs(update.UpdatedAt);

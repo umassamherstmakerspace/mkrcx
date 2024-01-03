@@ -28,6 +28,7 @@
 		Width
 	} from 'radix-icons-svelte';
 	import Timestamp from '$lib/components/Timestamp.svelte';
+	import type { User } from '$lib/src/leash';
 
 	export let user: User;
 	let active = false;
@@ -35,14 +36,6 @@
 	let refresh = {};
 
 	let enabled: SvelteUIColor = 'orange';
-
-	if (user.deletedAt) {
-		enabled = 'gray';
-	} else if (user.enabled) {
-		enabled = 'green';
-	} else {
-		enabled = 'red';
-	}
 
 	function toggle() {
 		active = !active;
@@ -62,8 +55,8 @@
 			<TypographyProvider>
 				<Grid cols={24}>
 					<Grid.Col span={2}>
-						<Badge color={enabled} radius="md" variant="filled">
-							{user.deletedAt ? 'Deleted' : user.enabled ? 'Enabled' : 'Disabled'}
+						<Badge color={'green'} radius="md" variant="filled">
+							Active
 						</Badge>
 					</Grid.Col>
 					<Grid.Col span={4}><Timestamp time={user.createdAt} /></Grid.Col>
