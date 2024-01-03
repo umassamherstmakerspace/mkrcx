@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { getSelf, updateSelf } from '$lib/src/leash';
-	import type { LeashSelfUpdateRequest, User } from '$lib/src/types';
+	import { User, type UserUpdateOptions } from '$lib/src/leash';
 	import { Alert, Button, Center, NativeSelect, NumberInput, Paper, Seo, Skeleton, Stack, Tabs, TextInput } from '@svelteuidev/core';
 	import { CrossCircled } from 'radix-icons-svelte';
 
@@ -26,7 +25,7 @@
 	}
 
 	async function getUser() {
-		user = await getSelf();
+		user = await User.self();
 		resetUserData();
 	}
 
@@ -36,30 +35,28 @@
 
 	function save() {
 		modified = false;
-		let req: LeashSelfUpdateRequest = {};
+		let req: UserUpdateOptions = {};
 
 		if (name != user.name) {
-			req['name'] = name;
+			req.name = name;
 		}
 
 		if (accountType != user.type) {
-			req['type'] = accountType;
+			req.type = accountType;
 		}
 
 		if (major != user.major) {
-			req['major'] = major;
+			req.major = major;
 		}
 
 		if (graduationYear != user.graduationYear) {
-			req['grad_year'] = graduationYear;
+			req.graduationYear = graduationYear;
 		}
 		
-		updateSelf(req);
-
-		window.setTimeout(() => {
-			getUser();
+		user.update(req).then((user) => {
+			user = user;
 			resetUserData();
-		}, 200);
+		});
 	}
 </script>
 

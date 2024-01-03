@@ -14,7 +14,6 @@
 		TypographyProvider
 	} from '@svelteuidev/core';
 	import {} from '@svelteuidev/motion';
-	import type { User } from '$lib/src/types';
 	import { slide } from 'svelte/transition';
 	import { quadIn, quadOut } from 'svelte/easing';
 	import UserInfo from './UserInfo.svelte';

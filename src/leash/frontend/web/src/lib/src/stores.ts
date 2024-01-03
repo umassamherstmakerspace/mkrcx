@@ -1,8 +1,8 @@
 import { derived, writable, type Writable } from 'svelte/store';
 import { DEFAULT_DATE_FORMAT, DEFAULT_THEME } from './defaults';
-import type { User } from './types';
 import type { Dayjs } from 'dayjs';
 import type { Readable } from 'svelte/motion';
+import type { User } from './leash';
 
 export const date_format = writable(DEFAULT_DATE_FORMAT);
 export const theme = writable(DEFAULT_THEME);

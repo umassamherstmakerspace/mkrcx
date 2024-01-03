@@ -3,7 +3,6 @@
 
 	import { CrossCircled } from 'radix-icons-svelte';
 	import UserCard from './UserCard.svelte';
-	import { searchUsers } from '$lib/src/leash';
 	import {
 		Alert,
 		Center,
@@ -18,8 +17,7 @@
 	} from '@svelteuidev/core';
 
 	import type { Snapshot } from './$types';
-
-	import type { User } from '$lib/src/types';
+	import { User } from '$lib/src/leash';
 
 	let query = '';
 
@@ -43,19 +41,22 @@
 		if (browser) {
 			userSet = new Set();
 
-			let res = await searchUsers(query);
-			users = res.users;
+			let res = await User.search(query);
+			users = res.data;
 			loadKey = {};
 
-			needMore = res.users.length == 30;
+			needMore = res.data.length == 100;
 		}
 	}
 
 	async function loadMoreUsers(): Promise<void> {
-		const newUsers = await searchUsers(query, 30, users.length);
+		const newUsers = await User.search(query, {
+			limit: 100,
+			offset: users.length
+		});
 		users = [
 			...users,
-			...newUsers.users.filter((user) => {
+			...newUsers.data.filter((user) => {
 				if (userSet.has(user.id)) {
 					return false;
 				} else {
@@ -65,7 +66,7 @@
 			})
 		];
 
-		needMore = newUsers.users.length == 30;
+		needMore = newUsers.data.length == 100;
 	}
 </script>
 

@@ -17,7 +17,6 @@
 	import type { UserInfo } from './userCard';
 
 	import TimelineItemBody from './TimelineItemBody.svelte';
-	import type { Training } from '$lib/src/types';
 
 	import { createEventDispatcher } from 'svelte';
 	import Timestamp from '$lib/components/Timestamp.svelte';

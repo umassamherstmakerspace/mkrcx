@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getSelf, getUserById, updateUser } from '$lib/src/leash';
-	import { timestampCreator, user as s } from '$lib/src/stores';
-	import { Role, type User, type LeashUserUpdateRequest } from '$lib/src/types';
+	import { Role, User, type UserUpdateOptions } from '$lib/src/leash';
+	import { timestampCreator } from '$lib/src/stores';
 	import {
 		Alert,
 		Seo,
@@ -42,14 +41,13 @@
 	let updatedAt: Readable<string>;
 
 	async function getUser(id: number) {
-		self = await getSelf();
+		self = await User.self();
 		canEdit = self.roleNumber >= Role.USER_ROLE_ADMIN;
 
-		user = await getUserById(id);
+		user = await User.fromID(id);
 
 		name = user.name;
 		email = user.email;
-		enabled = user.enabled;
 		accountRole = user.role;
 		accountType = user.type;
 		major = user.major;
@@ -65,39 +63,36 @@
 
 	function save() {
 		modified = false;
-		let req: LeashUserUpdateRequest = {};
+		let req: UserUpdateOptions = {};
 
 		if (name != user.name) {
-			req['name'] = name;
+			req.name = name;
 		}
 
 		if (email != user.email) {
-			req['new_email'] = email;
-		}
-
-		if (enabled != user.enabled) {
-			req['enabled'] = enabled;
+			req.email = email;
 		}
 
 		if (accountRole != user.role) {
-			req['role'] = accountRole;
+			req.role = accountRole;
 		}
 
 		if (accountType != user.type) {
-			req['type'] = accountType;
+			req.type = accountType;
 		}
 
 		if (major != user.major) {
-			req['major'] = major;
+			req.major = major;
 		}
 
 		if (graduationYear != user.graduationYear) {
-			req['grad_year'] = graduationYear;
+			req.graduationYear = graduationYear;
 		}
 		
-		updateUser(user.email, req);
-
-		k = {};
+		user.update(req).then((user) => {
+			user = user;
+			k = {};
+		});
 	}
 </script>
 

@@ -5,7 +5,7 @@
 	import { clickoutside, lockscroll } from '@svelteuidev/composables';
 	import MenuLink from './MenuLink.svelte';
 	import { Exit, Home, ListBullet, Person } from 'radix-icons-svelte';
-	import { Role } from '$lib/src/types';
+	import { Role } from '$lib/src/leash';
 	import { NativeSelect } from '@svelteuidev/core';
 
 	export let menuOpen: boolean;
