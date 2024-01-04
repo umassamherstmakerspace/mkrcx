@@ -36,6 +36,7 @@ func main() {
 	db.AutoMigrate(&models.Training{})
 	db.AutoMigrate(&models.UserUpdate{})
 	db.AutoMigrate(&models.Hold{})
+	db.AutoMigrate(&models.Session{})
 
 	// Google OAuth2
 	google := &oauth2.Config{

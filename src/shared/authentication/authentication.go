@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -27,6 +28,44 @@ type Authentication struct {
 	User          models.User
 	Data          interface{}
 	Enforcer      EnforcerWrapper
+}
+
+// ParseSessionToken parses the session token and returns the user and session string
+func ParseSessionToken(db *gorm.DB, keys *Keys, token string) (*models.User, string, error) {
+	// Parse the token
+	tok, err := keys.Parse(token)
+	if err != nil {
+		return nil, "", fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+	}
+
+	// Get the email from the token
+	email, valid := tok.Get("email")
+	if !valid {
+		return nil, "", fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+	}
+
+	// Get the session from the token
+	s, valid := tok.Get("session")
+	if !valid {
+		return nil, "", fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+	}
+
+	session_str, ok := s.(string)
+	if !ok {
+		return nil, "", fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+	}
+
+	// Check if the user exists
+	var user = &models.User{
+		Email: email.(string),
+	}
+
+	if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
+		// The user does not exist
+		return nil, "", fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+	}
+
+	return user, session_str, nil
 }
 
 // IsLoggedOut returns true if the user in the current context is logged out
@@ -181,31 +220,31 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 		// Get the token from the authorization header
 		token := strings.TrimPrefix(authorization, "Bearer ")
 
-		// Parse the token
-		tok, err := keys.Parse(token)
+		user, session_str, err := ParseSessionToken(db, keys, token)
 		if err != nil {
-			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+			return err
 		}
 
-		// Get the email from the token
-		email, valid := tok.Get("email")
-		if !valid {
-			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+		var session = models.Session{
+			SessionID: session_str,
 		}
 
-		// Check if the user exists
-		var user = models.User{
-			Email: email.(string),
+		// Get the session
+		res := db.Limit(1).Where(&session).Find(&session)
+		if res.Error != nil || res.RowsAffected == 0 {
+			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 
-		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
-			// The user does not exist
-			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
+		// Check if the session is expired
+		if session.ExpiresAt.Before(time.Now()) {
+			db.Delete(&session)
+			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 
 		authentication = Authentication{
 			Authenticator: AUTHENTICATOR_USER,
-			User:          user,
+			User:          *user,
+			Data:          session_str,
 			Enforcer:      enforcer,
 		}
 	} else if strings.HasPrefix(authorization, "API-Key ") {

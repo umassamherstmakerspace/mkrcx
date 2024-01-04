@@ -104,6 +104,15 @@ type UserUpdate struct {
 	OldValue string
 }
 
+type Session struct {
+	SessionID string `gorm:"column:api_key;primaryKey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index" json:",omitempty"`
+	UserID    uint
+	ExpiresAt time.Time
+}
+
 var validate = validator.New()
 
 type ErrorResponse struct {

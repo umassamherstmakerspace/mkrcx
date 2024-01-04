@@ -7,19 +7,34 @@ import (
 
 	"github.com/disgoorg/log"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	leash_api "github.com/mkrcx/mkrcx/src/leash/api"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
+// NoAPIKeyMiddleware is a middleware that checks if the user has an API key
+func NoAPIKeyMiddleware(c *fiber.Ctx) error {
+	authentication := leash_auth.GetAuthentication(c)
+
+	// Check if the user has an API key
+	if authentication.IsAPIKey() {
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
+
+	return c.Next()
+}
+
 // RegisterAuthenticationEndpoints registers the authentication endpoints
 func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 	auth_ep.Use(leash_auth.AuthenticationMiddleware)
+	auth_ep.Use(NoAPIKeyMiddleware)
 
 	// Endpoint to initalize loggin in
 	type signinRequest struct {
 		Return string `json:"return"`
+		State  string `json:"state"`
 	}
 
 	auth_ep.Get("/login", models.GetQueryMiddleware[signinRequest], func(c *fiber.Ctx) error {
@@ -38,6 +53,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(5*time.Minute)).
 			Claim("return", req.Return).
+			Claim("state", req.State).
 			Build()
 
 		if err != nil {
@@ -84,6 +100,19 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		ret, ok := val.(string)
 		if !ok {
 			log.Error("Failed to convert return from state token: %s\n", err)
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
+		}
+
+		// Get the return state from the state token
+		val, valid = tok.Get("state")
+		if !valid {
+			log.Error("Failed to get state from state token: %s\n", err)
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
+		}
+
+		state, ok := val.(string)
+		if !ok {
+			log.Error("Failed to convert state from state token: %s\n", err)
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
 		}
 
@@ -169,12 +198,15 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 
+		session_id := uuid.New().String()
+
 		// Create a session token
 		tok, err = jwt.NewBuilder().
 			Issuer(`mkrcx`).
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(24*time.Hour)).
 			Claim("email", userinfo.Email).
+			Claim("session", session_id).
 			Build()
 		if err != nil {
 			log.Error("Failed to build the session token: %s\n", err)
@@ -187,29 +219,73 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 
-		// Set the session token as a cookie
-		cookie := new(fiber.Cookie)
-		cookie.Name = "token"
-		cookie.Value = string(signed)
-		cookie.Expires = tok.Expiration()
+		session := models.Session{
+			SessionID: session_id,
+			UserID:    user.ID,
+			ExpiresAt: tok.Expiration(),
+		}
 
-		c.Cookie(cookie)
-		return c.Redirect(ret)
+		// Create the session
+		res = db.Create(&session)
+		if res.Error != nil {
+			log.Error("Failed to create session: %s\n", res.Error)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		return c.Redirect(ret + "?token=" + string(signed) + "&expires_at=" + session.ExpiresAt.Format(time.RFC3339) + "&state=" + state)
 	})
 
 	// Endpoint to logout
-	auth_ep.Get("/logout", func(c *fiber.Ctx) error {
-		// Clear the session token
-		c.ClearCookie("token")
-		return c.Redirect("/")
+	type logoutRequest struct {
+		Return string `query:"return"`
+		Token  string `query:"token" validate:"required"`
+	}
+	auth_ep.Get("/logout", models.GetQueryMiddleware[logoutRequest], func(c *fiber.Ctx) error {
+		req := c.Locals("query").(logoutRequest)
+
+		// Default return to /
+		if req.Return == "" {
+			req.Return = "/"
+		}
+
+		_, session_str, err := leash_auth.ParseSessionToken(leash_auth.GetDB(c), leash_auth.GetKeys(c), req.Token)
+		if err != nil {
+			return err
+		}
+
+		// Delete the session
+		res := leash_auth.GetDB(c).Delete(&models.Session{SessionID: session_str})
+		if res.Error != nil {
+			log.Error("Failed to delete session: %s\n", res.Error)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		return c.Redirect(req.Return)
 	})
 
 	// Endpoint to validate the session token
 	auth_ep.Get("/validate", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		authentication := leash_auth.GetAuthentication(c)
 
 		// This should only be called with a valid user session token
 		if !authentication.IsUser() {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		var session = models.Session{
+			SessionID: authentication.Data.(string),
+		}
+
+		// Get the session
+		res := db.Limit(1).Where(&session).Find(&session)
+		if res.Error != nil || res.RowsAffected == 0 {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		// Check if the session is expired
+		if session.ExpiresAt.Before(time.Now()) {
+			db.Delete(&session)
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 
@@ -218,11 +294,28 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 
 	// Endpoint to refresh the session token
 	auth_ep.Get("/refresh", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 		keys := leash_auth.GetKeys(c)
 		authentication := leash_auth.GetAuthentication(c)
 
 		// This should only be called with a valid user session token
 		if !authentication.IsUser() {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		var session = models.Session{
+			SessionID: authentication.Data.(string),
+		}
+
+		// Get the session
+		res := db.Limit(1).Where(&session).Find(&session)
+		if res.Error != nil || res.RowsAffected == 0 {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
+		// Check if the session is expired
+		if session.ExpiresAt.Before(time.Now()) {
+			db.Delete(&session)
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 
@@ -232,6 +325,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(24*time.Hour)).
 			Claim("email", authentication.User.Email).
+			Claim("session", authentication.Data).
 			Build()
 
 		if err != nil {
@@ -242,6 +336,14 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		signed, err := keys.Sign(tok)
 		if err != nil {
 			log.Error("Failed to sign the session token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		// Update the session
+		session.ExpiresAt = tok.Expiration()
+		res = db.Save(&session)
+		if res.Error != nil {
+			log.Error("Failed to update session: %s\n", res.Error)
 			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 
