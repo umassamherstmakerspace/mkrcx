@@ -12,7 +12,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	leash_api "github.com/mkrcx/mkrcx/src/leash/api"
-	leash_frontend "github.com/mkrcx/mkrcx/src/leash/frontend"
 	leash_helpers "github.com/mkrcx/mkrcx/src/leash/helpers"
 	leash_signin "github.com/mkrcx/mkrcx/src/leash/signin"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
@@ -112,8 +111,6 @@ func main() {
 	auth := app.Group("/auth")
 
 	leash_signin.RegisterAuthenticationEndpoints(auth)
-
-	leash_frontend.SetupFrontend(app, "/", frontend_dir)
 
 	log.Printf("Starting server on port %s\n", host)
 	app.Listen(host)
