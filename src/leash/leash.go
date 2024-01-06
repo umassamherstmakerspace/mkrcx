@@ -100,8 +100,6 @@ func main() {
 
 	app.Use(leash_auth.LocalsMiddleware(db, keys, google, enforcer))
 
-	frontend_dir := os.Getenv("FRONTEND_DIR")
-
 	log.Println("Setting up routes...")
 
 	api := app.Group("/api", leash_auth.SetPermissionPrefixMiddleware("leash"))
