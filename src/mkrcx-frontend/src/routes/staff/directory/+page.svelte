@@ -99,6 +99,8 @@
         onConfirm: () => {},
     };
 
+    $: if (createHoldModal.priority < 0) createHoldModal.priority = 0;
+
     let createTrainingModal: ModalOptions = {
         open: false,
         type: "",
@@ -204,18 +206,18 @@
 
 
 <Modal bind:open={createTrainingModal.open} size="xs" autoclose={false} class="w-full">
-    <div class="flex flex-col space-y-6">
+    <form class="flex flex-col space-y-6" method="dialog" on:submit|preventDefault={createTrainingModal.onConfirm}>
       <h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">Create training for {createTrainingModal.targetUser?.name || "error"}</h3>
-      <Label class="space-y-2">
+      <Label class="space-y-2" for="training-type">
         <span>Training Type</span>
-        <Input type="text" name="text" placeholder="Training Type" required bind:value={createTrainingModal.type} />
+        <Input type="text" name="training-type" placeholder="Training Type" required bind:value={createTrainingModal.type} />
       </Label>
-      <Button class="w-full1" on:click={createTrainingModal.onConfirm}>Create Training</Button>
-    </div>
+      <Button class="w-full1" type="submit">Create Training</Button>
+    </form>
   </Modal>
 
   <Modal bind:open={createHoldModal.open} size="xs" autoclose={false} class="w-full">
-    <div class="flex flex-col space-y-6">
+    <form class="flex flex-col space-y-6" method="dialog" on:submit|preventDefault={createHoldModal.onConfirm}>
       <h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">Create hold for {createHoldModal.targetUser?.name || "error"}</h3>
       <Label class="space-y-2">
         <span>Hold Type</span>
@@ -237,8 +239,8 @@
         <span>End Date</span>
         <Input type="date" name="text" placeholder="End Date" required bind:value={createHoldModal.endDate} />
       </Label>
-      <Button class="w-full1" on:click={createHoldModal.onConfirm}>Create Hold</Button>
-    </div>
+      <Button class="w-full1" type="submit">Create Hold</Button>
+    </form>
     </Modal>
 <div class="flex flex-col p-4 w-full">
     <TableSearch placeholder="Search by name or email..." hoverable={true} bind:inputValue={query} >
