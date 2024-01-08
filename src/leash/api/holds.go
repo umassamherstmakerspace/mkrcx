@@ -1,6 +1,7 @@
 package leash_backend_api
 
 import (
+	"net/url"
 	"strconv"
 	"time"
 
@@ -13,9 +14,15 @@ import (
 func userHoldMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
+
+	hold_type, err := url.QueryUnescape(c.Params("hold_type"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid hold type")
+	}
+
 	var hold = models.Hold{
 		UserID:   user.ID,
-		HoldType: c.Params("hold_type"),
+		HoldType: hold_type,
 	}
 	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
@@ -117,8 +124,9 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 	type holdCreateRequest struct {
 		HoldType  string `json:"hold_type" xml:"hold_type" form:"hold_type" validate:"required"`
 		Reason    string `json:"reason" xml:"reason" form:"reason" validate:"required"`
-		HoldStart *int64 `json:"hold_start" xml:"hold_start" form:"hold_start" validate:"numeric"`
-		HoldEnd   *int64 `json:"hold_end" xml:"hold_end" form:"hold_end" validate:"numeric"`
+		HoldStart *int64 `json:"hold_start" xml:"hold_start" form:"hold_start" validate:"omitempty,numeric"`
+		HoldEnd   *int64 `json:"hold_end" xml:"hold_end" form:"hold_end" validate:"omitempty,numeric"`
+		Priority  *int   `json:"priority" xml:"priority" form:"priority" validate:"required,numeric"`
 	}
 	hold_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[holdCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -138,6 +146,8 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 			HoldType: body.HoldType,
 			Reason:   body.Reason,
 			UserID:   user.ID,
+			AddedBy:  leash_auth.GetAuthentication(c).User.ID,
+			Priority: *body.Priority,
 		}
 
 		if body.HoldStart != nil {

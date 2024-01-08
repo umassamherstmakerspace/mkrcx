@@ -4,8 +4,6 @@ import { isAfter } from "date-fns";
 import { minidenticon } from 'minidenticons'
 import { PUBLIC_LEASH_ENDPOINT as LEASH_ENDPOINT } from '$env/static/public';
 
-const requestCache: Map<string, Cached<unknown>> = new Map();
-
 async function leashFetch<T extends object>(
 	endpoint: string,
 	method: string,
@@ -24,7 +22,7 @@ async function leashFetch<T extends object>(
 		credentials: 'same-origin',
 		body: JSON.stringify(body)
 	});
-	return await (r.status !== 200
+	return await (Math.floor(r.status / 100) !== 2
 		? Promise.reject(new Error(await r.text()))
 		: noReponse
 		? r.text()
@@ -58,6 +56,7 @@ interface LeashUser {
 	Holds?: LeashHold[];
 	APIKeys?: LeashAPIKey[];
 	UserUpdates?: LeashUserUpdate[];
+    Notifications?: LeashNotification[];
 
 	Permissions: string[];
 }
@@ -99,6 +98,8 @@ interface LeashHold {
 	HoldEnd?: string;
 	AddedBy: number;
 	RemovedBy?: number;
+
+    Priority: number;
 }
 
 interface LeashUserUpdate {
@@ -112,6 +113,21 @@ interface LeashUserUpdate {
 	Field: string;
 	OldValue: string;
 	NewValue: string;
+}
+
+interface LeashNotification {
+	ID: number;
+	CreatedAt: string;
+	UpdatedAt: string;
+	DeletedAt?: string;
+
+	UserID: number;
+	Title: string;
+	Message: string;
+	Link: string;
+	Group: string;
+
+    AddedBy: number;
 }
 
 export interface UserCreateOptions {
@@ -163,8 +179,16 @@ export interface TrainingCreateOptions {
 export interface HoldCreateOptions {
     holdType: string;
     reason: string;
-    holdStart?: string;
-    holdEnd?: string;
+    holdStart?: number;
+    holdEnd?: number;
+    priority: number;
+}
+
+export interface NotificationCreateOptions {
+    title: string;
+    message: string;
+    link: string;
+    group: string;
 }
 
 export interface LeashListResponse<T> {
@@ -197,7 +221,6 @@ const camelToSnakeCase: (str: string) => string = str => str.replace(/[A-Z]/g, l
 async function leashGet<T extends object>(
     endpoint: string,
     options: object = {},
-    noCache = false,
 ): Promise<T> {
     let args = Object.entries(options).map(([key, value]) => `${camelToSnakeCase(key)}=${value}`).join('&');
     if (args.length > 0) {
@@ -206,29 +229,21 @@ async function leashGet<T extends object>(
 
     const link = `${endpoint}${args}`;
 
-    if (!requestCache.has(link)) {
-        requestCache.set(link, new Cached(() => leashFetch<T>(link, 'GET')));
-    }
-
-    if (noCache) {
-        requestCache.get(link)?.invalidate();
-    }
-
-    return (requestCache.get(link)?.get() || {}) as T;
+    return leashFetch<T>(link, 'GET');
 }
 
 async function leashList<T, O extends LeashListOptions>(
     endpoint: string,
     options: O | Record<string, never> = {},
-    noCache = false,
 ): Promise<LeashListResponse<T>> {
-    return leashGet<LeashListResponse<T>>(endpoint, options, noCache);
+    return leashGet<LeashListResponse<T>>(endpoint, options);
 }
 
 async function listAll<T>(getter: LeashListGetter<T>, includeDeleted = false, limit = 100): Promise<T[]> {
 	let offset = 0;
 	let result: T[] = [];
 	let currentResult: LeashListResponse<T>;
+    console.log('listAll');
 	do {
 		currentResult = await getter({
 			offset,
@@ -263,12 +278,13 @@ export class User {
 	private holdsCache: Cached<Hold[]>;
 	private APIKeysCache: Cached<APIKey[]>;
 	private userUpdatesCache: Cached<UserUpdate[]>;
+    private notificationCache: Cached<Notification[]>;
 
 	permissions: string[];
 
     private endpointPrefix: string;
 
-	constructor(user: LeashUser, endpointPrefix: string) {
+	constructor(user: LeashUser, endpointPrefix: string, options: LeashUserOptions = {}) {
 		this.id = user.ID;
 		this.createdAt = new Date(user.CreatedAt);
 		this.updatedAt = new Date(user.UpdatedAt);
@@ -284,36 +300,52 @@ export class User {
 		this.type = user.Type;
 		this.graduationYear = user.GraduationYear;
 		this.major = user.Major;
+
+        this.permissions = user.Permissions;
+            
+        this.endpointPrefix = endpointPrefix;
 		
 		this.trainingsCache = new Cached(() => listAll((options) => this.getTrainings(options)));
 		if (user.Trainings) {
 			this.trainingsCache.setValue(user.Trainings.map((training) => new Training(training, `${this.endpointPrefix}/trainings/${training.TrainingType}`)));
-		}
+		} else if (options.withTrainings) {
+            this.trainingsCache.setValue([]);
+        }
 
 		this.holdsCache = new Cached(() => listAll((options) => this.getHolds(options)));
 		if (user.Holds) {
 			this.holdsCache.setValue(user.Holds.map((hold) => new Hold(hold, `${this.endpointPrefix}/holds/${hold.HoldType}`)));
-		}
+		} else if (options.withHolds) {
+            this.holdsCache.setValue([]);
+        }
 
 		this.APIKeysCache = new Cached(() => listAll((options) => this.getAPIKeys(options)));
 		if (user.APIKeys) {
 			this.APIKeysCache.setValue(user.APIKeys.map((key) => new APIKey(key, `${this.endpointPrefix}/api_keys/${key.Key}`)));
-		}
+		} else if (options.withApiKeys) {
+            this.APIKeysCache.setValue([]);
+        }
 
 		this.userUpdatesCache = new Cached(() => listAll((options) => this.getUserUpdates(options)));
 		if (user.UserUpdates) {
 			this.userUpdatesCache.setValue(user.UserUpdates.map((update) => new UserUpdate(update)));
-		}
+		} else if (options.withUpdates) {
+            this.userUpdatesCache.setValue([]);
+        }
 
-		this.permissions = user.Permissions;
-            
-        this.endpointPrefix = endpointPrefix;
+        this.notificationCache = new Cached(() => listAll((options) => this.getNotifications(options)));
+		if (user.Notifications) {
+			this.notificationCache.setValue(user.Notifications.map((notification) => new Notification(notification, `${this.endpointPrefix}/notifications/${notification.ID}`)));
+		} else {
+            this.notificationCache.setValue([]);
+        }
 	}
 
     get iconURL(): string {
         if (!identiconURLCache.has(this.id)) {
             const svg = minidenticon(this.id.toString());
-            identiconURLCache.set(this.id, 'data:image/svg+xml;utf8,' + encodeURIComponent(svg))
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            identiconURLCache.set(this.id, URL.createObjectURL(blob));
         }
 
         return identiconURLCache.get(this.id) || '';
@@ -391,12 +423,25 @@ export class User {
         return this.userUpdatesCache.get();
     }
 
-    async get(): Promise<User> {
-        return new User(await leashGet<LeashUser>(`${this.endpointPrefix}`, {}, true), this.endpointPrefix);
+    async getNotifications(options: LeashListOptions = {}): Promise<LeashListResponse<Notification>> {
+        const prefix = `${this.endpointPrefix}/notifications`;
+        const res = await leashList<LeashNotification, LeashListOptions>(prefix, options);
+        return {
+            total: res.total,
+            data: res.data.map((notification) => new Notification(notification, `${prefix}/${notification.ID}`))
+        };
+    }
+
+    async getAllNotifications(): Promise<Notification[]> {
+        return this.notificationCache.get();
+    }
+
+    async get(options: LeashUserOptions = {}): Promise<User> {
+        return new User(await leashGet<LeashUser>(`${this.endpointPrefix}`, options), this.endpointPrefix, options);
     }
 
     async delete(): Promise<void> {
-        leashFetch(`${this.endpointPrefix}`, 'DELETE');
+        leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
     }
 
     async update({ name, email, cardID, enabled, role, type, graduationYear, major }: UserUpdateOptions): Promise<User> {
@@ -415,8 +460,6 @@ export class User {
             major
         });
 
-        requestCache.get(this.endpointPrefix)?.setValue(updated);
-
         return new User(updated, this.endpointPrefix);
     }
 
@@ -429,8 +472,6 @@ export class User {
             name,
             permissions
         });
-
-        requestCache.get(this.endpointPrefix)?.setValue(updated);
 
         return new User(updated, this.endpointPrefix);
     }
@@ -465,12 +506,13 @@ export class User {
         return new Training(await leashGet<LeashTraining>(`${this.endpointPrefix}/trainings/${trainingType}`), `${this.endpointPrefix}/trainings/${trainingType}`);
     }
 
-    async createHold({ holdType, reason, holdStart, holdEnd }: HoldCreateOptions): Promise<Hold> {
+    async createHold({ holdType, reason, holdStart, holdEnd, priority }: HoldCreateOptions): Promise<Hold> {
         const hold = await leashFetch<LeashHold>(`${this.endpointPrefix}/holds`, 'POST', {
             hold_type: holdType,
             reason,
             hold_start: holdStart,
-            hold_end: holdEnd
+            hold_end: holdEnd,
+            priority
         });
 
         this.holdsCache.invalidate();
@@ -480,6 +522,23 @@ export class User {
 
     async getHold(holdType: string): Promise<Hold> {
         return new Hold(await leashGet<LeashHold>(`${this.endpointPrefix}/holds/${holdType}`), `${this.endpointPrefix}/holds/${holdType}`);
+    }
+
+    async createNotification({ title, message, link, group }: NotificationCreateOptions): Promise<Notification> {
+        const notification = await leashFetch<LeashNotification>(`${this.endpointPrefix}/notifications`, 'POST', {
+            title,
+            message,
+            link,
+            group
+        });
+
+        this.notificationCache.invalidate();
+
+        return new Notification(notification, `${this.endpointPrefix}/notifications/${notification.ID}`);
+    }
+
+    async getNotification(notificationID: number): Promise<Notification> {
+        return new Notification(await leashGet<LeashNotification>(`${this.endpointPrefix}/notifications/${notificationID}`), `${this.endpointPrefix}/notifications/${notificationID}`);
     }
 
     static async create({ email, name, role, type, graduationYear, major }: UserCreateOptions): Promise<User> {
@@ -518,24 +577,24 @@ export class User {
         
         return {
             total: res.total,
-            data: res.data.map((user) => new User(user, `/api/users/${user.ID}`))
+            data: res.data.map((user) => new User(user, `/api/users/${user.ID}`, options))
         };
     }
 
-    static async fromID(id: number): Promise<User> {
-        return leashGet<LeashUser>(`/api/users/${id}`).then((user) => new User(user, `/api/users/${id}`));
+    static async fromID(id: number, options: LeashUserOptions = {}): Promise<User> {
+        return leashGet<LeashUser>(`/api/users/${id}`, options).then((user) => new User(user, `/api/users/${id}`, options));
     }
 
-    static async self(): Promise<User> {
-        return leashGet<LeashUser>(`/api/users/self`).then((user) => new User(user, `/api/users/self`));
+    static async self(options: LeashUserOptions = {}): Promise<User> {
+        return leashGet<LeashUser>(`/api/users/self`, options).then((user) => new User(user, `/api/users/self`, options));
     }
 
-    static async fromEmail(email: string): Promise<User> {
-        return leashGet<LeashUser>(`/api/users/get/email/${email}`).then((user) => new User(user, `/api/users/${user.ID}`));
+    static async fromEmail(email: string, options: LeashUserOptions = {}): Promise<User> {
+        return leashGet<LeashUser>(`/api/users/get/email/${email}`, options).then((user) => new User(user, `/api/users/${user.ID}`, options));
     }
 
-    static async fromCardID(cardID: number): Promise<User> {
-        return leashGet<LeashUser>(`/api/users/get/card/${cardID}`).then((user) => new User(user, `/api/users/${user.ID}`));
+    static async fromCardID(cardID: number, options: LeashUserOptions = {}): Promise<User> {
+        return leashGet<LeashUser>(`/api/users/get/card/${cardID}`, options).then((user) => new User(user, `/api/users/${user.ID}`, options));
     }
 }
 
@@ -568,16 +627,16 @@ export class APIKey {
         this.endpointPrefix = endpointPrefix;
     }
     
-    async getUser(): Promise<User> {
-        return User.fromID(this.userID);
+    async getUser(options: LeashUserOptions = {}): Promise<User> {
+        return User.fromID(this.userID, options);
     }
 
     async get(): Promise<APIKey> {
-        return new APIKey(await leashGet<LeashAPIKey>(`${this.endpointPrefix}`, {}, true), this.endpointPrefix);
+        return new APIKey(await leashGet<LeashAPIKey>(`${this.endpointPrefix}`, {}), this.endpointPrefix);
     }
 
     async delete(): Promise<void> {
-        leashFetch(`${this.endpointPrefix}`, 'DELETE');
+        leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
     }
 
     async update({ description, fullAccess, permissions }: APIKeyUpdateOptions): Promise<APIKey> {
@@ -586,8 +645,6 @@ export class APIKey {
             full_access: fullAccess,
             permissions
         });
-
-        requestCache.get(this.endpointPrefix)?.setValue(updated);
 
         return new APIKey(updated, this.endpointPrefix);
     }
@@ -629,28 +686,28 @@ export class Training {
         this.endpointPrefix = endpointPrefix;
 	}
 
-    async getUser(): Promise<User> {
-        return User.fromID(this.userID);
+    async getUser(options: LeashUserOptions = {}): Promise<User> {
+        return User.fromID(this.userID, options);
     }
     
-    async getAddedBy(): Promise<User> {
-        return User.fromID(this.addedById);
+    async getAddedBy(options: LeashUserOptions = {}): Promise<User> {
+        return User.fromID(this.addedById, options);
     }
 
-    async getRemovedBy(): Promise<User | undefined> {
+    async getRemovedBy(options: LeashUserOptions = {}): Promise<User | undefined> {
         if (!this.removedById) {
             return undefined;
         }
 
-        return User.fromID(this.removedById);
+        return User.fromID(this.removedById, options);
     }
 
     async get(): Promise<Training> {
-        return new Training(await leashGet<LeashTraining>(`${this.endpointPrefix}`, {}, true), this.endpointPrefix);
+        return new Training(await leashGet<LeashTraining>(`${this.endpointPrefix}`, {}), this.endpointPrefix);
     }
 
     async delete(): Promise<void> {
-        leashFetch(`${this.endpointPrefix}`, 'DELETE');
+        leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
     }
 
     static async fromID(id: number): Promise<Training> {
@@ -668,6 +725,8 @@ export class Hold {
     reason: string;
     holdStart?: Date;
     holdEnd?: Date;
+
+    priority: number;
 
     private userID: number;
     private addedById: number;
@@ -698,6 +757,8 @@ export class Hold {
             this.removedById = hold.RemovedBy;
         }
 
+        this.priority = hold.Priority;
+
         this.endpointPrefix = endpointPrefix;
     }
 
@@ -724,11 +785,11 @@ export class Hold {
     }
 
     async get(): Promise<Hold> {
-        return new Hold(await leashGet<LeashHold>(`${this.endpointPrefix}`, {}, true), this.endpointPrefix);
+        return new Hold(await leashGet<LeashHold>(`${this.endpointPrefix}`, {}), this.endpointPrefix);
     }
 
     async delete(): Promise<void> {
-        leashFetch(`${this.endpointPrefix}`, 'DELETE');
+        leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
     }
 
     static async fromID(id: number): Promise<Hold> {
@@ -765,12 +826,70 @@ export class UserUpdate {
         this.newValue = update.NewValue;
     }
 
-    async getUser(): Promise<User> {
-        return User.fromID(this.userID);
+    async getUser(options: LeashUserOptions = {}): Promise<User> {
+        return User.fromID(this.userID, options);
     }
 
-    async getEditedBy(): Promise<User> {
-        return User.fromID(this.editedById);
+    async getEditedBy(options: LeashUserOptions = {}): Promise<User> {
+        return User.fromID(this.editedById, options);
+    }
+}
+
+export class Notification {
+    id: number;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
+
+    private userID: number;
+
+    title: string;
+    message: string;
+    link: string;
+    group: string;
+
+    private addedById: number;
+
+    private endpointPrefix: string;
+    
+    constructor(notification: LeashNotification, endpointPrefix: string) {
+        this.id = notification.ID;
+        this.createdAt = new Date(notification.CreatedAt);
+        this.updatedAt = new Date(notification.UpdatedAt);
+        if (notification.DeletedAt) {
+            this.deletedAt = new Date(notification.DeletedAt);
+        }
+
+        this.userID = notification.UserID;
+
+        this.title = notification.Title;
+        this.message = notification.Message;
+        this.link = notification.Link;
+        this.group = notification.Group;
+
+        this.addedById = notification.AddedBy;
+
+        this.endpointPrefix = endpointPrefix;
+    }
+
+    async getUser(options: LeashUserOptions = {}): Promise<User> {
+        return User.fromID(this.userID, options);
+    }
+    
+    async getAddedBy(options: LeashUserOptions = {}): Promise<User> {
+        return User.fromID(this.addedById, options);
+    }
+
+    async get(): Promise<Notification> {
+        return new Notification(await leashGet<LeashNotification>(`${this.endpointPrefix}`, {}), this.endpointPrefix);
+    }
+
+    async delete(): Promise<void> {
+        leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
+    }
+
+    static async fromID(id: number): Promise<Notification> {
+        return leashGet<LeashNotification>(`/api/notifications/${id}`).then((notification) => new Notification(notification, `/api/notifications/${id}`));
     }
 }
 

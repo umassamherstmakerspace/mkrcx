@@ -36,10 +36,11 @@ type User struct {
 	GraduationYear int
 	Major          string
 
-	Trainings   []Training   `json:",omitempty"`
-	Holds       []Hold       `json:",omitempty"`
-	APIKeys     []APIKey     `json:",omitempty"`
-	UserUpdates []UserUpdate `json:",omitempty"`
+	Trainings     []Training     `json:",omitempty"`
+	Holds         []Hold         `json:",omitempty"`
+	APIKeys       []APIKey       `json:",omitempty"`
+	UserUpdates   []UserUpdate   `json:",omitempty"`
+	Notifications []Notification `json:",omitempty"`
 
 	Permissions []string `gorm:"-"`
 }
@@ -93,6 +94,7 @@ type Hold struct {
 	HoldEnd   *time.Time
 	AddedBy   uint
 	RemovedBy uint `json:",omitempty"`
+	Priority  int
 }
 
 type UserUpdate struct {
@@ -102,6 +104,17 @@ type UserUpdate struct {
 	Field    string
 	NewValue string
 	OldValue string
+}
+
+type Notification struct {
+	Model
+	UserID    uint
+	AddedBy   uint
+	RemovedBy uint `json:",omitempty"`
+	Title     string
+	Message   string
+	Link      string
+	Group     string
 }
 
 type Session struct {

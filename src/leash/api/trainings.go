@@ -1,6 +1,7 @@
 package leash_backend_api
 
 import (
+	"net/url"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,9 +13,15 @@ import (
 func userTrainingMiddlware(c *fiber.Ctx) error {
 	db := leash_auth.GetDB(c)
 	user := c.Locals("target_user").(models.User)
+
+	training_type, err := url.QueryUnescape(c.Params("training_type"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid training type")
+	}
+
 	var training = models.Training{
 		UserID:       user.ID,
-		TrainingType: c.Params("training_type"),
+		TrainingType: training_type,
 	}
 
 	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {

@@ -69,6 +69,11 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(member, "leash.users.self.apikeys:get")
 	enforcer.AddPermissionForUser(member, "leash.users.self.apikeys:update")
 	enforcer.AddPermissionForUser(member, "leash.users.self.apikeys:delete")
+	//   Notifications
+	enforcer.AddPermissionForUser(member, "leash.users.self.notifications:list")
+	enforcer.AddPermissionForUser(member, "leash.users.self.notifications:get")
+	enforcer.AddPermissionForUser(member, "leash.users.self.notifications:delete")
+	enforcer.AddPermissionForUser(member, "leash.users.self.notifications:create")
 
 	// Others EPs
 	enforcer.AddPermissionForUser(volunteer, "leash.users.others:read")
@@ -94,6 +99,11 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(admin, "leash.users.others.apikeys:get")
 	enforcer.AddPermissionForUser(admin, "leash.users.others.apikeys:delete")
 	enforcer.AddPermissionForUser(admin, "leash.users.others.apikeys:update")
+	//   Notifications
+	enforcer.AddPermissionForUser(volunteer, "leash.users.others.notifications:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.others.notifications:get")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.others.notifications:delete")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.others.notifications:create")
 
 	// Service EPs
 	enforcer.AddPermissionForUser(volunteer, "leash.users.service:read")
@@ -119,6 +129,11 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:get")
 	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:delete")
 	enforcer.AddPermissionForUser(admin, "leash.users.service.apikeys:update")
+	//   Notifications
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service.notifications:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.service.notifications:get")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.notifications:delete")
+	enforcer.AddPermissionForUser(admin, "leash.users.service.notifications:create")
 
 	// Training EPs
 	enforcer.AddPermissionForUser(volunteer, "leash.trainings:get")
@@ -132,6 +147,10 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(admin, "leash.apikeys:get")
 	enforcer.AddPermissionForUser(admin, "leash.apikeys:delete")
 	enforcer.AddPermissionForUser(admin, "leash.apikeys:update")
+
+	// Notification EPs
+	enforcer.AddPermissionForUser(volunteer, "leash.notifications:get")
+	enforcer.AddPermissionForUser(volunteer, "leash.notifications:delete")
 
 	// Sign In EPs
 	enforcer.AddPermissionForUser(member, "leash:login")

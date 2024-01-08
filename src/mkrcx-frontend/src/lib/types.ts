@@ -49,5 +49,7 @@ export class Cached<T> {
 		} else {
 			this.expiresAt = null;
 		}
+
+		this.promise = Promise.resolve(value);
 	}
 }

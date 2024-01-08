@@ -19,3 +19,8 @@ export const isDark: Readable<boolean> = derived(theme, ($theme) => {
 });
 
 export const user: Writable<User | null> = writable(null);
+
+
+export const ISODate = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
+export const USDate = "MM/dd/yyyy hh:mm:ss a";
+export const dateTimeFormat: Writable<string> = writable(ISODate);

@@ -13,10 +13,11 @@ import (
 )
 
 type userGetRequest struct {
-	WithTrainings *bool `query:"with_trainings" validate:"omitempty"`
-	WithHolds     *bool `query:"with_holds" validate:"omitempty"`
-	WithApiKeys   *bool `query:"with_api_keys" validate:"omitempty"`
-	WithUpdates   *bool `query:"with_updates" validate:"omitempty"`
+	WithTrainings     *bool `query:"with_trainings" validate:"omitempty"`
+	WithHolds         *bool `query:"with_holds" validate:"omitempty"`
+	WithApiKeys       *bool `query:"with_api_keys" validate:"omitempty"`
+	WithUpdates       *bool `query:"with_updates" validate:"omitempty"`
+	WithNotifications *bool `query:"with_notifications" validate:"omitempty"`
 }
 
 // Preload preloads the user with the specified fields
@@ -25,7 +26,7 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	authenticator := leash_auth.GetAuthentication(c)
 
 	if req.WithTrainings != nil && *req.WithTrainings {
-		if authenticator.Authorize(prefix+":trainings:list") == nil {
+		if authenticator.Authorize(prefix+".trainings:list") == nil {
 			user.Trainings = []models.Training{}
 			db.Model(&user).Association("Trainings").Find(&user.Trainings)
 		} else {
@@ -34,7 +35,7 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	}
 
 	if req.WithHolds != nil && *req.WithHolds {
-		if authenticator.Authorize(prefix+":holds:list") == nil {
+		if authenticator.Authorize(prefix+".holds:list") == nil {
 			user.Holds = []models.Hold{}
 			db.Model(&user).Association("Holds").Find(&user.Holds)
 		} else {
@@ -43,7 +44,7 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	}
 
 	if req.WithApiKeys != nil && *req.WithApiKeys {
-		if authenticator.Authorize(prefix+":apikeys:list") == nil {
+		if authenticator.Authorize(prefix+".apikeys:list") == nil {
 			user.APIKeys = []models.APIKey{}
 			db.Model(&user).Association("APIKeys").Find(&user.APIKeys)
 		} else {
@@ -52,11 +53,20 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	}
 
 	if req.WithUpdates != nil && *req.WithUpdates {
-		if authenticator.Authorize(prefix+":updates:list") == nil {
+		if authenticator.Authorize(prefix+".updates:list") == nil {
 			user.UserUpdates = []models.UserUpdate{}
 			db.Model(&user).Association("UserUpdates").Find(&user.UserUpdates)
 		} else {
 			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view updates")
+		}
+	}
+
+	if req.WithNotifications != nil && *req.WithNotifications {
+		if authenticator.Authorize(prefix+".notifications:list") == nil {
+			user.Notifications = []models.Notification{}
+			db.Model(&user).Association("Notifications").Find(&user.Notifications)
+		} else {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view notifications")
 		}
 	}
 
@@ -224,6 +234,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 
 		if req.WithHolds != nil && *req.WithHolds {
 			if authenticator.Authorize("leash.users.others.holds:list") == nil {
+				fmt.Println("Preloading holds")
 				con = con.Preload("Holds")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)
@@ -241,6 +252,14 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		if req.WithUpdates != nil && *req.WithUpdates {
 			if authenticator.Authorize("leash.users.others.updates:list") == nil {
 				con = con.Preload("UserUpdates")
+			} else {
+				return c.SendStatus(fiber.StatusUnauthorized)
+			}
+		}
+
+		if req.WithNotifications != nil && *req.WithNotifications {
+			if authenticator.Authorize("leash.users.others.notifications:list") == nil {
+				con = con.Preload("Notifications")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)
 			}
@@ -642,6 +661,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 	addUserTrainingEndpoints(specific_ep)
 	addUserHoldsEndpoints(specific_ep)
 	addUserApiKeyEndpoints(specific_ep)
+	addUserNotificationsEndpoints(specific_ep)
 }
 
 // registerUserEndpoints registers all the User endpoints for Leash
@@ -680,6 +700,7 @@ func registerUserEndpoints(api fiber.Router) {
 	addUserTrainingEndpoints(self_ep)
 	addUserHoldsEndpoints(self_ep)
 	addUserApiKeyEndpoints(self_ep)
+	addUserNotificationsEndpoints(self_ep)
 
 	user_ep := users_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware, noServiceMiddleware)
 	getUserEndpoint(user_ep)
@@ -689,6 +710,7 @@ func registerUserEndpoints(api fiber.Router) {
 	addUserTrainingEndpoints(user_ep)
 	addUserHoldsEndpoints(user_ep)
 	addUserApiKeyEndpoints(user_ep)
+	addUserNotificationsEndpoints(user_ep)
 
 	service_ep := users_ep.Group("/service", leash_auth.ConcatPermissionPrefixMiddleware("service"))
 	serviceEndpoints(service_ep)

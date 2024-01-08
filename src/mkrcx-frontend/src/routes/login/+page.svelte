@@ -1,15 +1,21 @@
 <script lang="ts">
     import { afterNavigate } from '$app/navigation';
     import { base } from '$app/paths'
-	import { login } from '$lib/leash';
+	import { login, validateToken } from '$lib/leash';
     import { page } from '$app/stores';
     import Cookies from 'js-cookie';
+	import { user } from '$lib/stores';
 
     let previousPage : string = base;
 
-    afterNavigate(({from}) => {
+    afterNavigate(async ({from}) => {
         previousPage = from?.url?.href || previousPage;
-        console.log(previousPage);
+        if (previousPage.includes("/login")) {
+            previousPage = "/";
+        } else if (previousPage == "") {
+            previousPage = "/";
+        }
+        
 
         let token = $page.url.searchParams.get('token');
         let state = $page.url.searchParams.get('state');
@@ -22,11 +28,19 @@
                 sameSite: 'strict'
             });
 
-            const ret = atob(state);
+            let ret = atob(state);
+
+            if (ret.includes("/login")) {
+                ret = "/";
+            }
 
             window.location.href = ret;
         } else {
-            login($page.url.href || '', previousPage);
+            if ($user) {
+                window.location.href = previousPage;
+            } else {
+                await login($page.url.href || '', previousPage);
+            }
         }
     }) 
 </script>
