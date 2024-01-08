@@ -233,11 +233,11 @@
       </Label>
       <Label class="space-y-2">
         <span>Start Date</span>
-        <Input type="date" name="text" placeholder="Start Date" required bind:value={createHoldModal.startDate} />
+        <Input type="datetime-local" name="text" placeholder="Start Date" required bind:value={createHoldModal.startDate} />
       </Label>
       <Label class="space-y-2">
         <span>End Date</span>
-        <Input type="date" name="text" placeholder="End Date" required bind:value={createHoldModal.endDate} />
+        <Input type="datetime-local" name="text" placeholder="End Date" required bind:value={createHoldModal.endDate} />
       </Label>
       <Button class="w-full1" type="submit">Create Hold</Button>
     </form>
