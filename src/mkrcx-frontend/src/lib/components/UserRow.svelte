@@ -29,7 +29,7 @@
 				return;
 			}
 
-			const minHold = holds.reduce((a, b) => (a.priority < b.priority ? a : b));
+			const minHold = holds.filter((hold) => hold.isActive).reduce((a, b) => (a.priority < b.priority ? a : b));
 
 			if (minHold.priority < 100) {
 				userColor = 'red';
@@ -192,14 +192,20 @@
                                     <TableBodyCell>{hold.priority}</TableBodyCell>
                                     <TableBodyCell>
                                         {#if hold.holdStart}
-                                            <Timestamp timestamp={hold.holdStart}/>
+                                        <div class="flex flex-col">
+                                            <Timestamp timestamp={hold.holdStart} formatter="date"/>
+                                            <Timestamp timestamp={hold.holdStart} formatter="time"/>
+                                        </div>
                                         {:else}
                                             <span></span>
                                         {/if}
                                     </TableBodyCell>
                                     <TableBodyCell>
                                         {#if hold.holdEnd}
-                                            <Timestamp timestamp={hold.holdEnd}/>
+                                        <div class="flex flex-col">
+                                            <Timestamp timestamp={hold.holdEnd} formatter="date"/>
+                                            <Timestamp timestamp={hold.holdEnd} formatter="time"/>
+                                        </div>
                                         {:else}
                                             <span></span>
                                         {/if}

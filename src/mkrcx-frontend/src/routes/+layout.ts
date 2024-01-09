@@ -1,6 +1,6 @@
 import type { PageLoad } from './$types';
 import { User } from '$lib/leash';
-import { theme, dateTimeFormat, user, type Themes, ISODate } from '$lib/stores';
+import { theme, user, type Themes, dateLocale, type DateTimeFormats } from '$lib/stores';
 import Cookies from 'js-cookie';
 
 export const ssr = false;
@@ -16,10 +16,10 @@ export const load: PageLoad = async () => {
 		});
 	});
 
-	dateTimeFormat.set((Cookies.get('dateTimeFormat') as string) || ISODate);
+	dateLocale.set((Cookies.get('dateLocal') as DateTimeFormats) || "ISO");
 
-	dateTimeFormat.subscribe((value) => {
-		Cookies.set('dateTimeFormat', value,
+	dateLocale.subscribe((value) => {
+		Cookies.set('dateLocal', value,
 		{
 			expires: 365,
 			sameSite: 'strict'
