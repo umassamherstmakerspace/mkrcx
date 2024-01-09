@@ -308,7 +308,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 // createGetUserEndpoints creates the endpoints for getting users
 func createGetUserEndpoints(get_ep fiber.Router) {
 	// Get a user by email endpoint
-	get_ep.Get("/email/:email", leash_auth.AuthorizationMiddleware("email"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
+	get_ep.Get("/email/:email", leash_auth.PrefixAuthorizationMiddleware("email"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		email := c.Params("email")
 		user, err := searchEmail(db, email)
@@ -327,7 +327,7 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 		return c.JSON(user)
 	})
 
-	get_ep.Get("/get/card/:card", leash_auth.AuthorizationMiddleware("card"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
+	get_ep.Get("/card/:card", leash_auth.PrefixAuthorizationMiddleware("card"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		card := c.Params("card")
 
