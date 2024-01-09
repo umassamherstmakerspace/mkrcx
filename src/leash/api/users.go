@@ -329,16 +329,11 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 
 	get_ep.Get("/card/:card", leash_auth.PrefixAuthorizationMiddleware("card"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
-		card := c.Params("card")
-
-		card_id, err := strconv.ParseUint(card, 10, 64)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid card ID")
-		}
+		card_id := c.Params("card")
 
 		// Check if the user exists
 		var user = models.User{
-			CardID: card_id,
+			CardID: &card_id,
 		}
 
 		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
@@ -424,7 +419,7 @@ func updateUserEndpoint(user_ep fiber.Router) {
 	type userUpdateRequest struct {
 		Name           *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
 		Email          *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
-		CardId         *uint64 `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
+		CardId         *string `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
 		Role           *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
 		Type           *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
 		GraduationYear *int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
@@ -487,12 +482,6 @@ func updateUserEndpoint(user_ep fiber.Router) {
 			})
 		}
 
-		var cardId *string
-		if req.CardId != nil {
-			cardId = new(string)
-			*cardId = fmt.Sprintf("%d", *req.CardId)
-		}
-
 		if modified(user.Type, req.Type, "type") {
 			user.Type = *req.Type
 		}
@@ -511,9 +500,40 @@ func updateUserEndpoint(user_ep fiber.Router) {
 			user.Major = *req.Major
 		}
 
-		if modified(fmt.Sprint(user.CardID), cardId, "card_id") {
+		if req.CardId != nil {
 			if authenticator.Authorize(permissionPrefix+":update_card_id") != nil {
-				user.CardID = *req.CardId
+				changed := false
+				old := ""
+				new := ""
+
+				if user.CardID == nil {
+					if *req.CardId != "" {
+						user.CardID = req.CardId
+						changed = true
+						new = *req.CardId
+					}
+				} else {
+					if *req.CardId == "" {
+						user.CardID = nil
+						changed = true
+						old = *user.CardID
+					} else if *req.CardId != *user.CardID {
+						old = *user.CardID
+						user.CardID = req.CardId
+						changed = true
+						new = *req.CardId
+					}
+				}
+
+				if changed {
+					event.Changes = append(event.Changes, UserChanges{
+						Old:   old,
+						New:   new,
+						Field: "card_id",
+					})
+
+					db.Save(&user)
+				}
 			} else {
 				return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to update the card ID")
 			}
