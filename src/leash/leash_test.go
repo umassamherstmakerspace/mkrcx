@@ -3,6 +3,7 @@ package main_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	leash_helpers "github.com/mkrcx/mkrcx/src/leash/helpers"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
+	"github.com/valyala/fasthttp"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -48,7 +50,7 @@ type EndpointTester struct {
 	enforcer  *leash_auth.EnforcerWrapper
 }
 
-func (e *EndpointTester) testEndpoint(endpoint string, method string, body []byte, auth string, expectedStatus int) []byte {
+func (e *EndpointTester) testEndpoint(endpoint string, method string, body []byte, auth string, expectedStatus int) (int, []byte) {
 	// Test endpoint
 	link := "http://localhost:3000" + endpoint
 	agent := fiber.AcquireAgent()
@@ -78,10 +80,13 @@ func (e *EndpointTester) testEndpoint(endpoint string, method string, body []byt
 		e.t.Fatalf("Expected status %d, got %d\n Reponse: %s", expectedStatus, status, string(b))
 	}
 
-	return b
+	return status, b
 }
 
-func (e *EndpointTester) TestPermissions(endpoint string, method string, body []byte, permissions []string, expectedStatus int) {
+type PreFunc func(user models.User)
+type PostFunc func(user models.User, b []byte, status int)
+
+func (e *EndpointTester) TestPermissions(endpoint string, method string, body []byte, permissions []string, expectedStatus int, preFunc PreFunc, postFunc PostFunc) {
 	e.t.Log("Permission test for: ", endpoint)
 	tmpUser := e.testUser.User
 
@@ -108,7 +113,15 @@ func (e *EndpointTester) TestPermissions(endpoint string, method string, body []
 
 		e.t.Log("Testing permissions: ", testPermissions)
 
-		e.testEndpoint(endpoint, method, body, "API-Key "+e.testUser.APIKey.Key, status)
+		if preFunc != nil {
+			preFunc(e.testUser.User)
+		}
+
+		status, b := e.testEndpoint(endpoint, method, body, "API-Key "+e.testUser.APIKey.Key, status)
+
+		if postFunc != nil {
+			postFunc(e.testUser.User, b, status)
+		}
 	}
 
 	e.testUser.User = tmpUser
@@ -116,16 +129,16 @@ func (e *EndpointTester) TestPermissions(endpoint string, method string, body []
 	e.enforcer.SetPermissionsForUser(e.testUser.User, e.testUser.User.Permissions)
 }
 
-func (e *EndpointTester) TestRoles(endpoint string, method string, body []byte, minimumRole int, expectedStatus int) {
+func (e *EndpointTester) TestRoles(endpoint string, method string, body []byte, minimumRole int, expectedStatus int, preFunc PreFunc, postFunc PostFunc) {
 	e.t.Log("Role test for: ", endpoint)
 
 	for i := 0; i < len(e.roleUsers); i++ {
-		testApikey := e.roleUsers[i].APIKey.Key
-		testRole := e.roleUsers[i].User.Role
+		testUser := e.roleUsers[i].User
+		testAPIKey := e.roleUsers[i].APIKey
 
 		tmpUser := e.roleUsers[i].User
 
-		e.t.Log("Testing role: ", testRole)
+		e.t.Log("Testing role: ", testUser.Role)
 
 		status := fiber.StatusUnauthorized
 
@@ -133,7 +146,15 @@ func (e *EndpointTester) TestRoles(endpoint string, method string, body []byte, 
 			status = expectedStatus
 		}
 
-		e.testEndpoint(endpoint, method, body, "API-Key "+testApikey, status)
+		if preFunc != nil {
+			preFunc(testUser)
+		}
+
+		status, b := e.testEndpoint(endpoint, method, body, "API-Key "+testAPIKey.Key, status)
+
+		if postFunc != nil {
+			postFunc(testUser, b, status)
+		}
 
 		e.roleUsers[i].User = tmpUser
 		e.db.Save(&e.roleUsers[i].User)
@@ -142,24 +163,31 @@ func (e *EndpointTester) TestRoles(endpoint string, method string, body []byte, 
 
 type BodyTester func([]byte)
 
-func (e *EndpointTester) TestReponse(endpoint string, method string, body []byte, bodyTester BodyTester, expectedStatus int) {
+func (e *EndpointTester) TestReponse(endpoint string, method string, body []byte, bodyTester BodyTester, expectedStatus int, preFunc PreFunc, postFunc PostFunc) {
 	e.t.Log("Response test for: ", endpoint)
 
 	tmpUser := e.starUser.User
 
-	b := e.testEndpoint(endpoint, method, body, "API-Key "+e.starUser.APIKey.Key, expectedStatus)
+	if preFunc != nil {
+		preFunc(e.starUser.User)
+	}
 
-	bodyTester(b)
+	status, b := e.testEndpoint(endpoint, method, body, "API-Key "+e.starUser.APIKey.Key, expectedStatus)
+
+	if postFunc != nil {
+		postFunc(e.starUser.User, b, status)
+	}
+
 	e.starUser.User = tmpUser
 	e.db.Save(&e.starUser.User)
 }
 
-func (e *EndpointTester) TestAll(testName string, endpoint string, method string, body []byte, permissions []string, minimumRole int, bodyTester BodyTester, expectedStatus int) {
+func (e *EndpointTester) TestAll(testName string, endpoint string, method string, body []byte, permissions []string, minimumRole int, bodyTester BodyTester, expectedStatus int, preFunc PreFunc, postFunc PostFunc) {
 	e.t.Logf("Running test: %s\n", testName)
 
-	e.TestPermissions(endpoint, method, body, permissions, expectedStatus)
-	e.TestRoles(endpoint, method, body, minimumRole, expectedStatus)
-	e.TestReponse(endpoint, method, body, bodyTester, expectedStatus)
+	e.TestPermissions(endpoint, method, body, permissions, expectedStatus, preFunc, postFunc)
+	e.TestRoles(endpoint, method, body, minimumRole, expectedStatus, preFunc, postFunc)
+	e.TestReponse(endpoint, method, body, bodyTester, expectedStatus, preFunc, postFunc)
 }
 
 func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (*EndpointTester, error) {
@@ -320,6 +348,15 @@ func TestLeash(t *testing.T) {
 		return b
 	}
 
+	statusEQ := func(statusCode int) BodyTester {
+		status := fasthttp.StatusMessage(statusCode)
+		return func(b []byte) {
+			if status != string(b) {
+				t.Fatalf("Expected %v, got %v", statusCode, string(b))
+			}
+		}
+	}
+
 	byteEQ := func(b1 []byte) BodyTester {
 		return func(b2 []byte) {
 			if string(b1) != string(b2) {
@@ -340,10 +377,32 @@ func TestLeash(t *testing.T) {
 			}
 
 			u1.UpdatedAt = u2.UpdatedAt
+			u1.CreatedAt = u2.CreatedAt
+			u1.ID = u2.ID
 			u := encode(u1)
 
 			if string(u) != string(b) {
 				t.Fatalf("Expected %v, got %v", string(u), string(b))
+			}
+		}
+	}
+
+	holdEQ := func(hold models.Hold) BodyTester {
+		h1 := hold
+		return func(b []byte) {
+			var h2 models.Hold
+			err := json.Unmarshal(b, &h2)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			h1.UpdatedAt = h2.UpdatedAt
+			h1.CreatedAt = h2.CreatedAt
+			h1.ID = h2.ID
+			h := encode(h1)
+
+			if string(h) != string(b) {
+				t.Fatalf("Expected %v, got %v", string(h), string(b))
 			}
 		}
 	}
@@ -367,6 +426,7 @@ func TestLeash(t *testing.T) {
 	}
 
 	var newUser models.User
+	var newHold models.Hold
 	t.Log("Testing Self Endpoints...")
 
 	endpointTester.TestAll("Get Self",
@@ -374,21 +434,27 @@ func TestLeash(t *testing.T) {
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self:read"}, ROLE_MEMBER,
 		userEQ(endpointTester.starUser.User),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	endpointTester.TestAll("Get Self With Trainings",
 		"/api/users/self?with_trainings=true", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self:read", "leash.users.self.trainings:list"}, ROLE_MEMBER,
 		userEQ(endpointTester.starUser.User),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	endpointTester.TestAll("Get Self With Holds",
 		"/api/users/self?with_holds=true", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self:read", "leash.users.self.holds:list"}, ROLE_MEMBER,
 		userEQ(endpointTester.starUser.User),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	newUser = endpointTester.starUser.User
 	newUser.APIKeys = append(newUser.APIKeys, endpointTester.starUser.APIKey)
@@ -397,35 +463,45 @@ func TestLeash(t *testing.T) {
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self:read", "leash.users.self.apikeys:list"}, ROLE_MEMBER,
 		userEQ(newUser),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	endpointTester.TestAll("Get Self With Updates",
 		"/api/users/self?with_updates=true", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self:read", "leash.users.self.updates:list"}, ROLE_MEMBER,
 		userEQ(endpointTester.starUser.User),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	endpointTester.TestAll("Get Self With Notifications",
 		"/api/users/self?with_notifications=true", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self:read", "leash.users.self.notifications:list"}, ROLE_MEMBER,
 		userEQ(endpointTester.starUser.User),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	endpointTester.TestAll("Get Self Updates Before Updates",
 		"/api/users/self/updates", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self.updates:list"}, ROLE_MEMBER,
 		listCountEQ(0),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	endpointTester.TestAll("Update Self Empty",
 		"/api/users/self", "PATCH",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self:update"}, ROLE_MEMBER,
 		userEQ(endpointTester.starUser.User),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	newUser = endpointTester.starUser.User
 	newUser.Name = "New Name"
@@ -434,7 +510,9 @@ func TestLeash(t *testing.T) {
 		[]byte("{\"name\":\"New Name\"}"),
 		[]string{"leash.users:target_self", "leash.users.self:update"}, ROLE_MEMBER,
 		userEQ(newUser),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	newUser = endpointTester.starUser.User
 	newUser.Role = "member"
@@ -443,7 +521,9 @@ func TestLeash(t *testing.T) {
 		[]byte("{\"role\":\"member\"}"),
 		[]string{"leash.users:target_self", "leash.users.self:update", "leash.users.self:update_role"}, ROLE_ADMIN,
 		userEQ(newUser),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	newUser = endpointTester.starUser.User
 	card_id := "1234567890"
@@ -453,12 +533,100 @@ func TestLeash(t *testing.T) {
 		[]byte("{\"card_id\":\"1234567890\"}"),
 		[]string{"leash.users:target_self", "leash.users.self:update", "leash.users.self:update_card_id"}, ROLE_ADMIN,
 		userEQ(newUser),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
 
 	endpointTester.TestAll("Get Self Updates After Updates",
 		"/api/users/self/updates", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self.updates:list"}, ROLE_MEMBER,
 		listCountEQ(3),
-		fiber.StatusOK)
+		fiber.StatusOK,
+		nil,
+		nil)
+
+	endpointTester.TestAll("Get Self Holds Before Holds",
+		"/api/users/self/holds", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.holds:list"}, ROLE_MEMBER,
+		listCountEQ(0),
+		fiber.StatusOK,
+		nil,
+		nil)
+
+	newHold = models.Hold{
+		Reason:    "Test Hold",
+		HoldType:  "other",
+		UserID:    endpointTester.starUser.User.ID,
+		AddedBy:   endpointTester.starUser.User.ID,
+		Priority:  10,
+		HoldStart: nil,
+		HoldEnd:   nil,
+	}
+
+	endpointTester.TestAll("Create Self Hold",
+		"/api/users/self/holds", "POST",
+		[]byte("{\"reason\":\"Test Hold\",\"hold_type\":\"other\",\"priority\":10}"),
+		[]string{"leash.users:target_self", "leash.users.self.holds:create"}, ROLE_VOLUNTEER,
+		holdEQ(newHold),
+		fiber.StatusOK,
+		nil,
+		func(user models.User, b []byte, status int) {
+			if status == fiber.StatusOK {
+				var hold models.Hold
+				err := json.Unmarshal(b, &hold)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				db.Unscoped().Delete(&hold)
+			}
+		})
+
+	endpointTester.TestAll("Get Self Holds After Holds",
+		"/api/users/self/holds", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.holds:list"}, ROLE_MEMBER,
+		listCountEQ(0),
+		fiber.StatusOK,
+		nil,
+		nil)
+
+	db.Create(&newHold)
+	db.Unscoped().Delete(&newHold)
+
+	endpointTester.TestAll("Get Self Single Holds",
+		"/api/users/self/holds", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.holds:list"}, ROLE_MEMBER,
+		listCountEQ(0),
+		fiber.StatusOK,
+		func(user models.User) {
+			hold := newHold
+			hold.UserID = user.ID
+			db.Create(&hold)
+		},
+		func(user models.User, b []byte, status int) {
+			hold := models.Hold{}
+			hold.ID = newHold.ID
+			db.Unscoped().Delete(&hold)
+		})
+
+	endpointTester.TestAll("Delete Self Hold",
+		fmt.Sprintf("/api/users/self/holds/%d", newHold.ID), "DELETE",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.holds:delete"}, ROLE_VOLUNTEER,
+		statusEQ(fiber.StatusNoContent),
+		fiber.StatusNoContent,
+		func(user models.User) {
+			hold := newHold
+			hold.UserID = user.ID
+			db.Create(&hold)
+		},
+		func(user models.User, b []byte, status int) {
+			hold := models.Hold{}
+			hold.ID = newHold.ID
+			db.Unscoped().Delete(&hold)
+		})
 }
