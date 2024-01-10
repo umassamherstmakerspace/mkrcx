@@ -10,44 +10,48 @@ import (
 
 // userNotificationMiddlware is a middleware that fetches the notification from a user and stores it in the context
 func userNotificationMiddlware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
-	user := c.Locals("target_user").(models.User)
-	notification_id, err := strconv.Atoi(c.Params("notification_id"))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
-	}
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		user := c.Locals("target_user").(models.User)
+		notification_id, err := strconv.Atoi(c.Params("notification_id"))
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
+		}
 
-	var notification = models.Notification{
-		UserID: user.ID,
-	}
-	notification.ID = uint(notification_id)
+		var notification = models.Notification{
+			UserID: user.ID,
+		}
+		notification.ID = uint(notification_id)
 
-	if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "Notification not found")
-	}
-	c.Locals("notification", notification)
+		if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Notification not found")
+		}
+		c.Locals("notification", notification)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // generalNotificationMiddleware is a middleware that fetches the notification by ID and stores it in the context
 func generalNotificationMiddleware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 
-	notification_id, err := strconv.Atoi(c.Params("notification_id"))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
-	}
+		notification_id, err := strconv.Atoi(c.Params("notification_id"))
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
+		}
 
-	var notification = models.Notification{}
-	notification.ID = uint(notification_id)
+		var notification = models.Notification{}
+		notification.ID = uint(notification_id)
 
-	if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "Notification not found")
-	}
-	c.Locals("notification", notification)
+		if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Notification not found")
+		}
+		c.Locals("notification", notification)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // addCommonNotificationEndpoints adds the common endpoints for notifications

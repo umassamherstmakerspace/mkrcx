@@ -92,66 +92,74 @@ func searchEmail(db *gorm.DB, email string) (models.User, error) {
 
 // selfMiddleware is a middleware that sets the target user to the current user
 func selfMiddleware(c *fiber.Ctx) error {
-	authentication := leash_auth.GetAuthentication(c)
-	// Check if the user is authorized to perform the action
-	if authentication.Authorize("leash.users:target_self") != nil {
-		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target yourself")
-	}
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		authentication := leash_auth.GetAuthentication(c)
+		// Check if the user is authorized to perform the action
+		if authentication.Authorize("leash.users:target_self") != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target yourself")
+		}
 
-	// Get the user from the authentication
-	apiUser := authentication.User
+		// Get the user from the authentication
+		apiUser := authentication.User
 
-	c.Locals("target_user", apiUser)
-	return c.Next()
+		c.Locals("target_user", apiUser)
+		return nil
+	})(c)
 }
 
 // userMiddleware is a middleware that sets the target user to the user specified in the URL
 func userMiddleware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
-	authentication := leash_auth.GetAuthentication(c)
-	// Check if the user is authorized to perform the action
-	if authentication.Authorize("leash.users:target_others") != nil {
-		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target other users")
-	}
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		authentication := leash_auth.GetAuthentication(c)
+		// Check if the user is authorized to perform the action
+		if authentication.Authorize("leash.users:target_others") != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target other users")
+		}
 
-	// Get the user ID from the URL
-	user_id, err := strconv.Atoi(c.Params("user_id"))
+		// Get the user ID from the URL
+		user_id, err := strconv.Atoi(c.Params("user_id"))
 
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
-	}
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
+		}
 
-	var user = models.User{}
-	user.ID = uint(user_id)
+		var user = models.User{}
+		user.ID = uint(user_id)
 
-	if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "User not found")
-	}
+		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "User not found")
+		}
 
-	c.Locals("target_user", user)
-	return c.Next()
+		c.Locals("target_user", user)
+		return nil
+	})(c)
 }
 
 // noServiceMiddleware is a middleware that prevents targetting service accounts
 func noServiceMiddleware(c *fiber.Ctx) error {
-	user := c.Locals("target_user").(models.User)
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		user := c.Locals("target_user").(models.User)
 
-	if user.Role == "service" {
-		return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint cannot target service accounts")
-	}
+		if user.Role == "service" {
+			return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint cannot target service accounts")
+		}
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // onlyServiceMiddleware is a middleware that prevents targetting non-service accounts
 func onlyServiceMiddleware(c *fiber.Ctx) error {
-	user := c.Locals("target_user").(models.User)
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		user := c.Locals("target_user").(models.User)
 
-	if user.Role != "service" {
-		return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint can only target service accounts")
-	}
+		if user.Role != "service" {
+			return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint can only target service accounts")
+		}
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // createBaseEndpoints creates the common endpoints for the base user endpoint
@@ -228,7 +236,6 @@ func createBaseEndpoints(users_ep fiber.Router) {
 
 		if req.WithHolds != nil && *req.WithHolds {
 			if authenticator.Authorize("leash.users.others.holds:list") == nil {
-				fmt.Println("Preloading holds")
 				con = con.Preload("Holds")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)

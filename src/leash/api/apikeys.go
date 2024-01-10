@@ -11,36 +11,40 @@ import (
 
 // userApiKeyMiddlware is a middleware that fetches the api key from a user and stores it in the context
 func userApiKeyMiddlware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
-	user := c.Locals("target_user").(models.User)
-	var apikey = models.APIKey{
-		UserID: user.ID,
-		Key:    c.Params("api_key"),
-	}
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		user := c.Locals("target_user").(models.User)
+		var apikey = models.APIKey{
+			UserID: user.ID,
+			Key:    c.Params("api_key"),
+		}
 
-	if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
-	}
+		if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "API Key not found")
+		}
 
-	c.Locals("apikey", apikey)
+		c.Locals("apikey", apikey)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // generalApiKeyMiddleware is a middleware that fetches the api key by ID and stores it in the context
 func generalApiKeyMiddleware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
-	var apikey = models.APIKey{
-		Key: c.Params("api_key"),
-	}
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		var apikey = models.APIKey{
+			Key: c.Params("api_key"),
+		}
 
-	if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
-	}
+		if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "API Key not found")
+		}
 
-	c.Locals("apikey", apikey)
+		c.Locals("apikey", apikey)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // addCommonApiKeyEndpoints adds the common endpoints for api keys

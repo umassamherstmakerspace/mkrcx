@@ -11,47 +11,51 @@ import (
 
 // userTrainingMiddlware is a middleware that fetches the training from a user and stores it in the context
 func userTrainingMiddlware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
-	user := c.Locals("target_user").(models.User)
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		user := c.Locals("target_user").(models.User)
 
-	training_type, err := url.QueryUnescape(c.Params("training_type"))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid training type")
-	}
+		training_type, err := url.QueryUnescape(c.Params("training_type"))
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid training type")
+		}
 
-	var training = models.Training{
-		UserID:       user.ID,
-		TrainingType: training_type,
-	}
+		var training = models.Training{
+			UserID:       user.ID,
+			TrainingType: training_type,
+		}
 
-	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "Training not found")
-	}
+		if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Training not found")
+		}
 
-	c.Locals("training", training)
+		c.Locals("training", training)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // generalTrainingMiddleware is a middleware that fetches the training by ID and stores it in the context
 func generalTrainingMiddleware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 
-	training_id, err := strconv.Atoi(c.Params("training_id"))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid training ID")
-	}
+		training_id, err := strconv.Atoi(c.Params("training_id"))
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid training ID")
+		}
 
-	var training = models.Training{}
-	training.ID = uint(training_id)
+		var training = models.Training{}
+		training.ID = uint(training_id)
 
-	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "Training not found")
-	}
+		if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Training not found")
+		}
 
-	c.Locals("training", training)
+		c.Locals("training", training)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // addCommonTrainingEndpoints adds the common endpoints for training

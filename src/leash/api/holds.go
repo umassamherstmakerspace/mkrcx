@@ -12,44 +12,48 @@ import (
 
 // userHoldMiddlware is a middleware that fetches the hold from a user and stores it in the context
 func userHoldMiddlware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
-	user := c.Locals("target_user").(models.User)
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		user := c.Locals("target_user").(models.User)
 
-	hold_type, err := url.QueryUnescape(c.Params("hold_type"))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid hold type")
-	}
+		hold_type, err := url.QueryUnescape(c.Params("hold_type"))
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid hold type")
+		}
 
-	var hold = models.Hold{
-		UserID:   user.ID,
-		HoldType: hold_type,
-	}
-	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
-	}
-	c.Locals("hold", hold)
+		var hold = models.Hold{
+			UserID:   user.ID,
+			HoldType: hold_type,
+		}
+		if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Hold not found")
+		}
+		c.Locals("hold", hold)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // generalHoldMiddleware is a middleware that fetches the hold by ID and stores it in the context
 func generalHoldMiddleware(c *fiber.Ctx) error {
-	db := leash_auth.GetDB(c)
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
 
-	hold_id, err := strconv.Atoi(c.Params("hold_id"))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid hold ID")
-	}
+		hold_id, err := strconv.Atoi(c.Params("hold_id"))
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid hold ID")
+		}
 
-	var hold models.Hold
-	hold.ID = uint(hold_id)
+		var hold models.Hold
+		hold.ID = uint(hold_id)
 
-	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
-	}
-	c.Locals("hold", hold)
+		if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "Hold not found")
+		}
+		c.Locals("hold", hold)
 
-	return c.Next()
+		return nil
+	})(c)
 }
 
 // addCommonHoldEndpoints adds the common endpoints for holds
