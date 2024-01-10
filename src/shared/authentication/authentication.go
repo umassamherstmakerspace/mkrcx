@@ -11,7 +11,6 @@ import (
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/mkrcx/mkrcx/src/shared/models"
-	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 )
 
@@ -103,12 +102,16 @@ func (a Authentication) Authorize(permission string) error {
 }
 
 type EnforcerWrapper struct {
-	e *casbin.Enforcer
+	Enforcer *casbin.Enforcer
 }
 
 // HasPermissionForAPIKey returns true if the api key supplied is authorized to perform the given action
 func (e EnforcerWrapper) HasPermissionForAPIKey(apikey models.APIKey, permission string) bool {
-	val, err := e.e.Enforce(fmt.Sprintf("apikey:%s", apikey.Key), permission)
+	if apikey.FullAccess {
+		return true
+	}
+
+	val, err := e.Enforcer.Enforce(fmt.Sprintf("apikey:%s", apikey.Key), permission)
 	if err != nil {
 		return false
 	}
@@ -118,7 +121,19 @@ func (e EnforcerWrapper) HasPermissionForAPIKey(apikey models.APIKey, permission
 
 // HasPermissionForUser returns true if the user supplied is authorized to perform the given action
 func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission string) bool {
-	val, err := e.e.Enforce(fmt.Sprintf("user:%d", user.ID), permission)
+	val, err := e.Enforcer.Enforce("role:"+user.Role, permission)
+	fmt.Println("role:" + user.Role)
+	fmt.Println(permission)
+	fmt.Println(val)
+	if err != nil {
+		return false
+	}
+
+	if val {
+		return true
+	}
+
+	val, err = e.Enforcer.Enforce(fmt.Sprintf("user:%d", user.ID), permission)
 	if err != nil {
 		return false
 	}
@@ -128,41 +143,24 @@ func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission strin
 
 // SavePolicy saves the policy
 func (e EnforcerWrapper) SavePolicy() error {
-	return e.e.SavePolicy()
+	return e.Enforcer.SavePolicy()
 }
 
 // AddPermissionsForUser adds the permissions for the user supplied
 func (e EnforcerWrapper) SetPermissionsForUser(user models.User, permissions []string) {
 	user_id := fmt.Sprintf("user:%d", user.ID)
-	e.e.DeletePermissionsForUser(user_id)
+	e.Enforcer.DeletePermissionsForUser(user_id)
 	for _, permission := range permissions {
-		e.e.AddPermissionForUser(user_id, permission)
+		e.Enforcer.AddPermissionForUser(user_id, permission)
 	}
-}
-
-// SetUserRole sets the role for the user supplied
-func (e EnforcerWrapper) SetUserRole(user models.User, role string) {
-	user_id := fmt.Sprintf("user:%d", user.ID)
-	e.e.DeleteRolesForUser(user_id)
-	e.e.AddRoleForUser(user_id, "role:"+role)
 }
 
 // SetPermissionsForAPIKey sets the permissions for the api key supplied
 func (e EnforcerWrapper) SetPermissionsForAPIKey(apikey models.APIKey, permissions []string) {
 	apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
-	e.e.DeletePermissionsForUser(apikey_id)
+	e.Enforcer.DeletePermissionsForUser(apikey_id)
 	for _, permission := range permissions {
-		e.e.AddPermissionForUser(apikey_id, permission)
-	}
-}
-
-// SetAPIKeyFullAccess sets the full access flag for the api key supplied
-func (e EnforcerWrapper) SetAPIKeyFullAccess(apikey models.APIKey, full_access bool) {
-	apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
-	user_id := fmt.Sprintf("user:%d", apikey.UserID)
-	e.e.DeleteRolesForUser(apikey_id)
-	if full_access {
-		e.e.AddRoleForUser(apikey_id, user_id)
+		e.Enforcer.AddPermissionForUser(apikey_id, permission)
 	}
 }
 
@@ -172,7 +170,7 @@ func SignInAuthentication(user models.User, c *fiber.Ctx) Authentication {
 		Authenticator: AUTHENTICATOR_USER,
 		User:          user,
 		Enforcer: EnforcerWrapper{
-			e: GetEnforcer(c),
+			Enforcer: GetEnforcer(c),
 		},
 	}
 }
@@ -204,7 +202,7 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 	// Get the enforcer
 
 	enforcer := EnforcerWrapper{
-		e: GetEnforcer(c),
+		Enforcer: GetEnforcer(c),
 	}
 
 	authentication := Authentication{
@@ -267,6 +265,7 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 
 		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
 			// The user does not exist
+			fmt.Println(user)
 			return fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
 		}
 
@@ -361,15 +360,15 @@ func InitalizeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
 
 type ctxDBKey struct{}
 type ctxKeysKey struct{}
-type ctxGoogleKey struct{}
+type ctxExternalAuthKey struct{}
 type ctxEnforcerKey struct{}
 
 // LocalsMiddleware is the middleware that sets the locals for common objects
-func LocalsMiddleware(db *gorm.DB, keys *Keys, google *oauth2.Config, enforcer *casbin.Enforcer) fiber.Handler {
+func LocalsMiddleware(db *gorm.DB, keys *Keys, externalAuth ExternalAuthenticator, enforcer *casbin.Enforcer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals(ctxDBKey{}, db)
 		c.Locals(ctxKeysKey{}, keys)
-		c.Locals(ctxGoogleKey{}, google)
+		c.Locals(ctxExternalAuthKey{}, externalAuth)
 		c.Locals(ctxEnforcerKey{}, enforcer)
 		return c.Next()
 	}
@@ -386,8 +385,8 @@ func GetKeys(c *fiber.Ctx) *Keys {
 }
 
 // GetGoogle returns the google oauth2 config from the current context
-func GetGoogle(c *fiber.Ctx) *oauth2.Config {
-	return c.Locals(ctxGoogleKey{}).(*oauth2.Config)
+func GetExternalAuth(c *fiber.Ctx) ExternalAuthenticator {
+	return c.Locals(ctxExternalAuthKey{}).(ExternalAuthenticator)
 }
 
 // GetEnforcer returns the casbin enforcer from the current context

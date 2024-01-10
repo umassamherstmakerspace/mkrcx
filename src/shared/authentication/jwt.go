@@ -19,27 +19,37 @@ type Keys struct {
 	privateKey jwk.Key
 }
 
-// InitalizeJWT initalizes the JWT from a key file
-func InitalizeJWT(key_file string) (*Keys, error) {
+// GenerateJWTKeySet generates a new set of JWT keys
+func GenerateJWTKeySet() (jwk.Set, error) {
+	raw, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := jwk.FromRaw(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the key ID, algorithm, and usage
+	key.Set(jwk.KeyIDKey, "sig-"+strconv.FormatInt(time.Now().Unix(), 10))
+	key.Set(jwk.AlgorithmKey, jwa.RS256)
+	key.Set(jwk.KeyUsageKey, jwk.ForSignature)
+
+	keys := jwk.NewSet()
+	keys.AddKey(key)
+
+	return keys, nil
+}
+
+// CreateOrGetKeysFromFile initalizes the JWT key set from a file
+func CreateOrGetKeysFromFile(key_file string) (jwk.Set, error) {
 	// Generate a key if it doesn't exist
 	if _, err := os.Stat(key_file); os.IsNotExist(err) {
-		raw, err := rsa.GenerateKey(rand.Reader, 2048)
+		keys, err := GenerateJWTKeySet()
 		if err != nil {
 			return nil, err
 		}
-
-		key, err := jwk.FromRaw(raw)
-		if err != nil {
-			return nil, err
-		}
-
-		// Set the key ID, algorithm, and usage
-		key.Set(jwk.KeyIDKey, "sig-"+strconv.FormatInt(time.Now().Unix(), 10))
-		key.Set(jwk.AlgorithmKey, jwa.RS256)
-		key.Set(jwk.KeyUsageKey, jwk.ForSignature)
-
-		keys := jwk.NewSet()
-		keys.AddKey(key)
 
 		// Format the key file
 		buf, err := json.MarshalIndent(keys, "", "  ")
@@ -52,6 +62,10 @@ func InitalizeJWT(key_file string) (*Keys, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		return keys, nil
+	} else if err != nil {
+		return nil, err
 	}
 
 	// Read the key file
@@ -73,6 +87,11 @@ func InitalizeJWT(key_file string) (*Keys, error) {
 		return nil, err
 	}
 
+	return keys, nil
+}
+
+// CreateKeys initalizes the keys from a JWK set
+func CreateKeys(keys jwk.Set) (*Keys, error) {
 	// Get the first key
 	privateKey, _ := keys.Key(0)
 

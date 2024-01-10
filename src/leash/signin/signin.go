@@ -1,7 +1,6 @@
 package leash_signin
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -33,13 +32,13 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 
 	// Endpoint to initalize loggin in
 	type signinRequest struct {
-		Return string `json:"return"`
-		State  string `json:"state"`
+		Return string `query:"return"`
+		State  string `query:"state"`
 	}
 
 	auth_ep.Get("/login", models.GetQueryMiddleware[signinRequest], func(c *fiber.Ctx) error {
 		keys := leash_auth.GetKeys(c)
-		google := leash_auth.GetGoogle(c)
+		externalAuth := leash_auth.GetExternalAuth(c)
 		req := c.Locals("query").(signinRequest)
 
 		// Default return to /
@@ -67,7 +66,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 
-		url := google.AuthCodeURL(string(signed))
+		url := externalAuth.GetAuthURL(string(signed))
 		return c.Redirect(url)
 	})
 
@@ -80,7 +79,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 	auth_ep.Get("/callback", models.GetQueryMiddleware[signinCallbackRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		keys := leash_auth.GetKeys(c)
-		google := leash_auth.GetGoogle(c)
+		externalAuth := leash_auth.GetExternalAuth(c)
 		req := c.Locals("query").(signinCallbackRequest)
 
 		// Parse the state token
@@ -116,46 +115,15 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
 		}
 
-		userinfo := &struct {
-			Email string `json:"email" validate:"required,email"`
-		}{}
-
-		{
-			// Exchange the code for a token
-			tok, err := google.Exchange(c.Context(), req.Code)
-			if err != nil {
-				log.Error("Failed to exchange token: %s\n", err)
-				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
-			}
-
-			// Get the userinfo
-			client := google.Client(c.Context(), tok)
-			resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
-			if err != nil {
-				log.Error("Failed to get userinfo: %s\n", err)
-				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
-			}
-			defer resp.Body.Close()
-
-			// Decode the userinfo
-			err = json.NewDecoder(resp.Body).Decode(userinfo)
-			if err != nil {
-				log.Error("Failed to decode userinfo: %s\n", err)
-				return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
-			}
-
-			// Validate the userinfo
-			{
-				errors := models.ValidateStruct(userinfo)
-				if errors != nil {
-					return c.Status(fiber.StatusBadRequest).JSON(errors)
-				}
-			}
+		email, err := externalAuth.Callback(c.Context(), req.Code)
+		if err != nil {
+			log.Error("Failed to get email from external auth: %s\n", err)
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid code")
 		}
 
 		// Check if the user exists
 		var user models.User
-		res := db.Limit(1).Where(models.User{Email: userinfo.Email}).Or(models.User{PendingEmail: userinfo.Email}).Find(&user)
+		res := db.Limit(1).Where(models.User{Email: email}).Or(models.User{PendingEmail: &email}).Find(&user)
 		if res.Error != nil || res.RowsAffected == 0 {
 			// The user does not exist
 			c.Set("Content-Type", "text/html")
@@ -180,7 +148,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		}
 
 		// Check if the user signed in with a pending email
-		if user.PendingEmail == userinfo.Email {
+		if user.PendingEmail != nil && *user.PendingEmail == email {
 			var err error
 			user, err = leash_api.UpdatePendingEmail(user, c)
 
@@ -205,7 +173,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			Issuer(`mkrcx`).
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(24*time.Hour)).
-			Claim("email", userinfo.Email).
+			Claim("email", email).
 			Claim("session", session_id).
 			Build()
 		if err != nil {

@@ -1,9 +1,14 @@
 package leash_helpers
 
 import (
-	"fmt"
+	"os"
 
 	"github.com/casbin/casbin/v2"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	leash_api "github.com/mkrcx/mkrcx/src/leash/api"
+	leash_signin "github.com/mkrcx/mkrcx/src/leash/signin"
+	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
 )
@@ -156,77 +161,71 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(member, "leash:login")
 
 	enforcer.SavePolicy()
+
+	models.SetupEnforcer(enforcer)
 }
 
-// MigrateUserRoles migrates the user roles into the casbin RBAC
-func MigrateUserRoles(db *gorm.DB, enforcer *casbin.Enforcer) error {
-	var users []models.User
-	db.Find(&users)
-
-	for _, user := range users {
-		user_id := fmt.Sprintf("user:%d", user.ID)
-
-		// Convert the user role to a casbin role
-		role := "role:member"
-		if user.Role == "volunteer" {
-			role = "role:volunteer"
-		} else if user.Role == "staff" {
-			role = "role:staff"
-		} else if user.Role == "admin" {
-			role = "role:admin"
-		}
-
-		// Check if the user already has the role
-		val, err := enforcer.HasRoleForUser(user_id, role)
-		if err != nil {
-			return err
-		}
-
-		// If the user already has the role, skip
-		if val {
-			continue
-		}
-
-		// Otherwise, delete all roles and add the new role
-		enforcer.DeleteRolesForUser(user_id)
-		enforcer.AddRoleForUser(user_id, role)
+func MigrateSchema(db *gorm.DB) error {
+	err := models.SetupValidator()
+	if err != nil {
+		return err
 	}
 
-	enforcer.SavePolicy()
+	err = db.AutoMigrate(&models.User{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.APIKey{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.Training{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.UserUpdate{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.Hold{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.Session{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.Notification{})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// MigrateAPIKeyAccess migrates the API key access into the casbin RBAC
-func MigrateAPIKeyAccess(db *gorm.DB, enforcer *casbin.Enforcer) error {
-	var apikeys []models.APIKey
-	db.Find(&apikeys)
+func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, externalAuth leash_auth.ExternalAuthenticator, enforcer *casbin.Enforcer) {
+	// Allow all origins in development
+	app.Use(cors.New(cors.Config{
+		AllowOriginsFunc: func(origin string) bool {
+			return os.Getenv("ENVIRONMENT") == "development"
+		},
+	}))
 
-	for _, apikey := range apikeys {
-		apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
-		user_id := fmt.Sprintf("user:%d", apikey.UserID)
+	app.Use(leash_auth.LocalsMiddleware(db, keys, externalAuth, enforcer))
+}
 
-		// Check if the api key is linked to the user's permissions
-		val, err := enforcer.HasRoleForUser(apikey_id, user_id)
+func SetupRoutes(app *fiber.App) {
+	api := app.Group("/api", leash_auth.SetPermissionPrefixMiddleware("leash"))
 
-		if err != nil {
-			return err
-		}
+	leash_api.RegisterAPIEndpoints(api)
 
-		// Check if the api key is correctly linked to the user's permissions
-		if val == apikey.FullAccess {
-			continue
-		}
+	auth := app.Group("/auth")
 
-		// If the api key is not linked to the user's permissions, fix it
-		if apikey.FullAccess {
-			// Add the role if the key is full access
-			enforcer.AddRoleForUser(apikey_id, user_id)
-		} else {
-			// Otherwise, delete the role
-			enforcer.DeleteRolesForUser(apikey_id)
-		}
-	}
-
-	enforcer.SavePolicy()
-	return nil
+	leash_signin.RegisterAuthenticationEndpoints(auth)
 }

@@ -86,7 +86,6 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 
 		if req.FullAccess != nil {
 			apikey.FullAccess = *req.FullAccess
-			enforcer.SetAPIKeyFullAccess(apikey, *req.FullAccess)
 		}
 
 		enforcer.SavePolicy()

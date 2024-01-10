@@ -81,7 +81,7 @@ var userDeleteCallbacks []func(UserEvent)
 func searchEmail(db *gorm.DB, email string) (models.User, error) {
 	var user models.User
 
-	res := db.Limit(1).Where(&models.User{Email: email}).Or(&models.User{PendingEmail: email}).Find(&user)
+	res := db.Limit(1).Where(&models.User{Email: email}).Or(&models.User{PendingEmail: &email}).Find(&user)
 
 	if res.Error != nil || res.RowsAffected == 0 {
 		return user, errors.New("user not found")
@@ -186,12 +186,6 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		}
 
 		db.Create(&user)
-
-		// Set the user's role in the RBAC
-		enforcer := leash_auth.GetAuthentication(c).Enforcer
-
-		enforcer.SetUserRole(user, req.Role)
-		enforcer.SavePolicy()
 
 		event := UserEvent{
 			c:         c,
@@ -468,7 +462,7 @@ func updateUserEndpoint(user_ep fiber.Router) {
 		}
 
 		// Check if the email has been changed
-		if req.Email != nil && *req.Email != user.Email && *req.Email != user.PendingEmail {
+		if req.Email != nil && *req.Email != user.Email && user.PendingEmail != nil && *req.Email != *user.PendingEmail {
 			_, err := searchEmail(db, *req.Email)
 			if err == nil {
 				// The user already exists
@@ -476,7 +470,7 @@ func updateUserEndpoint(user_ep fiber.Router) {
 			}
 
 			event.Changes = append(event.Changes, UserChanges{
-				Old:   user.PendingEmail,
+				Old:   *user.PendingEmail,
 				New:   *req.Email,
 				Field: "pending_email",
 			})
@@ -501,7 +495,7 @@ func updateUserEndpoint(user_ep fiber.Router) {
 		}
 
 		if req.CardId != nil {
-			if authenticator.Authorize(permissionPrefix+":update_card_id") != nil {
+			if authenticator.Authorize(permissionPrefix+":update_card_id") == nil {
 				changed := false
 				old := ""
 				new := ""
@@ -539,16 +533,20 @@ func updateUserEndpoint(user_ep fiber.Router) {
 			}
 		}
 
-		if modified(user.Role, req.Role, "role") {
-			if authenticator.Authorize(permissionPrefix+":update_role") != nil {
-				user.Role = *req.Role
-				authenticator.Enforcer.SetUserRole(user, *req.Role)
+		if req.Role != nil {
+			if authenticator.Authorize(permissionPrefix+":update_role") == nil {
+				if *req.Role != user.Role {
+					event.Changes = append(event.Changes, UserChanges{
+						Old:   user.Role,
+						New:   *req.Role,
+						Field: "role",
+					})
+					user.Role = *req.Role
+				}
 			} else {
 				return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to update the role")
 			}
 		}
-
-		authenticator.Enforcer.SavePolicy()
 
 		db.Save(&user)
 
@@ -755,7 +753,7 @@ func OnUserDelete(callback func(UserEvent)) {
 func UpdatePendingEmail(user models.User, c *fiber.Ctx) (models.User, error) {
 	db := leash_auth.GetDB(c)
 
-	if user.PendingEmail == "" {
+	if user.PendingEmail == nil {
 		return user, errors.New("no pending email")
 	}
 
@@ -770,19 +768,19 @@ func UpdatePendingEmail(user models.User, c *fiber.Ctx) (models.User, error) {
 		Changes: []UserChanges{
 			{
 				Old:   user.Email,
-				New:   user.PendingEmail,
+				New:   *user.PendingEmail,
 				Field: "email",
 			},
 			{
-				Old:   user.PendingEmail,
+				Old:   *user.PendingEmail,
 				New:   "",
 				Field: "pending_email",
 			},
 		},
 	}
 
-	user.Email = user.PendingEmail
-	user.PendingEmail = ""
+	user.Email = *user.PendingEmail
+	user.PendingEmail = nil
 	db.Save(&user)
 
 	// Run the update callbacks
