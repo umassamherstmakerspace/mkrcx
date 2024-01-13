@@ -273,8 +273,8 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 func TestLeash(t *testing.T) {
 	// Initialize DB
 	t.Log("Initializing DB...")
-	// db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	db, err := gorm.Open(sqlite.Open("sqlite.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	// db, err := gorm.Open(sqlite.Open("sqlite.db"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -849,6 +849,87 @@ func TestLeash(t *testing.T) {
 			db.Unscoped().Delete(&models.APIKey{Key: newAPIKey.Key})
 		})
 
-	_ = newNotification
-	_ = notificationEQ
+	endpointTester.TestAll("Get Self Notifications Empty",
+		"/api/users/self/notifications", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.notifications:list"}, ROLE_MEMBER,
+		listCountEQ(0),
+		fiber.StatusOK,
+		nil,
+		nil)
+
+	newNotification = models.Notification{
+		Title:   "Test Notification",
+		Message: "Test Message",
+		UserID:  endpointTester.starUser.User.ID,
+		Link:    "",
+		Group:   "",
+	}
+
+	db.Create(&newNotification)
+	db.Unscoped().Delete(&newNotification)
+
+	endpointTester.TestAll("Create Self Notification",
+		"/api/users/self/notifications", "POST",
+		[]byte("{\"title\":\"Test Notification\",\"message\":\"Test Message\"}"),
+		[]string{"leash.users:target_self", "leash.users.self.notifications:create"}, ROLE_MEMBER,
+		notificationEQ(newNotification),
+		fiber.StatusOK,
+		nil,
+		func(user models.User, b []byte, status int) {
+			if status == fiber.StatusOK {
+				var notification models.Notification
+				err := json.Unmarshal(b, &notification)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				db.Unscoped().Delete(&notification)
+			}
+		})
+
+	endpointTester.TestAll("Get Self Notifications Not Empty",
+		"/api/users/self/notifications", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.notifications:list"}, ROLE_MEMBER,
+		listCountEQ(1),
+		fiber.StatusOK,
+		func(user models.User) {
+			notification := newNotification
+			notification.UserID = user.ID
+			db.Create(&notification)
+		},
+		func(user models.User, b []byte, status int) {
+			db.Unscoped().Delete(&models.Notification{ID: newNotification.ID})
+		})
+
+	endpointTester.TestAll("Get Self Single Notification",
+		"/api/users/self/notifications/1", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.notifications:get"}, ROLE_MEMBER,
+		notificationEQ(newNotification),
+		fiber.StatusOK,
+		func(user models.User) {
+			notification := newNotification
+			notification.UserID = user.ID
+			db.Create(&notification)
+		},
+		func(user models.User, b []byte, status int) {
+			db.Unscoped().Delete(&models.Notification{ID: newNotification.ID})
+		})
+
+	endpointTester.TestAll("Delete Self Notification",
+		"/api/users/self/notifications/1", "DELETE",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.notifications:delete"}, ROLE_MEMBER,
+		statusEQ(fiber.StatusNoContent),
+		fiber.StatusNoContent,
+		func(user models.User) {
+			notification := newNotification
+			notification.UserID = user.ID
+			db.Create(&notification)
+		},
+		func(user models.User, b []byte, status int) {
+			db.Unscoped().Delete(&models.Notification{ID: newNotification.ID})
+		})
 }
