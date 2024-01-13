@@ -20,8 +20,8 @@ func userNotificationMiddleware(c *fiber.Ctx) error {
 
 		var notification = models.Notification{
 			UserID: user.ID,
+			ID:     uint(notification_id),
 		}
-		notification.ID = uint(notification_id)
 
 		if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "Notification not found")
@@ -42,8 +42,9 @@ func generalNotificationMiddleware(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
 		}
 
-		var notification = models.Notification{}
-		notification.ID = uint(notification_id)
+		var notification = models.Notification{
+			ID: uint(notification_id),
+		}
 
 		if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "Notification not found")

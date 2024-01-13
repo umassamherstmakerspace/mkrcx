@@ -45,8 +45,9 @@ func generalTrainingMiddleware(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid training ID")
 		}
 
-		var training = models.Training{}
-		training.ID = uint(training_id)
+		var training = models.Training{
+			ID: uint(training_id),
+		}
 
 		if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "Training not found")

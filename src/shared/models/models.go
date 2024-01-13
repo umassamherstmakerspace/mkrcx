@@ -19,7 +19,6 @@ func SetupEnforcer(e *casbin.Enforcer) {
 }
 
 type Model struct {
-	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index" json:",omitempty"`
@@ -27,6 +26,7 @@ type Model struct {
 
 type User struct {
 	Model
+	ID             uint    `gorm:"primarykey"`
 	Email          string  `gorm:"unique"`
 	PendingEmail   *string `gorm:"unique" json:",omitempty"`
 	CardID         *string `gorm:"unique"`
@@ -56,10 +56,8 @@ func (u *User) AfterFind(tx *gorm.DB) (err error) {
 }
 
 type APIKey struct {
+	Model
 	Key         string `gorm:"column:api_key;primaryKey"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:",omitempty"`
 	UserID      uint
 	Description string
 	FullAccess  bool
@@ -79,6 +77,7 @@ func (a *APIKey) AfterFind(tx *gorm.DB) (err error) {
 
 type Training struct {
 	Model
+	ID           uint `gorm:"primarykey"`
 	UserID       uint
 	TrainingType string
 	AddedBy      uint
@@ -87,6 +86,7 @@ type Training struct {
 
 type Hold struct {
 	Model
+	ID        uint `gorm:"primarykey"`
 	UserID    uint
 	HoldType  string
 	Reason    string
@@ -99,6 +99,7 @@ type Hold struct {
 
 type UserUpdate struct {
 	Model
+	ID       uint `gorm:"primarykey"`
 	UserID   uint
 	EditedBy uint
 	Field    string
@@ -108,6 +109,7 @@ type UserUpdate struct {
 
 type Notification struct {
 	Model
+	ID        uint `gorm:"primarykey"`
 	UserID    uint
 	AddedBy   uint
 	RemovedBy uint `json:",omitempty"`
@@ -118,10 +120,8 @@ type Notification struct {
 }
 
 type Session struct {
+	Model
 	SessionID string `gorm:"column:api_key;primaryKey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index" json:",omitempty"`
 	UserID    uint
 	ExpiresAt time.Time
 }

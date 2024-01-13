@@ -257,8 +257,9 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 		}
 
 		// Check if the user exists
-		var user = models.User{}
-		user.ID = apiKey.UserID
+		var user = models.User{
+			ID: apiKey.UserID,
+		}
 
 		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
 			// The user does not exist

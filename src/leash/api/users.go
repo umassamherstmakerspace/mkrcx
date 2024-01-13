@@ -124,8 +124,9 @@ func userMiddleware(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
 		}
 
-		var user = models.User{}
-		user.ID = uint(user_id)
+		var user = models.User{
+			ID: uint(user_id),
+		}
 
 		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "User not found")

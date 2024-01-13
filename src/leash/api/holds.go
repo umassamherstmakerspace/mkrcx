@@ -44,8 +44,9 @@ func generalHoldMiddleware(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid hold ID")
 		}
 
-		var hold models.Hold
-		hold.ID = uint(hold_id)
+		var hold = models.Hold{
+			ID: uint(hold_id),
+		}
 
 		if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
 			return fiber.NewError(fiber.StatusNotFound, "Hold not found")
