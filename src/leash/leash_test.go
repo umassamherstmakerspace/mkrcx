@@ -3,6 +3,7 @@ package main_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 
@@ -211,7 +212,7 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 		Permissions: []string{},
 	}
 
-	db.Create(&endpointTester.starUser.User)
+	db.FirstOrCreate(&endpointTester.starUser.User, &endpointTester.starUser.User)
 
 	endpointTester.starUser.APIKey = models.APIKey{
 		Key:         "star",
@@ -220,7 +221,7 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 		Permissions: []string{},
 	}
 
-	db.Create(&endpointTester.starUser.APIKey)
+	db.FirstOrCreate(&endpointTester.starUser.APIKey, &endpointTester.starUser.APIKey)
 
 	endpointTester.testUser.User = models.User{
 		Name:        "Test User",
@@ -230,7 +231,7 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 		Permissions: []string{},
 	}
 
-	db.Create(&endpointTester.testUser.User)
+	db.FirstOrCreate(&endpointTester.testUser.User, &endpointTester.testUser.User)
 
 	endpointTester.testUser.APIKey = models.APIKey{
 		Key:         "test",
@@ -239,7 +240,7 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 		Permissions: []string{},
 	}
 
-	db.Create(&endpointTester.testUser.APIKey)
+	db.FirstOrCreate(&endpointTester.testUser.APIKey, &endpointTester.testUser.APIKey)
 
 	roles := []string{"member", "volunteer", "staff", "admin"}
 	for i := 0; i < len(roles); i++ {
@@ -252,7 +253,7 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 			Permissions: []string{},
 		}
 
-		db.Create(&roleUser.User)
+		db.FirstOrCreate(&roleUser.User, &roleUser.User)
 
 		roleUser.APIKey = models.APIKey{
 			Key:         roles[i],
@@ -261,7 +262,7 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 			Permissions: []string{},
 		}
 
-		db.Create(&roleUser.APIKey)
+		db.FirstOrCreate(&roleUser.APIKey, &roleUser.APIKey)
 
 		endpointTester.roleUsers = append(endpointTester.roleUsers, roleUser)
 	}
@@ -272,8 +273,8 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 func TestLeash(t *testing.T) {
 	// Initialize DB
 	t.Log("Initializing DB...")
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	// db, err := gorm.Open(sqlite.Open("sqlite.db"), &gorm.Config{})
+	// db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("sqlite.db"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -598,11 +599,14 @@ func TestLeash(t *testing.T) {
 		nil,
 		nil)
 
+	var updates []models.UserUpdate
+	db.Model(&endpointTester.starUser.User).Association("UserUpdates").Find(&updates)
+
 	endpointTester.TestAll("Get Self Updates After Updates",
 		"/api/users/self/updates", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self.updates:list"}, ROLE_MEMBER,
-		listCountEQ(3),
+		listCountEQ(len(updates)),
 		fiber.StatusOK,
 		nil,
 		nil)
@@ -621,6 +625,9 @@ func TestLeash(t *testing.T) {
 		UserID:       endpointTester.starUser.User.ID,
 		AddedBy:      endpointTester.starUser.User.ID,
 	}
+
+	db.Create(&newTraining)
+	db.Unscoped().Delete(&newTraining)
 
 	endpointTester.TestAll("Create Self Training",
 		"/api/users/self/trainings", "POST",
@@ -653,7 +660,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&training)
 		},
 		func(user models.User, b []byte, status int) {
-			db.Unscoped().Delete(&models.Training{}, newTraining.ID)
+			db.Unscoped().Delete(&models.Training{ID: newTraining.ID})
 		})
 
 	db.Create(&newHold)
@@ -671,7 +678,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&training)
 		},
 		func(user models.User, b []byte, status int) {
-			db.Unscoped().Delete(&models.Training{}, newTraining.ID)
+			db.Unscoped().Delete(&models.Training{ID: newTraining.ID})
 		})
 
 	endpointTester.TestAll("Delete Self Training",
@@ -686,7 +693,8 @@ func TestLeash(t *testing.T) {
 			db.Create(&training)
 		},
 		func(user models.User, b []byte, status int) {
-			db.Unscoped().Delete(&models.Training{}, newTraining.ID)
+			fmt.Println(status)
+			db.Unscoped().Delete(&models.Training{ID: newTraining.ID})
 		})
 
 	endpointTester.TestAll("Get Self Holds Empty",
@@ -707,6 +715,9 @@ func TestLeash(t *testing.T) {
 		HoldStart: nil,
 		HoldEnd:   nil,
 	}
+
+	db.Create(&newHold)
+	db.Unscoped().Delete(&newHold)
 
 	endpointTester.TestAll("Create Self Hold",
 		"/api/users/self/holds", "POST",
@@ -739,11 +750,8 @@ func TestLeash(t *testing.T) {
 			db.Create(&hold)
 		},
 		func(user models.User, b []byte, status int) {
-			db.Unscoped().Delete(&models.Hold{}, newHold.ID)
+			db.Unscoped().Delete(&models.Hold{ID: newHold.ID})
 		})
-
-	db.Create(&newHold)
-	db.Unscoped().Delete(&newHold)
 
 	endpointTester.TestAll("Get Self Single Holds",
 		"/api/users/self/holds/other", "GET",
@@ -757,7 +765,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&hold)
 		},
 		func(user models.User, b []byte, status int) {
-			db.Unscoped().Delete(&models.Hold{}, newHold.ID)
+			db.Unscoped().Delete(&models.Hold{ID: newHold.ID})
 		})
 
 	endpointTester.TestAll("Delete Self Hold",
@@ -772,7 +780,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&hold)
 		},
 		func(user models.User, b []byte, status int) {
-			db.Unscoped().Delete(&models.Hold{}, newHold.ID)
+			db.Unscoped().Delete(&models.Hold{ID: newHold.ID})
 		})
 
 	endpointTester.TestAll("Get Self Api Keys Initial (1)",
@@ -792,23 +800,6 @@ func TestLeash(t *testing.T) {
 		Permissions: []string{},
 	}
 
-	endpointTester.TestAll("Get Specific Self Api Key",
-		"/api/users/self/apikeys/newkey", "GET",
-		nil,
-		[]string{"leash.users:target_self", "leash.users.self.apikeys:get"}, ROLE_MEMBER,
-		apikeyEQ(newAPIKey),
-		fiber.StatusOK,
-		func(user models.User) {
-			apiKey := newAPIKey
-			apiKey.UserID = user.ID
-			db.Create(&apiKey)
-		},
-		func(user models.User, b []byte, status int) {
-			apiKey := models.APIKey{}
-			apiKey.Key = newAPIKey.Key
-			db.Unscoped().Delete(&apiKey)
-		})
-
 	endpointTester.TestAll("Create Self Api Key",
 		"/api/users/self/apikeys", "POST",
 		[]byte("{\"full_access\":false,\"permissions\":[],\"description\":\"New Key\"}"),
@@ -826,6 +817,36 @@ func TestLeash(t *testing.T) {
 
 				db.Unscoped().Delete(&apiKey)
 			}
+		})
+
+	endpointTester.TestAll("Get Specific Self Api Key",
+		"/api/users/self/apikeys/newkey", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.apikeys:get"}, ROLE_MEMBER,
+		apikeyEQ(newAPIKey),
+		fiber.StatusOK,
+		func(user models.User) {
+			apiKey := newAPIKey
+			apiKey.UserID = user.ID
+			db.Create(&apiKey)
+		},
+		func(user models.User, b []byte, status int) {
+			db.Unscoped().Delete(&models.APIKey{Key: newAPIKey.Key})
+		})
+
+	endpointTester.TestAll("Delete Self Api Key",
+		"/api/users/self/apikeys/newkey", "DELETE",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.apikeys:delete"}, ROLE_MEMBER,
+		statusEQ(fiber.StatusNoContent),
+		fiber.StatusNoContent,
+		func(user models.User) {
+			apiKey := newAPIKey
+			apiKey.UserID = user.ID
+			db.Create(&apiKey)
+		},
+		func(user models.User, b []byte, status int) {
+			db.Unscoped().Delete(&models.APIKey{Key: newAPIKey.Key})
 		})
 
 	_ = newNotification
