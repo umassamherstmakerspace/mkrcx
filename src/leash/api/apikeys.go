@@ -149,9 +149,9 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 
 	// Create api key endpoint
 	type apikeyCreateRequest struct {
-		Description string   `json:"description" validate:"required"`
-		Permissions []string `json:"permissions" validate:"required"`
-		FullAccess  bool     `json:"full_access" validate:"required"`
+		Description *string   `json:"description" xml:"description" form:"description" validate:"omitempty"`
+		Permissions *[]string `json:"permissions" xml:"permissions" form:"permissions" validate:"required"`
+		FullAccess  *bool     `json:"full_access" xml:"full_access" form:"full_access" validate:"required"`
 	}
 	apikey_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[apikeyCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -160,17 +160,21 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 
 		key := uuid.New()
 
+		if req.Description == nil {
+			req.Description = new(string)
+		}
+
 		apikey := models.APIKey{
-			Description: req.Description,
+			Description: *req.Description,
 			UserID:      user.ID,
-			FullAccess:  req.FullAccess,
+			FullAccess:  *req.FullAccess,
 			Key:         key.String(),
 		}
 
 		db.Create(&apikey)
 
 		enforcer := leash_auth.GetAuthentication(c).Enforcer
-		enforcer.SetPermissionsForAPIKey(apikey, req.Permissions)
+		enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions)
 		enforcer.SavePolicy()
 
 		return c.JSON(apikey)

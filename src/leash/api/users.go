@@ -591,6 +591,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 	// Create a new service user endpoint
 	type serviceUserCreateRequest struct {
 		Name        string   `json:"name" xml:"name" form:"name" validate:"required"`
+		ServiceTag  string   `json:"service_tag" xml:"service_tag" form:"service_tag" validate:"required"`
 		Permissions []string `json:"permissions" xml:"permissions" form:"permissions" validate:"required"`
 	}
 	service_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[serviceUserCreateRequest], func(c *fiber.Ctx) error {
@@ -599,9 +600,10 @@ func serviceEndpoints(service_ep fiber.Router) {
 
 		// Create a new user in the database
 		user := models.User{
-			Name: req.Name,
-			Role: "service",
-			Type: "other",
+			Name:  req.Name,
+			Role:  "service",
+			Type:  "other",
+			Email: req.ServiceTag + "@mkr.cx",
 		}
 
 		db.Create(&user)
@@ -633,6 +635,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 	type serviceUserUpdateRequest struct {
 		Name        *string   `json:"name" xml:"name" form:"name" validate:"omitempty"`
 		Permissions *[]string `json:"permissions" xml:"permissions" form:"permissions" validate:"omitempty"`
+		ServiceTag  *string   `json:"service_tag" xml:"service_tag" form:"service_tag" validate:"omitempty"`
 	}
 
 	specific_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[serviceUserUpdateRequest], func(c *fiber.Ctx) error {
@@ -669,6 +672,19 @@ func serviceEndpoints(service_ep fiber.Router) {
 
 			enforcer.SetPermissionsForUser(user, *req.Permissions)
 			enforcer.SavePolicy()
+		}
+
+		if req.ServiceTag != nil {
+			serviceTag := *req.ServiceTag + "@mkr.cx"
+			if serviceTag != user.Email {
+				event.Changes = append(event.Changes, UserChanges{
+					Old:   user.Email,
+					New:   serviceTag,
+					Field: "email",
+				})
+
+				user.Email = serviceTag
+			}
 		}
 
 		db.Save(&user)

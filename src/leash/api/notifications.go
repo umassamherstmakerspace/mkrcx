@@ -125,23 +125,31 @@ func addUserNotificationsEndpoints(user_ep fiber.Router) {
 
 	// Create notification endpoint
 	type notificationCreateRequest struct {
-		Title   string `json:"title" xml:"title" form:"title" validate:"required"`
-		Message string `json:"message" xml:"message" form:"message" validate:"required"`
-		Link    string `json:"link" xml:"link" form:"link" validate:"required"`
-		Group   string `json:"group" xml:"group" form:"group" validate:"required"`
+		Title   string  `json:"title" xml:"title" form:"title" validate:"required"`
+		Message string  `json:"message" xml:"message" form:"message" validate:"required"`
+		Link    *string `json:"link" xml:"link" form:"link" validate:"omitempty,url"`
+		Group   *string `json:"group" xml:"group" form:"group" validate:"omitempty"`
 	}
 	notification_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[notificationCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		body := c.Locals("body").(notificationCreateRequest)
 
+		if body.Link == nil {
+			body.Link = new(string)
+		}
+
+		if body.Group == nil {
+			body.Group = new(string)
+		}
+
 		notification := models.Notification{
 			UserID:  user.ID,
 			AddedBy: leash_auth.GetAuthentication(c).User.ID,
 			Title:   body.Title,
 			Message: body.Message,
-			Link:    body.Link,
-			Group:   body.Group,
+			Link:    *body.Link,
+			Group:   *body.Group,
 		}
 
 		db.Save(&notification)

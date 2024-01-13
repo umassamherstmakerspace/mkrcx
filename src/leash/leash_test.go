@@ -426,6 +426,45 @@ func TestLeash(t *testing.T) {
 		}
 	}
 
+	apikeyEQ := func(apikey models.APIKey) BodyTester {
+		a1 := apikey
+		return func(b []byte) {
+			var a2 models.APIKey
+			err := json.Unmarshal(b, &a2)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			a1.UpdatedAt = a2.UpdatedAt
+			a1.CreatedAt = a2.CreatedAt
+			a := encode(a1)
+
+			if string(a) != string(b) {
+				t.Fatalf("Expected %v, got %v", string(a), string(b))
+			}
+		}
+	}
+
+	notificationEQ := func(notification models.Notification) BodyTester {
+		n1 := notification
+		return func(b []byte) {
+			var n2 models.Notification
+			err := json.Unmarshal(b, &n2)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			n1.UpdatedAt = n2.UpdatedAt
+			n1.CreatedAt = n2.CreatedAt
+			n1.ID = n2.ID
+			n := encode(n1)
+
+			if string(n) != string(b) {
+				t.Fatalf("Expected %v, got %v", string(n), string(b))
+			}
+		}
+	}
+
 	listCountEQ := func(count int) BodyTester {
 		return func(b []byte) {
 			var list struct {
@@ -614,9 +653,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&training)
 		},
 		func(user models.User, b []byte, status int) {
-			training := models.Training{}
-			training.ID = newTraining.ID
-			db.Unscoped().Delete(&training)
+			db.Unscoped().Delete(&models.Training{}, newTraining.ID)
 		})
 
 	db.Create(&newHold)
@@ -634,9 +671,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&training)
 		},
 		func(user models.User, b []byte, status int) {
-			training := models.Training{}
-			training.ID = newTraining.ID
-			db.Unscoped().Delete(&training)
+			db.Unscoped().Delete(&models.Training{}, newTraining.ID)
 		})
 
 	endpointTester.TestAll("Delete Self Training",
@@ -651,9 +686,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&training)
 		},
 		func(user models.User, b []byte, status int) {
-			training := models.Training{}
-			training.ID = newTraining.ID
-			db.Unscoped().Delete(&training)
+			db.Unscoped().Delete(&models.Training{}, newTraining.ID)
 		})
 
 	endpointTester.TestAll("Get Self Holds Empty",
@@ -706,9 +739,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&hold)
 		},
 		func(user models.User, b []byte, status int) {
-			hold := models.Hold{}
-			hold.ID = newHold.ID
-			db.Unscoped().Delete(&hold)
+			db.Unscoped().Delete(&models.Hold{}, newHold.ID)
 		})
 
 	db.Create(&newHold)
@@ -726,9 +757,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&hold)
 		},
 		func(user models.User, b []byte, status int) {
-			hold := models.Hold{}
-			hold.ID = newHold.ID
-			db.Unscoped().Delete(&hold)
+			db.Unscoped().Delete(&models.Hold{}, newHold.ID)
 		})
 
 	endpointTester.TestAll("Delete Self Hold",
@@ -743,9 +772,7 @@ func TestLeash(t *testing.T) {
 			db.Create(&hold)
 		},
 		func(user models.User, b []byte, status int) {
-			hold := models.Hold{}
-			hold.ID = newHold.ID
-			db.Unscoped().Delete(&hold)
+			db.Unscoped().Delete(&models.Hold{}, newHold.ID)
 		})
 
 	endpointTester.TestAll("Get Self Api Keys Initial (1)",
@@ -760,6 +787,7 @@ func TestLeash(t *testing.T) {
 	newAPIKey = models.APIKey{
 		Key:         "newkey",
 		UserID:      endpointTester.starUser.User.ID,
+		Description: "New Key",
 		FullAccess:  false,
 		Permissions: []string{},
 	}
@@ -768,7 +796,7 @@ func TestLeash(t *testing.T) {
 		"/api/users/self/apikeys/newkey", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self.apikeys:get"}, ROLE_MEMBER,
-		byteEQ([]byte("null")),
+		apikeyEQ(newAPIKey),
 		fiber.StatusOK,
 		func(user models.User) {
 			apiKey := newAPIKey
@@ -781,7 +809,25 @@ func TestLeash(t *testing.T) {
 			db.Unscoped().Delete(&apiKey)
 		})
 
-	// endpointTester.TestAll("
+	endpointTester.TestAll("Create Self Api Key",
+		"/api/users/self/apikeys", "POST",
+		[]byte("{\"full_access\":false,\"permissions\":[],\"description\":\"New Key\"}"),
+		[]string{"leash.users:target_self", "leash.users.self.apikeys:create"}, ROLE_MEMBER,
+		apikeyEQ(newAPIKey),
+		fiber.StatusOK,
+		nil,
+		func(user models.User, b []byte, status int) {
+			if status == fiber.StatusOK {
+				var apiKey models.APIKey
+				err := json.Unmarshal(b, &apiKey)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				db.Unscoped().Delete(&apiKey)
+			}
+		})
 
 	_ = newNotification
+	_ = notificationEQ
 }
