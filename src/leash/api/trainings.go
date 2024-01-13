@@ -9,8 +9,8 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
-// userTrainingMiddlware is a middleware that fetches the training from a user and stores it in the context
-func userTrainingMiddlware(c *fiber.Ctx) error {
+// userTrainingMiddleware is a middleware that fetches the training from a user and stores it in the context
+func userTrainingMiddleware(c *fiber.Ctx) error {
 	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
@@ -155,7 +155,7 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 		return c.JSON(training)
 	})
 
-	user_training_ep := training_ep.Group("/:training_type", userTrainingMiddlware)
+	user_training_ep := training_ep.Group("/:training_type", userTrainingMiddleware)
 
 	addCommonTrainingEndpoints(user_training_ep)
 }

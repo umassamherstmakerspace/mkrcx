@@ -343,8 +343,8 @@ func PrefixAuthorizationMiddleware(action string) fiber.Handler {
 	}
 }
 
-// InitalizeCasbin initalizes the casbin enforcer
-func InitalizeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
+// InitializeCasbin initializes the casbin enforcer
+func InitializeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
 	// Initialize the adapter from the DB
 	adapter, err := gormadapter.NewAdapterByDB(db)
 	if err != nil {

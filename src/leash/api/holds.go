@@ -10,8 +10,8 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
-// userHoldMiddlware is a middleware that fetches the hold from a user and stores it in the context
-func userHoldMiddlware(c *fiber.Ctx) error {
+// userHoldMiddleware is a middleware that fetches the hold from a user and stores it in the context
+func userHoldMiddleware(c *fiber.Ctx) error {
 	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
@@ -169,7 +169,7 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 		return c.JSON(hold)
 	})
 
-	user_hold_ep := hold_ep.Group("/:hold_type", userHoldMiddlware)
+	user_hold_ep := hold_ep.Group("/:hold_type", userHoldMiddleware)
 
 	addCommonHoldEndpoints(user_hold_ep)
 }

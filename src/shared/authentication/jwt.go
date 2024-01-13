@@ -42,7 +42,7 @@ func GenerateJWTKeySet() (jwk.Set, error) {
 	return keys, nil
 }
 
-// CreateOrGetKeysFromFile initalizes the JWT key set from a file
+// CreateOrGetKeysFromFile initializes the JWT key set from a file
 func CreateOrGetKeysFromFile(key_file string) (jwk.Set, error) {
 	// Generate a key if it doesn't exist
 	if _, err := os.Stat(key_file); os.IsNotExist(err) {
@@ -90,7 +90,7 @@ func CreateOrGetKeysFromFile(key_file string) (jwk.Set, error) {
 	return keys, nil
 }
 
-// CreateKeys initalizes the keys from a JWK set
+// CreateKeys initializes the keys from a JWK set
 func CreateKeys(keys jwk.Set) (*Keys, error) {
 	// Get the first key
 	privateKey, _ := keys.Key(0)

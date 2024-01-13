@@ -8,8 +8,8 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
-// userNotificationMiddlware is a middleware that fetches the notification from a user and stores it in the context
-func userNotificationMiddlware(c *fiber.Ctx) error {
+// userNotificationMiddleware is a middleware that fetches the notification from a user and stores it in the context
+func userNotificationMiddleware(c *fiber.Ctx) error {
 	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
@@ -78,10 +78,10 @@ func addCommonNotificationEndpoints(notification_ep fiber.Router) {
 
 // addUserNotificationsEndpoints adds the endpoints for notifications for a user
 func addUserNotificationsEndpoints(user_ep fiber.Router) {
-	notificaiton_ep := user_ep.Group("/notifications", leash_auth.ConcatPermissionPrefixMiddleware("notifications"))
+	notification_ep := user_ep.Group("/notifications", leash_auth.ConcatPermissionPrefixMiddleware("notifications"))
 
 	// List notifications endpoint
-	notificaiton_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
+	notification_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		req := c.Locals("query").(listRequest)
@@ -130,12 +130,12 @@ func addUserNotificationsEndpoints(user_ep fiber.Router) {
 		Link    string `json:"link" xml:"link" form:"link" validate:"required"`
 		Group   string `json:"group" xml:"group" form:"group" validate:"required"`
 	}
-	notificaiton_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[notificationCreateRequest], func(c *fiber.Ctx) error {
+	notification_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[notificationCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
 		body := c.Locals("body").(notificationCreateRequest)
 
-		notificaiton := models.Notification{
+		notification := models.Notification{
 			UserID:  user.ID,
 			AddedBy: leash_auth.GetAuthentication(c).User.ID,
 			Title:   body.Title,
@@ -144,21 +144,21 @@ func addUserNotificationsEndpoints(user_ep fiber.Router) {
 			Group:   body.Group,
 		}
 
-		db.Save(&notificaiton)
+		db.Save(&notification)
 
-		return c.JSON(notificaiton)
+		return c.JSON(notification)
 	})
 
-	user_notification_ep := notificaiton_ep.Group("/:notification_id", userNotificationMiddlware)
+	user_notification_ep := notification_ep.Group("/:notification_id", userNotificationMiddleware)
 
 	addCommonNotificationEndpoints(user_notification_ep)
 }
 
 // registerNotificationsEndpoints registers the endpoints for notifications
 func registerNotificationsEndpoints(api fiber.Router) {
-	notificaiton_ep := api.Group("/notifications", leash_auth.ConcatPermissionPrefixMiddleware("notifications"))
+	notification_ep := api.Group("/notifications", leash_auth.ConcatPermissionPrefixMiddleware("notifications"))
 
-	single_notification_ep := notificaiton_ep.Group("/:notification_id", generalNotificationMiddleware)
+	single_notification_ep := notification_ep.Group("/:notification_id", generalNotificationMiddleware)
 
 	addCommonNotificationEndpoints(single_notification_ep)
 }

@@ -15,7 +15,7 @@ import (
 const DEFAULT_HOST = ":8000"
 
 func main() {
-	// Initalize DB
+	// Initialize DB
 	db, err := gorm.Open(mysql.Open(os.Getenv("DB")), &gorm.Config{})
 	if err != nil {
 		log.Panicln(err)
@@ -34,7 +34,7 @@ func main() {
 	externalAuth := leash_auth.GetGoogleAuthenticator(googleClientID, googleClientSecret, googleRedirectURL)
 
 	// JWT Key
-	log.Println("Initalizing JWT Keys...")
+	log.Println("Initializing JWT Keys...")
 	key_file := os.Getenv("KEY_FILE")
 	set, err := leash_auth.CreateOrGetKeysFromFile(key_file)
 	if err != nil {
@@ -46,9 +46,9 @@ func main() {
 		log.Panicln(err)
 	}
 
-	// Initalize RBAC
-	log.Println("Initalizing RBAC...")
-	enforcer, err := leash_auth.InitalizeCasbin(db)
+	// Initialize RBAC
+	log.Println("Initializing RBAC...")
+	enforcer, err := leash_auth.InitializeCasbin(db)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -56,7 +56,7 @@ func main() {
 	leash_helpers.SetupCasbin(enforcer)
 
 	// Create App
-	log.Println("Initalizing Fiber...")
+	log.Println("Initializing Fiber...")
 	host := os.Getenv("HOST")
 	if host == "" {
 		host = DEFAULT_HOST

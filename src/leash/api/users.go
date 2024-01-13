@@ -136,7 +136,7 @@ func userMiddleware(c *fiber.Ctx) error {
 	})(c)
 }
 
-// noServiceMiddleware is a middleware that prevents targetting service accounts
+// noServiceMiddleware is a middleware that prevents targeting service accounts
 func noServiceMiddleware(c *fiber.Ctx) error {
 	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
@@ -149,7 +149,7 @@ func noServiceMiddleware(c *fiber.Ctx) error {
 	})(c)
 }
 
-// onlyServiceMiddleware is a middleware that prevents targetting non-service accounts
+// onlyServiceMiddleware is a middleware that prevents targeting non-service accounts
 func onlyServiceMiddleware(c *fiber.Ctx) error {
 	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)

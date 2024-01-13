@@ -3,7 +3,6 @@ package main_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math"
 	"testing"
 
@@ -77,7 +76,7 @@ func (e *EndpointTester) testEndpoint(endpoint string, method string, body []byt
 	}
 
 	if status != expectedStatus {
-		e.t.Fatalf("Expected status %d, got %d\n Reponse: %s", expectedStatus, status, string(b))
+		e.t.Fatalf("Expected status %d, got %d\n Response: %s", expectedStatus, status, string(b))
 	}
 
 	return status, b
@@ -163,7 +162,7 @@ func (e *EndpointTester) TestRoles(endpoint string, method string, body []byte, 
 
 type BodyTester func([]byte)
 
-func (e *EndpointTester) TestReponse(endpoint string, method string, body []byte, bodyTester BodyTester, expectedStatus int, preFunc PreFunc, postFunc PostFunc) {
+func (e *EndpointTester) TestResponse(endpoint string, method string, body []byte, bodyTester BodyTester, expectedStatus int, preFunc PreFunc, postFunc PostFunc) {
 	e.t.Log("Response test for: ", endpoint)
 
 	tmpUser := e.starUser.User
@@ -187,7 +186,7 @@ func (e *EndpointTester) TestAll(testName string, endpoint string, method string
 
 	e.TestPermissions(endpoint, method, body, permissions, expectedStatus, preFunc, postFunc)
 	e.TestRoles(endpoint, method, body, minimumRole, expectedStatus, preFunc, postFunc)
-	e.TestReponse(endpoint, method, body, bodyTester, expectedStatus, preFunc, postFunc)
+	e.TestResponse(endpoint, method, body, bodyTester, expectedStatus, preFunc, postFunc)
 }
 
 func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (*EndpointTester, error) {
@@ -271,8 +270,8 @@ func setupEndpointTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) (
 }
 
 func TestLeash(t *testing.T) {
-	// Initalize DB
-	t.Log("Initalizing DB...")
+	// Initialize DB
+	t.Log("Initializing DB...")
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	// db, err := gorm.Open(sqlite.Open("sqlite.db"), &gorm.Config{})
 	if err != nil {
@@ -289,7 +288,7 @@ func TestLeash(t *testing.T) {
 	externalAuth := &DebugExternalAuth{}
 
 	// JWT Key
-	t.Log("Initalizing JWT Keys...")
+	t.Log("Initializing JWT Keys...")
 	set, err := leash_auth.GenerateJWTKeySet()
 	if err != nil {
 		t.Fatal(err)
@@ -300,9 +299,9 @@ func TestLeash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Initalize RBAC
-	t.Log("Initalizing RBAC...")
-	enforcer, err := leash_auth.InitalizeCasbin(db)
+	// Initialize RBAC
+	t.Log("Initializing RBAC...")
+	enforcer, err := leash_auth.InitializeCasbin(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +316,7 @@ func TestLeash(t *testing.T) {
 	}
 
 	// Create App
-	t.Log("Initalizing Fiber...")
+	t.Log("Initializing Fiber...")
 
 	app := fiber.New()
 
@@ -387,6 +386,26 @@ func TestLeash(t *testing.T) {
 		}
 	}
 
+	trainingEQ := func(training models.Training) BodyTester {
+		t1 := training
+		return func(b []byte) {
+			var t2 models.Training
+			err := json.Unmarshal(b, &t2)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t1.UpdatedAt = t2.UpdatedAt
+			t1.CreatedAt = t2.CreatedAt
+			t1.ID = t2.ID
+			tr := encode(t1)
+
+			if string(tr) != string(b) {
+				t.Fatalf("Expected %v, got %v", string(tr), string(b))
+			}
+		}
+	}
+
 	holdEQ := func(hold models.Hold) BodyTester {
 		h1 := hold
 		return func(b []byte) {
@@ -426,7 +445,10 @@ func TestLeash(t *testing.T) {
 	}
 
 	var newUser models.User
+	var newTraining models.Training
 	var newHold models.Hold
+	var newAPIKey models.APIKey
+	var newNotification models.Notification
 	t.Log("Testing Self Endpoints...")
 
 	endpointTester.TestAll("Get Self",
@@ -546,7 +568,95 @@ func TestLeash(t *testing.T) {
 		nil,
 		nil)
 
-	endpointTester.TestAll("Get Self Holds Before Holds",
+	endpointTester.TestAll("Get Self Trainings Empty",
+		"/api/users/self/trainings", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.trainings:list"}, ROLE_MEMBER,
+		listCountEQ(0),
+		fiber.StatusOK,
+		nil,
+		nil)
+
+	newTraining = models.Training{
+		TrainingType: "other",
+		UserID:       endpointTester.starUser.User.ID,
+		AddedBy:      endpointTester.starUser.User.ID,
+	}
+
+	endpointTester.TestAll("Create Self Training",
+		"/api/users/self/trainings", "POST",
+		[]byte("{\"training_type\":\"other\"}"),
+		[]string{"leash.users:target_self", "leash.users.self.trainings:create"}, ROLE_VOLUNTEER,
+		trainingEQ(newTraining),
+		fiber.StatusOK,
+		nil,
+		func(user models.User, b []byte, status int) {
+			if status == fiber.StatusOK {
+				var training models.Training
+				err := json.Unmarshal(b, &training)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				db.Unscoped().Delete(&training)
+			}
+		})
+
+	endpointTester.TestAll("Get Self Trainings Not Empty",
+		"/api/users/self/trainings", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.trainings:list"}, ROLE_MEMBER,
+		listCountEQ(1),
+		fiber.StatusOK,
+		func(user models.User) {
+			training := newTraining
+			training.UserID = user.ID
+			db.Create(&training)
+		},
+		func(user models.User, b []byte, status int) {
+			training := models.Training{}
+			training.ID = newTraining.ID
+			db.Unscoped().Delete(&training)
+		})
+
+	db.Create(&newHold)
+	db.Unscoped().Delete(&newHold)
+
+	endpointTester.TestAll("Get Self Single Training",
+		"/api/users/self/trainings/other", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.trainings:get"}, ROLE_MEMBER,
+		trainingEQ(newTraining),
+		fiber.StatusOK,
+		func(user models.User) {
+			training := newTraining
+			training.UserID = user.ID
+			db.Create(&training)
+		},
+		func(user models.User, b []byte, status int) {
+			training := models.Training{}
+			training.ID = newTraining.ID
+			db.Unscoped().Delete(&training)
+		})
+
+	endpointTester.TestAll("Delete Self Training",
+		"/api/users/self/trainings/other", "DELETE",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.trainings:delete"}, ROLE_VOLUNTEER,
+		statusEQ(fiber.StatusNoContent),
+		fiber.StatusNoContent,
+		func(user models.User) {
+			training := newTraining
+			training.UserID = user.ID
+			db.Create(&training)
+		},
+		func(user models.User, b []byte, status int) {
+			training := models.Training{}
+			training.ID = newTraining.ID
+			db.Unscoped().Delete(&training)
+		})
+
+	endpointTester.TestAll("Get Self Holds Empty",
 		"/api/users/self/holds", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self.holds:list"}, ROLE_MEMBER,
@@ -584,23 +694,31 @@ func TestLeash(t *testing.T) {
 			}
 		})
 
-	endpointTester.TestAll("Get Self Holds After Holds",
+	endpointTester.TestAll("Get Self Holds Not Empty",
 		"/api/users/self/holds", "GET",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self.holds:list"}, ROLE_MEMBER,
-		listCountEQ(0),
+		listCountEQ(1),
 		fiber.StatusOK,
-		nil,
-		nil)
+		func(user models.User) {
+			hold := newHold
+			hold.UserID = user.ID
+			db.Create(&hold)
+		},
+		func(user models.User, b []byte, status int) {
+			hold := models.Hold{}
+			hold.ID = newHold.ID
+			db.Unscoped().Delete(&hold)
+		})
 
 	db.Create(&newHold)
 	db.Unscoped().Delete(&newHold)
 
 	endpointTester.TestAll("Get Self Single Holds",
-		"/api/users/self/holds", "GET",
+		"/api/users/self/holds/other", "GET",
 		nil,
-		[]string{"leash.users:target_self", "leash.users.self.holds:list"}, ROLE_MEMBER,
-		listCountEQ(0),
+		[]string{"leash.users:target_self", "leash.users.self.holds:get"}, ROLE_MEMBER,
+		holdEQ(newHold),
 		fiber.StatusOK,
 		func(user models.User) {
 			hold := newHold
@@ -614,7 +732,7 @@ func TestLeash(t *testing.T) {
 		})
 
 	endpointTester.TestAll("Delete Self Hold",
-		fmt.Sprintf("/api/users/self/holds/%d", newHold.ID), "DELETE",
+		"/api/users/self/holds/other", "DELETE",
 		nil,
 		[]string{"leash.users:target_self", "leash.users.self.holds:delete"}, ROLE_VOLUNTEER,
 		statusEQ(fiber.StatusNoContent),
@@ -629,4 +747,41 @@ func TestLeash(t *testing.T) {
 			hold.ID = newHold.ID
 			db.Unscoped().Delete(&hold)
 		})
+
+	endpointTester.TestAll("Get Self Api Keys Initial (1)",
+		"/api/users/self/apikeys", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.apikeys:list"}, ROLE_MEMBER,
+		listCountEQ(1),
+		fiber.StatusOK,
+		nil,
+		nil)
+
+	newAPIKey = models.APIKey{
+		Key:         "newkey",
+		UserID:      endpointTester.starUser.User.ID,
+		FullAccess:  false,
+		Permissions: []string{},
+	}
+
+	endpointTester.TestAll("Get Specific Self Api Key",
+		"/api/users/self/apikeys/newkey", "GET",
+		nil,
+		[]string{"leash.users:target_self", "leash.users.self.apikeys:get"}, ROLE_MEMBER,
+		byteEQ([]byte("null")),
+		fiber.StatusOK,
+		func(user models.User) {
+			apiKey := newAPIKey
+			apiKey.UserID = user.ID
+			db.Create(&apiKey)
+		},
+		func(user models.User, b []byte, status int) {
+			apiKey := models.APIKey{}
+			apiKey.Key = newAPIKey.Key
+			db.Unscoped().Delete(&apiKey)
+		})
+
+	// endpointTester.TestAll("
+
+	_ = newNotification
 }

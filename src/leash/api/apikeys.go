@@ -9,8 +9,8 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
-// userApiKeyMiddlware is a middleware that fetches the api key from a user and stores it in the context
-func userApiKeyMiddlware(c *fiber.Ctx) error {
+// userApiKeyMiddleware is a middleware that fetches the api key from a user and stores it in the context
+func userApiKeyMiddleware(c *fiber.Ctx) error {
 	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		user := c.Locals("target_user").(models.User)
@@ -176,7 +176,7 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 		return c.JSON(apikey)
 	})
 
-	user_apikey_ep := apikey_ep.Group("/:api_key", userApiKeyMiddlware)
+	user_apikey_ep := apikey_ep.Group("/:api_key", userApiKeyMiddleware)
 	addCommonApiKeyEndpoints(user_apikey_ep)
 }
 

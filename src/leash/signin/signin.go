@@ -30,7 +30,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 	auth_ep.Use(leash_auth.AuthenticationMiddleware)
 	auth_ep.Use(NoAPIKeyMiddleware)
 
-	// Endpoint to initalize loggin in
+	// Endpoint to initialize login in
 	type signinRequest struct {
 		Return string `query:"return"`
 		State  string `query:"state"`
