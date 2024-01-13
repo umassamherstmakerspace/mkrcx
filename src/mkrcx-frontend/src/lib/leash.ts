@@ -8,7 +8,7 @@ async function leashFetch<T extends object>(
 	endpoint: string,
 	method: string,
 	body?: object,
-	noReponse = false
+	noResponse = false
 ): Promise<T> {
 	const r = await fetch(`${LEASH_ENDPOINT}${endpoint}`, {
 		method: method,
@@ -24,7 +24,7 @@ async function leashFetch<T extends object>(
 	});
 	return await (Math.floor(r.status / 100) !== 2
 		? Promise.reject(new Error(await r.text()))
-		: noReponse
+		: noResponse
 		? r.text()
 		: r.json());
 }

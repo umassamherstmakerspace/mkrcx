@@ -43,7 +43,6 @@ export const timeFormat: Readable<string> = derived(dateLocale, ($dateLocale) =>
             return "HH:mm:ss";
         case "ISO":
         default:
-            // return "HH:mm:ss.SSSXXX";
             return "HH:mm:ssXXX";
             
     }
