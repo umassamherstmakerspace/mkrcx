@@ -603,7 +603,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 			Name:  req.Name,
 			Role:  "service",
 			Type:  "other",
-			Email: req.ServiceTag + "@mkr.cx",
+			Email: req.ServiceTag + "@mkrcx",
 		}
 
 		db.Create(&user)
@@ -675,7 +675,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 		}
 
 		if req.ServiceTag != nil {
-			serviceTag := *req.ServiceTag + "@mkr.cx"
+			serviceTag := *req.ServiceTag + "@mkrcx"
 			if serviceTag != user.Email {
 				event.Changes = append(event.Changes, UserChanges{
 					Old:   user.Email,
