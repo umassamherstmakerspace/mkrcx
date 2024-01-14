@@ -403,7 +403,7 @@ func addUserUpdateEndpoints(user_ep fiber.Router) {
 
 func getUserEndpoint(user_ep fiber.Router) {
 	// Get the current user endpoint
-	user_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("read"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
+	user_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		req := c.Locals("query").(userGetRequest)
 		user := c.Locals("target_user").(models.User)
 

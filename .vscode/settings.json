@@ -15,6 +15,7 @@
         "oneof",
         "primarykey",
         "signin",
+        "subtest",
         "valyala"
     ]
 }

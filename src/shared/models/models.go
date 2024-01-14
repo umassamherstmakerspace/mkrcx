@@ -55,6 +55,15 @@ func (u *User) AfterFind(tx *gorm.DB) (err error) {
 	return nil
 }
 
+// AfterCreate GORM hook that sets the permissions if they are nil
+func (u *User) AfterCreate(tx *gorm.DB) (err error) {
+	if u.Permissions == nil {
+		u.Permissions = []string{}
+	}
+
+	return nil
+}
+
 type APIKey struct {
 	Model
 	Key         string `gorm:"column:api_key;primaryKey"`
@@ -70,6 +79,15 @@ func (a *APIKey) AfterFind(tx *gorm.DB) (err error) {
 	a.Permissions = []string{}
 	for _, p := range enforcer.GetPermissionsForUser("apikey:" + a.Key) {
 		a.Permissions = append(a.Permissions, p[1])
+	}
+
+	return nil
+}
+
+// AfterCreate GORM hook that sets the permissions if they are nil
+func (a *APIKey) AfterCreate(tx *gorm.DB) (err error) {
+	if a.Permissions == nil {
+		a.Permissions = []string{}
 	}
 
 	return nil
