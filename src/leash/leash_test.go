@@ -475,7 +475,6 @@ func TestLeash(t *testing.T) {
 	// Initialize DB
 	t.Log("Initializing DB...")
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	// db, err := gorm.Open(sqlite.Open("sqlite.db"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,6 +734,262 @@ func TestLeash(t *testing.T) {
 			},
 		}
 	}
+
+	tester.Test("Base User Endpoints", func(test *Tester) {
+		searchUser := models.User{
+			Name:  "Search User",
+			Email: "star.testing.search@test.mkr.cx",
+			Role:  "admin",
+			Type:  "other",
+		}
+
+		db.FirstOrCreate(&searchUser, &searchUser)
+
+		test.Endpoint("/api/users/search", fiber.MethodGet).
+			WithQuery(QueryArgs{"query": "star.testing.search"}).
+			Test("Search Users", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:search"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						listLengthEQ(1),
+					)
+			})
+
+		test.Endpoint("/api/users/search", fiber.MethodGet).
+			WithQuery(QueryArgs{"query": "star.testing.search", "with_trainings": "true"}).
+			Test("Search Users With Trainings", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.trainings:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						listLengthEQ(1),
+					)
+			})
+
+		test.Endpoint("/api/users/search", fiber.MethodGet).
+			WithQuery(QueryArgs{"query": "star.testing.search", "with_holds": "true"}).
+			Test("Search Users With Holds", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.holds:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						listLengthEQ(1),
+					)
+			})
+
+		test.Endpoint("/api/users/search", fiber.MethodGet).
+			WithQuery(QueryArgs{"query": "star.testing.search", "with_api_keys": "true"}).
+			Test("Search Users With Api Keys", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.apikeys:list"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						listLengthEQ(1),
+					)
+			})
+
+		test.Endpoint("/api/users/search", fiber.MethodGet).
+			WithQuery(QueryArgs{"query": "star.testing.search", "with_updates": "true"}).
+			Test("Search Users With Updates", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.updates:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						listLengthEQ(1),
+					)
+			})
+
+		test.Endpoint("/api/users/search", fiber.MethodGet).
+			WithQuery(QueryArgs{"query": "star.testing.search", "with_notifications": "true"}).
+			Test("Search Users With Notifications", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.notifications:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						listLengthEQ(1),
+					)
+			})
+
+		testingUser := models.User{
+			Name:           "New User",
+			Email:          "new@testing.mkr.cx",
+			Role:           "member",
+			Type:           "other",
+			GraduationYear: 0,
+			Major:          "",
+		}
+
+		db.FirstOrCreate(&testingUser, &testingUser)
+		db.Unscoped().Delete(&testingUser)
+
+		test.Endpoint("/api/users", fiber.MethodPost).
+			CleanupUser(func(_ string, _ models.User) error {
+				return db.Unscoped().Delete(&models.User{}, &models.User{Email: "new@testing.mkr.cx"}).Error
+			}).
+			WithBody(encode(map[string]interface{}{
+				"name":  "New User",
+				"email": "new@testing.mkr.cx",
+				"role":  "member",
+				"type":  "other",
+			})).
+			Test("Create User", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:create"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(testingUser),
+					)
+			})
+	})
+
+	tester.Test("User Get Endpoints", func(test *Tester) {
+		responseUser := models.User{
+			Name:  "Get Test User",
+			Email: "get@testing.mkr.cx",
+			Role:  "admin",
+			Type:  "other",
+		}
+
+		cardID := "1234567890test"
+		responseUser.CardID = &cardID
+
+		db.Unscoped().Delete(&models.User{}, &models.User{Email: responseUser.Email})
+		db.Unscoped().Delete(&models.User{}, &models.User{CardID: responseUser.CardID})
+		db.Create(&responseUser)
+
+		test.Endpoint("/api/users/get/email/"+responseUser.Email, fiber.MethodGet).
+			Test("Get User By Email", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:email"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/email/"+responseUser.Email, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_trainings": "true"}).
+			Test("Get User By Email With Trainings", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:email", "leash.users.get.trainings:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/email/"+responseUser.Email, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_holds": "true"}).
+			Test("Get User By Email With Holds", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:email", "leash.users.get.holds:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/email/"+responseUser.Email, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_api_keys": "true"}).
+			Test("Get User By Email With Api Keys", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:email", "leash.users.get.apikeys:list"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/email/"+responseUser.Email, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_updates": "true"}).
+			Test("Get User By Email With Updates", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:email", "leash.users.get.updates:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/email/"+responseUser.Email, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_notifications": "true"}).
+			Test("Get User By Email With Notifications", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:email", "leash.users.get.notifications:list"}).
+					MinimumRole(ROLE_VOLUNTEER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/card/"+*responseUser.CardID, fiber.MethodGet).
+			Test("Get User By Card ID", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:card"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/card/"+*responseUser.CardID, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_trainings": "true"}).
+			Test("Get User By Card ID With Trainings", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:card", "leash.users.get.trainings:list"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/card/"+*responseUser.CardID, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_holds": "true"}).
+			Test("Get User By Card ID With Holds", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:card", "leash.users.get.holds:list"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/card/"+*responseUser.CardID, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_api_keys": "true"}).
+			Test("Get User By Card ID With Api Keys", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:card", "leash.users.get.apikeys:list"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/card/"+*responseUser.CardID, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_updates": "true"}).
+			Test("Get User By Card ID With Updates", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:card", "leash.users.get.updates:list"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/get/card/"+*responseUser.CardID, fiber.MethodGet).
+			WithQuery(QueryArgs{"with_notifications": "true"}).
+			Test("Get User By Card ID With Notifications", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users.get:card", "leash.users.get.notifications:list"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
+					)
+			})
+
+		db.Unscoped().Delete(&models.User{}, &models.User{Email: responseUser.Email})
+	})
 
 	tester.Test("Self User Endpoints", func(test *Tester) {
 		responseUser := models.User{
@@ -1229,114 +1484,6 @@ func TestLeash(t *testing.T) {
 					GivesResponse(
 						statusCode(fiber.StatusOK),
 						notificationEQ(testNotification),
-					)
-			})
-	})
-
-	tester.Test("Base User Endpoints", func(test *Tester) {
-		searchUser := models.User{
-			Name:  "Search User",
-			Email: "star.testing.search@test.mkr.cx",
-			Role:  "admin",
-			Type:  "other",
-		}
-
-		db.FirstOrCreate(&searchUser, &searchUser)
-
-		test.Endpoint("/api/users/search", fiber.MethodGet).
-			WithQuery(QueryArgs{"query": "star.testing.search"}).
-			Test("Search Users", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:search"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		test.Endpoint("/api/users/search", fiber.MethodGet).
-			WithQuery(QueryArgs{"query": "star.testing.search", "with_trainings": "true"}).
-			Test("Search Users With Trainings", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.trainings:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		test.Endpoint("/api/users/search", fiber.MethodGet).
-			WithQuery(QueryArgs{"query": "star.testing.search", "with_holds": "true"}).
-			Test("Search Users With Holds", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.holds:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		test.Endpoint("/api/users/search", fiber.MethodGet).
-			WithQuery(QueryArgs{"query": "star.testing.search", "with_api_keys": "true"}).
-			Test("Search Users With Api Keys", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.apikeys:list"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		test.Endpoint("/api/users/search", fiber.MethodGet).
-			WithQuery(QueryArgs{"query": "star.testing.search", "with_updates": "true"}).
-			Test("Search Users With Updates", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.updates:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		test.Endpoint("/api/users/search", fiber.MethodGet).
-			WithQuery(QueryArgs{"query": "star.testing.search", "with_notifications": "true"}).
-			Test("Search Users With Notifications", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:search", "leash.users.others.notifications:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		testingUser := models.User{
-			Name:           "New User",
-			Email:          "new@testing.mkr.cx",
-			Role:           "member",
-			Type:           "other",
-			GraduationYear: 0,
-			Major:          "",
-		}
-
-		db.FirstOrCreate(&testingUser, &testingUser)
-		db.Unscoped().Delete(&testingUser)
-
-		test.Endpoint("/api/users", fiber.MethodPost).
-			CleanupUser(func(_ string, _ models.User) error {
-				return db.Unscoped().Delete(&models.User{}, &models.User{Email: "new@testing.mkr.cx"}).Error
-			}).
-			WithBody(encode(map[string]interface{}{
-				"name":  "New User",
-				"email": "new@testing.mkr.cx",
-				"role":  "member",
-				"type":  "other",
-			})).
-			Test("Create User", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:create"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						userEQ(testingUser),
 					)
 			})
 	})

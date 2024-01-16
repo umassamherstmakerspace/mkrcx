@@ -49,6 +49,11 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	// User Get EPs
 	enforcer.AddPermissionForUser(volunteer, "leash.users.get:email")
 	enforcer.AddPermissionForUser(admin, "leash.users.get:card")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.get.trainings:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.get.holds:list")
+	enforcer.AddPermissionForUser(admin, "leash.users.get.apikeys:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.get.updates:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.get.notifications:list")
 
 	// Self EPs
 	enforcer.AddPermissionForUser(member, "leash.users.self:get")
