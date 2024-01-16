@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 	leash_helpers "github.com/mkrcx/mkrcx/src/leash/helpers"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 )
@@ -15,6 +16,12 @@ import (
 const DEFAULT_HOST = ":8000"
 
 func main() {
+	// dotenv Setup
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	// Initialize DB
 	db, err := gorm.Open(mysql.Open(os.Getenv("DB")), &gorm.Config{})
 	if err != nil {
