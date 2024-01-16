@@ -73,7 +73,7 @@ func addCommonNotificationEndpoints(notification_ep fiber.Router) {
 
 		db.Delete(&notification)
 
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.SendStatus(fiber.StatusOK)
 	})
 }
 

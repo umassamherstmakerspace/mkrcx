@@ -583,7 +583,7 @@ func deleteUserEndpoint(user_ep fiber.Router) {
 			callback(event)
 		}
 
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.SendStatus(fiber.StatusOK)
 	})
 }
 

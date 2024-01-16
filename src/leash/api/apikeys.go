@@ -63,7 +63,7 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 		enforcer.DeletePermissionsForUser(fmt.Sprintf("apikey:%s", apikey.Key))
 
 		db.Delete(&apikey)
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.SendStatus(fiber.StatusOK)
 	})
 
 	// Update current api key endpoint

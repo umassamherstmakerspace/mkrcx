@@ -74,7 +74,7 @@ func addCommonHoldEndpoints(hold_ep fiber.Router) {
 		db.Save(&hold)
 
 		db.Delete(&hold)
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.SendStatus(fiber.StatusOK)
 	})
 }
 

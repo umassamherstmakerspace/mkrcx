@@ -76,7 +76,7 @@ func addCommonTrainingEndpoints(training_ep fiber.Router) {
 		db.Save(&training)
 
 		db.Delete(&training)
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.SendStatus(fiber.StatusOK)
 	})
 }
 
