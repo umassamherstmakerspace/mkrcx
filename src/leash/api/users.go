@@ -137,6 +137,32 @@ func userMiddleware(c *fiber.Ctx) error {
 	})(c)
 }
 
+// serviceMiddleware is a middleware that sets the target user to the user specified in the URL from the service tag
+func serviceMiddleware(c *fiber.Ctx) error {
+	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		authentication := leash_auth.GetAuthentication(c)
+		// Check if the user is authorized to perform the action
+		if authentication.Authorize("leash.users:target_service") != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target service users")
+		}
+
+		// Get the service tag from the URL
+		service_tag := c.Params("service_tag")
+
+		var user = models.User{
+			Email: service_tag + "@mkrcx",
+		}
+
+		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "User not found")
+		}
+
+		c.Locals("target_user", user)
+		return nil
+	})(c)
+}
+
 // noServiceMiddleware is a middleware that prevents targeting service accounts
 func noServiceMiddleware(c *fiber.Ctx) error {
 	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
@@ -217,18 +243,31 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		Query       *string `query:"query" validate:"required"`
 		ShowService *bool   `query:"show_service" validate:"omitempty"`
 	}
-	users_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("search"), models.GetQueryMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
+	users_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("search"), leash_auth.AuthorizationMiddleware("leash.users:target_others"), models.GetQueryMiddleware[userSearchQuery], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("query").(userSearchQuery)
 		authenticator := leash_auth.GetAuthentication(c)
 
 		var users []models.User
 
+		showService := req.ShowService != nil && *req.ShowService
+		if showService && authenticator.Authorize("leash.users:target_service") != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view service accounts")
+		}
+
+		authorizeList := func(item string) bool {
+			if showService && authenticator.Authorize("leash.users.service."+item+":list") != nil {
+				return false
+			}
+
+			return authenticator.Authorize("leash.users.others."+item+":list") == nil
+		}
+
 		con := db.Model(&models.User{})
 
 		// Preload the user with the specified fields
 		if req.WithTrainings != nil && *req.WithTrainings {
-			if authenticator.Authorize("leash.users.others.trainings:list") == nil {
+			if authorizeList("trainings") {
 				con = con.Preload("Trainings")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)
@@ -236,7 +275,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		}
 
 		if req.WithHolds != nil && *req.WithHolds {
-			if authenticator.Authorize("leash.users.others.holds:list") == nil {
+			if authorizeList("holds") {
 				con = con.Preload("Holds")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)
@@ -244,7 +283,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		}
 
 		if req.WithApiKeys != nil && *req.WithApiKeys {
-			if authenticator.Authorize("leash.users.others.apikeys:list") == nil {
+			if authorizeList("apikeys") {
 				con = con.Preload("APIKeys")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)
@@ -252,7 +291,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		}
 
 		if req.WithUpdates != nil && *req.WithUpdates {
-			if authenticator.Authorize("leash.users.others.updates:list") == nil {
+			if authorizeList("updates") {
 				con = con.Preload("UserUpdates")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)
@@ -260,7 +299,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		}
 
 		if req.WithNotifications != nil && *req.WithNotifications {
-			if authenticator.Authorize("leash.users.others.notifications:list") == nil {
+			if authorizeList("notifications") {
 				con = con.Preload("Notifications")
 			} else {
 				return c.SendStatus(fiber.StatusUnauthorized)
@@ -270,10 +309,10 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		q := db.Where("name LIKE ?", "%"+*req.Query+"%").Or("email LIKE ?", "%"+*req.Query+"%").Or("pending_email LIKE ?", "%"+*req.Query+"%")
 
 		// Allow searching for service accounts
-		if req.ShowService == nil || !*req.ShowService {
-			con = con.Where("role <> ?", "service").Where(q)
-		} else {
+		if showService {
 			con = con.Where(q)
+		} else {
+			con = con.Where("role <> ?", "service").Where(q)
 		}
 
 		// Count the total number of users
@@ -601,10 +640,11 @@ func serviceEndpoints(service_ep fiber.Router) {
 
 		// Create a new user in the database
 		user := models.User{
-			Name:  req.Name,
-			Role:  "service",
-			Type:  "other",
-			Email: req.ServiceTag + "@mkrcx",
+			Name:        req.Name,
+			Role:        "service",
+			Type:        "other",
+			Email:       req.ServiceTag + "@mkrcx",
+			Permissions: req.Permissions,
 		}
 
 		db.Create(&user)
@@ -629,7 +669,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 		return c.JSON(user)
 	})
 
-	specific_ep := service_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware, onlyServiceMiddleware)
+	specific_ep := service_ep.Group("/:service_tag", serviceMiddleware, onlyServiceMiddleware)
 	getUserEndpoint(specific_ep)
 
 	// Update the current service user endpoint
@@ -673,6 +713,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 
 			enforcer.SetPermissionsForUser(user, *req.Permissions)
 			enforcer.SavePolicy()
+			user.Permissions = *req.Permissions
 		}
 
 		if req.ServiceTag != nil {
@@ -744,6 +785,9 @@ func registerUserEndpoints(api fiber.Router) {
 	addUserApiKeyEndpoints(self_ep)
 	addUserNotificationsEndpoints(self_ep)
 
+	service_ep := users_ep.Group("/service", leash_auth.ConcatPermissionPrefixMiddleware("service"))
+	serviceEndpoints(service_ep)
+
 	user_ep := users_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware, noServiceMiddleware)
 	getUserEndpoint(user_ep)
 	updateUserEndpoint(user_ep)
@@ -753,9 +797,6 @@ func registerUserEndpoints(api fiber.Router) {
 	addUserHoldsEndpoints(user_ep)
 	addUserApiKeyEndpoints(user_ep)
 	addUserNotificationsEndpoints(user_ep)
-
-	service_ep := users_ep.Group("/service", leash_auth.ConcatPermissionPrefixMiddleware("service"))
-	serviceEndpoints(service_ep)
 }
 
 // OnUserCreate registers a callback to be called when a user is created
