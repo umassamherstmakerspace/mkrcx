@@ -8,10 +8,12 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	leash_helpers "github.com/mkrcx/mkrcx/src/leash/helpers"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
@@ -89,7 +91,7 @@ func (e *EndpointTester) testingID() string {
 	return uuid.NewSHA1(uuid.Nil, []byte(data)).String()
 }
 
-func (e *EndpointTester) testEndpoint(t *testing.T, auth string) (int, []byte) {
+func (e *EndpointTester) TestEndpoint(t *testing.T, auth string) (int, []byte) {
 	// Test endpoint
 	agent := fiber.AcquireAgent()
 
@@ -176,7 +178,7 @@ func (e *EndpointTester) RequiresPermissions(permissions []string) *EndpointTest
 
 			e.t.Log("Testing permissions: ", testPermissions)
 
-			status, _ := e.testEndpoint(t, "API-Key "+apiKey.Key)
+			status, _ := e.TestEndpoint(t, "API-Key "+apiKey.Key)
 
 			if len(testPermissions) == len(permissions) {
 				if status == fiber.StatusUnauthorized {
@@ -247,7 +249,7 @@ func (e *EndpointTester) MinimumRole(minimumRole int) *EndpointTester {
 
 			e.t.Log("Testing role: ", roleFromNumber(i))
 
-			status, _ := e.testEndpoint(t, "API-Key "+apiKey.Key)
+			status, _ := e.TestEndpoint(t, "API-Key "+apiKey.Key)
 
 			if i >= minimumRole {
 				if status == fiber.StatusUnauthorized {
@@ -329,7 +331,7 @@ func (e *EndpointTester) GivesResponse(responseTesters ...ResponseTester) *Endpo
 			}
 		}
 
-		status, b := e.testEndpoint(t, "API-Key "+apiKey.Key)
+		status, b := e.TestEndpoint(t, "API-Key "+apiKey.Key)
 
 		for _, tester := range responseTesters {
 			tester.Test(t, e.testingID(), status, b)
@@ -343,6 +345,30 @@ func (e *EndpointTester) GivesResponse(responseTesters ...ResponseTester) *Endpo
 			if err != nil {
 				t.Fatal(err)
 			}
+		}
+	})
+
+	return e
+}
+
+func (e *EndpointTester) GivesResponseNoAuth(responseTesters ...ResponseTester) *EndpointTester {
+	e.t.Run("Response Test", func(t *testing.T) {
+		t.Log("Running Response Test Without Authentication for: ", e.TestName)
+
+		testerNames := ""
+		for i, tester := range responseTesters {
+			if i != 0 {
+				testerNames = testerNames + ", "
+			}
+			testerNames = testerNames + tester.Name
+		}
+
+		t.Logf("Testing responses: [%v]", testerNames)
+
+		status, b := e.TestEndpoint(t, "")
+
+		for _, tester := range responseTesters {
+			tester.Test(t, e.testingID(), status, b)
 		}
 	})
 
@@ -2416,6 +2442,74 @@ func TestLeash(t *testing.T) {
 						statusCode(fiber.StatusOK),
 						notificationEQ(testNotification),
 					)
+			})
+	})
+
+	tester.Test("Login Endpoints", func(test *Tester) {
+		test.Endpoint("/auth/login", fiber.MethodGet).
+			WithQuery(QueryArgs{
+				"redirect": "/test",
+				"state":    "test",
+			}).
+			Test("Login Redirect", func(e *EndpointTester) {
+				e.GivesResponseNoAuth(statusCode(fiber.StatusFound))
+			})
+
+		tok, err := jwt.NewBuilder().
+			Issuer(`mkrcx`).
+			IssuedAt(time.Now()).
+			Expiration(time.Now().Add(5*time.Minute)).
+			Claim("return", "/").
+			Claim("state", "state").
+			Build()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		signed, err := keys.Sign(tok)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		user := models.User{
+			Name:  "Test User",
+			Email: "test@mkr.cx",
+		}
+
+		db.FirstOrCreate(&user, &user)
+		db.Unscoped().Delete(&user)
+
+		test.Endpoint("/auth/callback", fiber.MethodGet).
+			WithQuery(QueryArgs{
+				"code":  user.Email,
+				"state": string(signed),
+			}).
+			Test("Login Callback With Non-Existent User", func(e *EndpointTester) {
+				e.GivesResponseNoAuth(statusCode(fiber.StatusUnauthorized))
+			})
+
+		db.Create(&user)
+
+		test.Endpoint("/auth/callback", fiber.MethodGet).
+			WithQuery(QueryArgs{
+				"code":  user.Email,
+				"state": string(signed),
+			}).
+			Test("Login Callback With User that doesn't have login permissions", func(e *EndpointTester) {
+				e.GivesResponseNoAuth(statusCode(fiber.StatusUnauthorized))
+			})
+
+		test.enforcer.SetPermissionsForUser(user, []string{"leash:login"})
+		test.enforcer.SavePolicy()
+
+		test.Endpoint("/auth/callback", fiber.MethodGet).
+			WithQuery(QueryArgs{
+				"code":  user.Email,
+				"state": string(signed),
+			}).
+			Test("Login Callback With User that has login permissions", func(e *EndpointTester) {
+				e.GivesResponseNoAuth(statusCode(fiber.StatusFound))
 			})
 	})
 }
