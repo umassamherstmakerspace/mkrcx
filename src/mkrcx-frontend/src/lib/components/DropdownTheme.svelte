@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { theme } from "$lib/stores";
 	import { ButtonGroup, Label, RadioButton } from "flowbite-svelte";
-
 </script>
 
 <li class="py-2 px-4">
