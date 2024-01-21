@@ -13,6 +13,8 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
+const userTokenExpiration = 7 * 24 * time.Hour
+
 // NoAPIKeyMiddleware is a middleware that checks if the user has an API key
 func NoAPIKeyMiddleware(c *fiber.Ctx) error {
 	authentication := leash_auth.GetAuthentication(c)
@@ -172,7 +174,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		tok, err = jwt.NewBuilder().
 			Issuer(`mkrcx`).
 			IssuedAt(time.Now()).
-			Expiration(time.Now().Add(24*time.Hour)).
+			Expiration(time.Now().Add(userTokenExpiration)).
 			Claim("email", email).
 			Claim("session", session_id).
 			Build()
@@ -291,7 +293,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		tok, err := jwt.NewBuilder().
 			Issuer(`mkrcx`).
 			IssuedAt(time.Now()).
-			Expiration(time.Now().Add(24*time.Hour)).
+			Expiration(time.Now().Add(userTokenExpiration)).
 			Claim("email", authentication.User.Email).
 			Claim("session", authentication.Data).
 			Build()
