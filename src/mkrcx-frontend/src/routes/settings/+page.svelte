@@ -5,7 +5,7 @@
     import { Label, Select, P } from "flowbite-svelte";
 </script>
 
-<li class="py-4 px-4 flex flex-col space-y-10">
+<li class="flex flex-col space-y-10">
     <div class="flex justify-between flex-col">
         <Label for="large-input" class="mb-2 block">Theme</Label>
         <Select bind:value={$theme}>

@@ -18,4 +18,6 @@
 <Header bind:hideSidebar />
 <SideMenu bind:hidden={hideSidebar} />
 
-<slot />
+<div class="p-4">
+	<slot />
+</div>

@@ -242,7 +242,7 @@
       <Button class="w-full1" type="submit">Create Hold</Button>
     </form>
     </Modal>
-<div class="flex flex-col p-4 w-full">
+<div class="flex flex-col w-full">
     <TableSearch placeholder="Search by name or email..." hoverable={true} bind:inputValue={query} >
         <Table divClass="relative overflow-x-auto overflow-y-auto max-h-fit">
         <TableHead>

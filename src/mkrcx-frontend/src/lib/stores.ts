@@ -52,8 +52,8 @@ export const timeFormat: Readable<string> = derived(dateLocale, ($dateLocale) =>
 export const dateTimeJoiner: Readable<string> = derived(dateLocale, ($dateLocale) => {
     switch ($dateLocale) {
         case "US":
-            return " ";
         case "EU":
+            return " ";
         case "ISO":
         default:
             return "'T'";

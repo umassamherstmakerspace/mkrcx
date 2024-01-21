@@ -13,7 +13,7 @@
 	} from 'flowbite-svelte';
 	import { slide } from 'svelte/transition';
 	import Timestamp from './Timestamp.svelte';
-    import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -29,7 +29,9 @@
 				return;
 			}
 
-			const minHold = holds.filter((hold) => hold.isActive).reduce((a, b) => (a.priority < b.priority ? a : b));
+			const minHold = holds
+				.filter((hold) => hold.isActive)
+				.reduce((a, b) => (a.priority < b.priority ? a : b));
 
 			if (minHold.priority < 100) {
 				userColor = 'red';
@@ -41,21 +43,21 @@
 
 	$: updateUserColor(user);
 
-    function deleteHold(hold: Hold) {
-        dispatch('deleteHold', hold);
-    }
+	function deleteHold(hold: Hold) {
+		dispatch('deleteHold', hold);
+	}
 
-    function deleteTraining(training: Training) {
-        dispatch('deleteTraining', training);
-    }
+	function deleteTraining(training: Training) {
+		dispatch('deleteTraining', training);
+	}
 
-    function createHold() {
-        dispatch('createHold');
-    }
+	function createHold() {
+		dispatch('createHold');
+	}
 
-    function createTraining() {
-        dispatch('createTraining');
-    }
+	function createTraining() {
+		dispatch('createTraining');
+	}
 </script>
 
 <TableBodyRow on:click>
@@ -82,62 +84,64 @@
 		<TableBodyCell colspan={8} class="p-0">
 			<div class="px-2 py-3" transition:slide={{ duration: 300, axis: 'y' }}>
 				<div class="flex w-full gap-4">
-                    <Table>
+					<Table>
 						<TableHead>
 							<TableHeadCell>Field</TableHeadCell>
 							<TableHeadCell>Value</TableHeadCell>
 						</TableHead>
 						<TableBody>
-                            <TableBodyRow>
-                                <TableBodyCell>ID</TableBodyCell>
-                                <TableBodyCell>{user.id}</TableBodyCell>
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Join Date</TableBodyCell>
-                                <TableBodyCell><Timestamp timestamp={user.createdAt}/></TableBodyCell>
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Name</TableBodyCell>
-                                <TableBodyCell>{user.name}</TableBodyCell>
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Email</TableBodyCell>
-                                <TableBodyCell>{user.email}</TableBodyCell>
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Pending Email</TableBodyCell>
-                                {#if user.pendingEmail}
-                                    <TableBodyCell>{user.pendingEmail}</TableBodyCell>
-                                {:else}
-                                    <TableBodyCell></TableBodyCell>
-                                {/if}
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Role</TableBodyCell>
-                                <TableBodyCell>{user.role}</TableBodyCell>
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Type</TableBodyCell>
-                                <TableBodyCell>{user.type}</TableBodyCell>
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Major</TableBodyCell>
-                                {#if user.major}
-                                    <TableBodyCell>{user.major}</TableBodyCell>
-                                {:else}
-                                    <TableBodyCell></TableBodyCell>
-                                {/if}
-                            </TableBodyRow>
-                            <TableBodyRow>
-                                <TableBodyCell>Graduation Year</TableBodyCell>
-                                {#if user.graduationYear > 0}
-                                    <TableBodyCell>{user.graduationYear}</TableBodyCell>
-                                {:else}
-                                    <TableBodyCell></TableBodyCell>
-                                {/if}
-                            </TableBodyRow>
 							<TableBodyRow>
-								<Button color="yellow">Edit User</Button>
+								<TableBodyCell>ID</TableBodyCell>
+								<TableBodyCell>{user.id}</TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Join Date</TableBodyCell>
+								<TableBodyCell><Timestamp timestamp={user.createdAt} /></TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Name</TableBodyCell>
+								<TableBodyCell>{user.name}</TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Email</TableBodyCell>
+								<TableBodyCell>{user.email}</TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Pending Email</TableBodyCell>
+								{#if user.pendingEmail}
+									<TableBodyCell>{user.pendingEmail}</TableBodyCell>
+								{:else}
+									<TableBodyCell></TableBodyCell>
+								{/if}
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Role</TableBodyCell>
+								<TableBodyCell>{user.role}</TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Type</TableBodyCell>
+								<TableBodyCell>{user.type}</TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Major</TableBodyCell>
+								{#if user.major}
+									<TableBodyCell>{user.major}</TableBodyCell>
+								{:else}
+									<TableBodyCell></TableBodyCell>
+								{/if}
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Graduation Year</TableBodyCell>
+								{#if user.graduationYear > 0}
+									<TableBodyCell>{user.graduationYear}</TableBodyCell>
+								{:else}
+									<TableBodyCell></TableBodyCell>
+								{/if}
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell colspan="2" class="p-0">
+									<Button color="yellow" class="w-full">Edit User</Button>
+								</TableBodyCell>
 							</TableBodyRow>
 						</TableBody>
 					</Table>
@@ -148,78 +152,88 @@
 							<TableHeadCell>Remove</TableHeadCell>
 						</TableHead>
 						<TableBody>
-                            {#await user.getAllTrainings()}
-                            <TableBodyRow>
-                                <TableBodyCell>Loading...</TableBodyCell>
-                            </TableBodyRow>
-                            {:then trainings}
-							{#each trainings as training}
+							{#await user.getAllTrainings()}
 								<TableBodyRow>
-									<TableBodyCell>{training.trainingType}</TableBodyCell>
-									<TableBodyCell><CloseButton on:click={() => deleteTraining(training)}/></TableBodyCell>
+									<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
 								</TableBodyRow>
-							{/each}
-                            {:catch error}
-                            <TableBodyRow>
-                                <TableBodyCell>Error: {error.message}</TableBodyCell>
-                            </TableBodyRow>
-                            {/await}
+							{:then trainings}
+								{#each trainings as training}
+									<TableBodyRow>
+										<TableBodyCell>{training.trainingType}</TableBodyCell>
+										<TableBodyCell
+											><CloseButton on:click={() => deleteTraining(training)} /></TableBodyCell
+										>
+									</TableBodyRow>
+								{/each}
+							{:catch error}
+								<TableBodyRow>
+									<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+								</TableBodyRow>
+							{/await}
 							<TableBodyRow>
-								<Button color="green" on:click={() => createTraining()}>Add Training</Button>
+								<TableBodyCell colspan="2" class="p-0">
+									<Button color="green" on:click={() => createTraining()} class="w-full"
+										>Add Training</Button
+									>
+								</TableBodyCell>
 							</TableBodyRow>
 						</TableBody>
 					</Table>
 
-                    <Table>
+					<Table>
 						<TableHead>
 							<TableHeadCell>Hold Type</TableHeadCell>
 							<TableHeadCell>Reason</TableHeadCell>
-                            <TableHeadCell>Priority</TableHeadCell>
+							<TableHeadCell>Priority</TableHeadCell>
 							<TableHeadCell>Start Time</TableHeadCell>
 							<TableHeadCell>End Time</TableHeadCell>
 							<TableHeadCell>Remove</TableHeadCell>
 						</TableHead>
 						<TableBody>
-                            {#await user.getAllHolds()}
-                            <TableBodyRow>
-                                <TableBodyCell>Loading...</TableBodyCell>
-                            </TableBodyRow>
-                            {:then holds}
-							{#each holds as hold}
+							{#await user.getAllHolds()}
 								<TableBodyRow>
-									<TableBodyCell>{hold.holdType}</TableBodyCell>
-                                    <TableBodyCell>{hold.reason}</TableBodyCell>
-                                    <TableBodyCell>{hold.priority}</TableBodyCell>
-                                    <TableBodyCell>
-                                        {#if hold.holdStart}
-                                        <div class="flex flex-col">
-                                            <Timestamp timestamp={hold.holdStart} formatter="date"/>
-                                            <Timestamp timestamp={hold.holdStart} formatter="time"/>
-                                        </div>
-                                        {:else}
-                                            <span></span>
-                                        {/if}
-                                    </TableBodyCell>
-                                    <TableBodyCell>
-                                        {#if hold.holdEnd}
-                                        <div class="flex flex-col">
-                                            <Timestamp timestamp={hold.holdEnd} formatter="date"/>
-                                            <Timestamp timestamp={hold.holdEnd} formatter="time"/>
-                                        </div>
-                                        {:else}
-                                            <span></span>
-                                        {/if}
-                                    </TableBodyCell>
-									<TableBodyCell><CloseButton on:click={() => deleteHold(hold)}/></TableBodyCell>
+									<TableBodyCell colspan="6" class="p-0">Loading...</TableBodyCell>
 								</TableBodyRow>
-							{/each}
-                            {:catch error}
-                            <TableBodyRow>
-                                <TableBodyCell>Error: {error.message}</TableBodyCell>
-                            </TableBodyRow>
-                            {/await}
+							{:then holds}
+								{#each holds as hold}
+									<TableBodyRow>
+										<TableBodyCell>{hold.holdType}</TableBodyCell>
+										<TableBodyCell>{hold.reason}</TableBodyCell>
+										<TableBodyCell>{hold.priority}</TableBodyCell>
+										<TableBodyCell>
+											{#if hold.holdStart}
+												<div class="flex flex-col">
+													<Timestamp timestamp={hold.holdStart} formatter="date" />
+													<Timestamp timestamp={hold.holdStart} formatter="time" />
+												</div>
+											{:else}
+												<span></span>
+											{/if}
+										</TableBodyCell>
+										<TableBodyCell>
+											{#if hold.holdEnd}
+												<div class="flex flex-col">
+													<Timestamp timestamp={hold.holdEnd} formatter="date" />
+													<Timestamp timestamp={hold.holdEnd} formatter="time" />
+												</div>
+											{:else}
+												<span></span>
+											{/if}
+										</TableBodyCell>
+										<TableBodyCell><CloseButton on:click={() => deleteHold(hold)} /></TableBodyCell>
+									</TableBodyRow>
+								{/each}
+							{:catch error}
+								<TableBodyRow>
+									<TableBodyCell colspan="6" class="p-0">Error: {error.message}</TableBodyCell>
+								</TableBodyRow>
+							{/await}
 							<TableBodyRow>
-								<Button color="green" on:click={() => createHold()}>Add Hold</Button>
+								<TableBodyCell colspan="6" class="p-0">
+									<Button color="green" on:click={() => createHold()} class="w-full"
+										>Add Hold</Button
+									>
+								</TableBodyCell>
 							</TableBodyRow>
 						</TableBody>
 					</Table>
