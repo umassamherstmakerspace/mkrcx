@@ -14,6 +14,10 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+const (
+	ISSUER = "mkrcx"
+)
+
 type Keys struct {
 	publicKey  jwk.Key
 	privateKey jwk.Key
@@ -124,15 +128,21 @@ func (keys Keys) Sign(token jwt.Token) ([]byte, error) {
 }
 
 // Parse parses and validates a token
-func (keys Keys) Parse(token string) (jwt.Token, error) {
+func (keys Keys) Parse(token string, audience []string) (jwt.Token, error) {
 	// Parse the token
 	tok, err := jwt.ParseString(token, jwt.WithKey(jwa.RS256, keys.publicKey))
 	if err != nil {
 		return nil, err
 	}
 
+	validators := make([]jwt.ValidateOption, len(audience)+1)
+	validators[0] = jwt.WithIssuer(ISSUER)
+	for i, aud := range audience {
+		validators[i+1] = jwt.WithAudience(aud)
+	}
+
 	// Validate the token
-	if err := jwt.Validate(tok); err != nil {
+	if err := jwt.Validate(tok, validators...); err != nil {
 		return nil, err
 	}
 

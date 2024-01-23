@@ -32,7 +32,7 @@ type Authentication struct {
 // ParseSessionToken parses the session token and returns the user and session string
 func ParseSessionToken(db *gorm.DB, keys *Keys, token string) (*models.User, string, error) {
 	// Parse the token
-	tok, err := keys.Parse(token)
+	tok, err := keys.Parse(token, []string{"leash", "session"})
 	if err != nil {
 		return nil, "", fiber.NewError(fiber.StatusUnauthorized, "Authorization header error")
 	}

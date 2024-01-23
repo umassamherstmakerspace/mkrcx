@@ -50,9 +50,10 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 
 		// Create a token to store the return location signed by the server
 		tok, err := jwt.NewBuilder().
-			Issuer(`mkrcx`).
+			Issuer(leash_auth.ISSUER).
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(5*time.Minute)).
+			Audience([]string{"leash", "login-callback"}).
 			Claim("return", req.Return).
 			Claim("state", req.State).
 			Build()
@@ -85,7 +86,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 		req := c.Locals("query").(signinCallbackRequest)
 
 		// Parse the state token
-		tok, err := keys.Parse(req.State)
+		tok, err := keys.Parse(req.State, []string{"leash", "login-callback"})
 		if err != nil {
 			log.Error("Failed to parse state token: %s\n", err)
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid state")
@@ -172,9 +173,10 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 
 		// Create a session token
 		tok, err = jwt.NewBuilder().
-			Issuer(`mkrcx`).
+			Issuer(leash_auth.ISSUER).
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(userTokenExpiration)).
+			Audience([]string{"leash", "session"}).
 			Claim("email", email).
 			Claim("session", session_id).
 			Build()
@@ -291,9 +293,10 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 
 		// Create a new session token
 		tok, err := jwt.NewBuilder().
-			Issuer(`mkrcx`).
+			Issuer(leash_auth.ISSUER).
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(userTokenExpiration)).
+			Audience([]string{"leash", "session"}).
 			Claim("email", authentication.User.Email).
 			Claim("session", authentication.Data).
 			Build()

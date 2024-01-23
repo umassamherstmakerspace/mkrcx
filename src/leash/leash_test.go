@@ -2456,7 +2456,7 @@ func TestLeash(t *testing.T) {
 			})
 
 		tok, err := jwt.NewBuilder().
-			Issuer(`mkrcx`).
+			Issuer(leash_auth.ISSUER).
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(5*time.Minute)).
 			Claim("return", "/").

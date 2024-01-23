@@ -3,6 +3,7 @@
         "apikey",
         "apikeys",
         "casbin",
+        "checkin",
         "disgoorg",
         "dotenv",
         "fasthttp",

@@ -6,7 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/disgoorg/log"
 	"github.com/gofiber/fiber/v2"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
@@ -389,6 +391,44 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 
 		return c.JSON(user)
 	})
+
+	// Get a user by checkin token endpoint
+	get_ep.Get("/checkin/:token", leash_auth.PrefixAuthorizationMiddleware("checkin"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		keys := leash_auth.GetKeys(c)
+		token := c.Params("token")
+
+		// Parse the token
+		tok, err := keys.Parse(token, []string{"leash", "checkin"})
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid token")
+		}
+
+		// Get the user ID from the token
+		val := tok.Subject()
+
+		user_id, err := strconv.Atoi(val)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid token")
+		}
+
+		// Check if the user exists
+		var user = models.User{
+			ID: uint(user_id),
+		}
+
+		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
+			return fiber.NewError(fiber.StatusNotFound, "User not found")
+		}
+
+		// Preload the user with the specified fields
+		req := c.Locals("query").(userGetRequest)
+		if err := req.Preload(c, db, &user); err != nil {
+			return err
+		}
+
+		return c.JSON(user)
+	})
 }
 
 // addUserUpdateEndpoints creates the endpoints for user updates
@@ -644,6 +684,43 @@ func deleteUserEndpoint(user_ep fiber.Router) {
 	})
 }
 
+// checkinUserEndpoints creates a JWT that lasts 2 minutes for checking in users
+func checkinUserEndpoints(user_ep fiber.Router) {
+	user_ep.Get("/checkin", leash_auth.PrefixAuthorizationMiddleware("checkin"), func(c *fiber.Ctx) error {
+		user := c.Locals("target_user").(models.User)
+		keys := leash_auth.GetKeys(c)
+
+		tok, err := jwt.NewBuilder().
+			Issuer(leash_auth.ISSUER).
+			IssuedAt(time.Now()).
+			Expiration(time.Now().Add(2 * time.Minute)).
+			Subject(fmt.Sprintf("%d", user.ID)).
+			Audience([]string{"leash", "checkin"}).
+			Build()
+
+		if err != nil {
+			log.Error("Failed to build the checkin token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		signed, err := keys.Sign(tok)
+		if err != nil {
+			log.Error("Failed to sign the checkin token: %s\n", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		token := struct {
+			Token     string `json:"token"`
+			ExpiresAt int64  `json:"expires_at"`
+		}{
+			Token:     string(signed),
+			ExpiresAt: tok.Expiration().Unix(),
+		}
+
+		return c.JSON(token)
+	})
+}
+
 // serviceEndpoints creates the endpoints for service accounts
 func serviceEndpoints(service_ep fiber.Router) {
 	// Create a new service user endpoint
@@ -797,6 +874,7 @@ func registerUserEndpoints(api fiber.Router) {
 	self_ep := users_ep.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware, noServiceMiddleware)
 	getUserEndpoint(self_ep)
 	updateUserEndpoint(self_ep)
+	checkinUserEndpoints(self_ep)
 	addUserUpdateEndpoints(self_ep)
 	addUserTrainingEndpoints(self_ep)
 	addUserHoldsEndpoints(self_ep)
@@ -810,6 +888,7 @@ func registerUserEndpoints(api fiber.Router) {
 	getUserEndpoint(user_ep)
 	updateUserEndpoint(user_ep)
 	deleteUserEndpoint(user_ep)
+	checkinUserEndpoints(user_ep)
 	addUserUpdateEndpoints(user_ep)
 	addUserTrainingEndpoints(user_ep)
 	addUserHoldsEndpoints(user_ep)
