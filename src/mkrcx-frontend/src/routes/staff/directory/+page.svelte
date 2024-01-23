@@ -1,5 +1,5 @@
 <script lang="ts">
-	import UserRow from "$lib/components/UserRow.svelte";
+	import UserRow from "./UserRow.svelte";
 	import { Hold, Training, User } from "$lib/leash";
 	import { Button, Input, Label, Modal, NumberInput, P, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell, TableSearch } from "flowbite-svelte";
 	import { ExclamationCircleOutline } from "flowbite-svelte-icons";
@@ -233,11 +233,11 @@
       </Label>
       <Label class="space-y-2">
         <span>Start Date</span>
-        <Input type="datetime-local" name="text" placeholder="Start Date" required bind:value={createHoldModal.startDate} />
+        <Input type="datetime-local" name="text" placeholder="Start Date" bind:value={createHoldModal.startDate} />
       </Label>
       <Label class="space-y-2">
         <span>End Date</span>
-        <Input type="datetime-local" name="text" placeholder="End Date" required bind:value={createHoldModal.endDate} />
+        <Input type="datetime-local" name="text" placeholder="End Date" bind:value={createHoldModal.endDate} />
       </Label>
       <Button class="w-full1" type="submit">Create Hold</Button>
     </form>

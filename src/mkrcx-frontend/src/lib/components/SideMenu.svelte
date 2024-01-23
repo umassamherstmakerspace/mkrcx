@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { page } from "$app/stores";
-	import { Role } from "$lib/leash";
-	import { user } from "$lib/stores";
+	import { User } from "$lib/leash";
 	import { CloseButton, Drawer, Sidebar, SidebarDropdownItem, SidebarDropdownWrapper, SidebarGroup, SidebarItem, SidebarWrapper } from "flowbite-svelte";
-	import { ArrowRightToBracketSolid, BagSolid, ChartPieSolid, DrawSquareSolid, FileEditSolid, GridSolid, HomeSolid, LockSolid, MailBoxSolid, ShoppingCartSolid, UploadSolid, UsersSolid } from "flowbite-svelte-icons";
+	import { DrawSquareSolid, HomeSolid, LockSolid, UploadSolid } from "flowbite-svelte-icons";
 	import { sineIn } from "svelte/easing";
     
     export let hidden: boolean;
+    export let user: User | null;
 
     const spanClass = 'flex-1 ms-3 whitespace-nowrap';
     let transitionParams = {
@@ -38,7 +37,7 @@
 						/>
 					</svelte:fragment>
 				</SidebarItem>
-                {#if $user}
+                {#if user}
                     <SidebarItem label="File Upload" href="/wormhole">
                         <svelte:fragment slot="icon">
                             <UploadSolid
@@ -56,7 +55,7 @@
                         <SidebarDropdownItem label="Printers" href="/spectrum/printers" />
                         <SidebarDropdownItem label="My Prints" href="/spectrum/my-prints" />
                     </SidebarDropdownWrapper>
-                    {#if $user.isStaff}
+                    {#if user.isStaff}
                         <SidebarDropdownWrapper label="Staff Zone">
                             <svelte:fragment slot="icon">
                                 <LockSolid

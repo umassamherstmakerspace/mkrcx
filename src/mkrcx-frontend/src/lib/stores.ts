@@ -17,8 +17,6 @@ export const isDark: Readable<boolean> = derived(theme, ($theme) => {
     }
 });
 
-export const user: Writable<User | null> = writable(null);
-
 export type DateTimeFormats = "ISO" | "US" | "EU";
 export const dateLocale: Writable<DateTimeFormats> = writable("ISO");
 

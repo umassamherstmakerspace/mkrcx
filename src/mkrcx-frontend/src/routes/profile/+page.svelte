@@ -17,8 +17,7 @@
 	} from 'flowbite-svelte';
 	import { UserCircleSolid, RectangleListSolid } from 'flowbite-svelte-icons';
 
-	import { derived } from 'svelte/store';
-	import type { User, UserUpdateOptions } from '$lib/leash';
+	import type { UserUpdateOptions } from '$lib/leash';
 	import type { ConvertFields } from '$lib/types';
 	import type { PageData } from './$types';
 	import Timestamp from '$lib/components/Timestamp.svelte';
@@ -42,6 +41,9 @@
 	function loadUser() {
 		userUpdate.name = user.name;
 		userUpdate.email = user.email;
+		if (user.pendingEmail) {
+			userUpdate.email = user.pendingEmail;
+		}
 		userUpdate.type = user.type;
 		if (user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni') {
 			userUpdate.major = user.major;
@@ -167,6 +169,11 @@
 							<span class="font-medium">Error:</span>
 							{userUpdateError.email}
 						</Helper>
+					{/if}
+					{#if user.pendingEmail}
+						<p class="text-sm text-gray-500 dark:text-gray-400">
+							Your email is pending verification. Set it back to <b>{user.email}</b> to revert.
+						</p>
 					{/if}
 					<p class="text-sm text-gray-500 dark:text-gray-400">
 						<b>Warning:</b>

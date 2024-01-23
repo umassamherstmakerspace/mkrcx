@@ -3,6 +3,7 @@
 	import SideMenu from '$lib/components/SideMenu.svelte';
 	import { isDark } from '$lib/stores';
 	import '../app.pcss';
+	import type { LayoutData } from './$types';
 
 	isDark.subscribe((value) => {
 		if (value) {
@@ -13,10 +14,13 @@
 	});
 
 	let hideSidebar = true;
+	
+	export let data: LayoutData;
+	let { user } = data;
 </script>
 
-<Header bind:hideSidebar />
-<SideMenu bind:hidden={hideSidebar} />
+<Header bind:hideSidebar user={user} />
+<SideMenu bind:hidden={hideSidebar} user={user} />
 
 <div class="p-4">
 	<slot />

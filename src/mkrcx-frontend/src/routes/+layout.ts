@@ -1,11 +1,11 @@
-import type { PageLoad } from './$types';
+import type { LayoutLoad } from './$types';
 import { User } from '$lib/leash';
-import { theme, user, type Themes, dateLocale, type DateTimeFormats } from '$lib/stores';
+import { theme, type Themes, dateLocale, type DateTimeFormats } from '$lib/stores';
 import Cookies from 'js-cookie';
 
 export const ssr = false;
 
-export const load: PageLoad = async () => {
+export const load: LayoutLoad = async () => {
 	theme.set((Cookies.get('theme') as Themes) || 'system');
 
 	theme.subscribe((value) => {
@@ -29,12 +29,10 @@ export const load: PageLoad = async () => {
 	let u;
 
 	try {
-		u = await User.self();
+		u = await User.self({withNotifications: true, withHolds: true});
 	} catch (e) {
 		u = null;
 	}
-
-	user.set(u);
 
 	return {
 		user: u

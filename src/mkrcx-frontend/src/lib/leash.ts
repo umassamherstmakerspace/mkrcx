@@ -187,8 +187,8 @@ export interface HoldCreateOptions {
 export interface NotificationCreateOptions {
     title: string;
     message: string;
-    link: string;
-    group: string;
+    link?: string;
+    group?: string;
 }
 
 export interface LeashListResponse<T> {
@@ -201,6 +201,7 @@ export interface LeashUserOptions {
     withHolds?: boolean;
     withApiKeys?: boolean;
     withUpdates?: boolean;
+    withNotifications?: boolean;
 }
 
 export interface LeashListOptions {

@@ -4,7 +4,10 @@
 	import { login, validateToken } from '$lib/leash';
     import { page } from '$app/stores';
     import Cookies from 'js-cookie';
-	import { user } from '$lib/stores';
+	import type { PageData } from './$types';
+
+    export let data: PageData;
+    let { user } = data;
 
     let previousPage : string = base;
 
@@ -36,7 +39,7 @@
 
             window.location.href = ret;
         } else {
-            if ($user) {
+            if (user) {
                 window.location.href = previousPage;
             } else {
                 await login($page.url.href || '', previousPage);

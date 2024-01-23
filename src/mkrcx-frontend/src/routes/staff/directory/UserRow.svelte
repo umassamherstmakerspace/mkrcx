@@ -12,7 +12,7 @@
 		TableHeadCell
 	} from 'flowbite-svelte';
 	import { slide } from 'svelte/transition';
-	import Timestamp from './Timestamp.svelte';
+	import Timestamp from '../../../lib/components/Timestamp.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
