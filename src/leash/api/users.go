@@ -510,19 +510,27 @@ func updateUserEndpoint(user_ep fiber.Router) {
 
 		// Check if the email has been changed
 		if req.Email != nil {
-			if *req.Email != user.Email && user.PendingEmail != nil && *req.Email != *user.PendingEmail {
+			if *req.Email != user.Email && (user.PendingEmail == nil || *req.Email != *user.PendingEmail) {
 				_, err := searchEmail(db, *req.Email)
 				if err == nil {
 					// The user already exists
 					return c.Status(fiber.StatusConflict).SendString("Email already in use")
 				}
 
+				old := ""
+
+				if user.PendingEmail != nil {
+					old = *user.PendingEmail
+				}
+
 				event.Changes = append(event.Changes, UserChanges{
-					Old:   *user.PendingEmail,
+					Old:   old,
 					New:   *req.Email,
 					Field: "pending_email",
 				})
-			} else if *req.Email != user.Email && user.PendingEmail != nil {
+
+				user.PendingEmail = req.Email
+			} else if user.PendingEmail != nil && *req.Email == user.Email {
 				event.Changes = append(event.Changes, UserChanges{
 					Old:   *user.PendingEmail,
 					New:   "",
