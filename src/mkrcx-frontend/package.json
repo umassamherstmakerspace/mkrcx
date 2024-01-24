@@ -45,11 +45,13 @@
 	"type": "module",
 	"dependencies": {
 		"@types/js-cookie": "^3.0.6",
+		"@types/qrcode": "^1.5.5",
 		"date-fns": "^3.0.6",
 		"dotenv": "^16.3.1",
 		"jdenticon": "^3.2.0",
 		"js-cookie": "^3.0.5",
 		"minidenticons": "^4.2.0",
+		"qrcode": "^1.5.3",
 		"svelte-inview": "^4.0.2"
 	}
 }

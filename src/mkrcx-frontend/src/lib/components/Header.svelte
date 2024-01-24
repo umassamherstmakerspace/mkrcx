@@ -96,6 +96,7 @@
 				<span class="block truncate text-sm font-medium">{user.email}</span>
 			</DropdownHeader>
 			<DropdownItem href="/profile">Profile</DropdownItem>
+			<DropdownItem href="/profile/checkin">Check In</DropdownItem>
 			<DropdownDivider />
 			<DropdownItem href="/settings">Settings</DropdownItem>
 			<DropdownTheme />

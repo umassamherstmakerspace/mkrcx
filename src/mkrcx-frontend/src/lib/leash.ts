@@ -196,6 +196,16 @@ export interface LeashListResponse<T> {
 	data: T[];
 }
 
+interface LeashCheckinResponse {
+    token: string;
+    expires_at: string;
+}
+
+interface CheckinResponse {
+    token: string;
+    expiresAt: Date;
+}
+
 export interface LeashUserOptions {
     withTrainings?: boolean;
     withHolds?: boolean;
@@ -540,6 +550,18 @@ export class User {
 
     async getNotification(notificationID: number): Promise<Notification> {
         return new Notification(await leashGet<LeashNotification>(`${this.endpointPrefix}/notifications/${notificationID}`), `${this.endpointPrefix}/notifications/${notificationID}`);
+    }
+
+    async getAllPermissions(): Promise<string[]> {
+        return leashGet<string[]>(`${this.endpointPrefix}/permissions`);
+    }
+
+    async checkin(): Promise<CheckinResponse> {
+        const res = await leashGet<LeashCheckinResponse>(`${this.endpointPrefix}/checkin`);
+        return {
+            token: res.token,
+            expiresAt: new Date(res.expires_at)
+        };
     }
 
     static async create({ email, name, role, type, graduationYear, major }: UserCreateOptions): Promise<User> {

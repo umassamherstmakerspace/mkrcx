@@ -14,14 +14,15 @@
 	});
 
 	let hideSidebar = true;
-	
+
 	export let data: LayoutData;
 	let { user } = data;
 </script>
 
-<Header bind:hideSidebar user={user} />
-<SideMenu bind:hidden={hideSidebar} user={user} />
-
-<div class="p-4">
-	<slot />
+<SideMenu bind:hidden={hideSidebar} {user} />
+<div class="flex h-dvh w-dvw flex-col">
+	<Header bind:hideSidebar {user} />
+	<div class="h-full w-full flex-1 p-4 max-h-full overflow-auto">
+		<slot />
+	</div>
 </div>
