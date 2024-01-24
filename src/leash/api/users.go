@@ -684,8 +684,8 @@ func deleteUserEndpoint(user_ep fiber.Router) {
 	})
 }
 
-// checkinUserEndpoints creates a JWT that lasts 2 minutes for checking in users
-func checkinUserEndpoints(user_ep fiber.Router) {
+// checkinUserEndpoint creates a JWT that lasts 2 minutes for checking in users
+func checkinUserEndpoint(user_ep fiber.Router) {
 	user_ep.Get("/checkin", leash_auth.PrefixAuthorizationMiddleware("checkin"), func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
 		keys := leash_auth.GetKeys(c)
@@ -718,6 +718,29 @@ func checkinUserEndpoints(user_ep fiber.Router) {
 		}
 
 		return c.JSON(token)
+	})
+}
+
+// getPermissionsEndpoint returns all the permissions for a user including inherited permissions
+func getPermissionsEndpoint(user_ep fiber.Router) {
+	user_ep.Get("/permissions", leash_auth.PrefixAuthorizationMiddleware("permissions"), func(c *fiber.Ctx) error {
+		user := c.Locals("target_user").(models.User)
+		authenticator := leash_auth.GetAuthentication(c)
+
+		user_permissions := authenticator.Enforcer.Enforcer.GetPermissionsForUser("user:" + fmt.Sprint(user.ID))
+		role_permissions := authenticator.Enforcer.Enforcer.GetPermissionsForUser("role:" + user.Role)
+
+		permissions := make([]string, len(user_permissions)+len(role_permissions))
+
+		for i, perm := range user_permissions {
+			permissions[i] = perm[1]
+		}
+
+		for i, perm := range role_permissions {
+			permissions[i+len(user_permissions)] = perm[1]
+		}
+
+		return c.JSON(permissions)
 	})
 }
 
@@ -874,7 +897,8 @@ func registerUserEndpoints(api fiber.Router) {
 	self_ep := users_ep.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware, noServiceMiddleware)
 	getUserEndpoint(self_ep)
 	updateUserEndpoint(self_ep)
-	checkinUserEndpoints(self_ep)
+	checkinUserEndpoint(self_ep)
+	getPermissionsEndpoint(self_ep)
 	addUserUpdateEndpoints(self_ep)
 	addUserTrainingEndpoints(self_ep)
 	addUserHoldsEndpoints(self_ep)
@@ -888,7 +912,8 @@ func registerUserEndpoints(api fiber.Router) {
 	getUserEndpoint(user_ep)
 	updateUserEndpoint(user_ep)
 	deleteUserEndpoint(user_ep)
-	checkinUserEndpoints(user_ep)
+	checkinUserEndpoint(user_ep)
+	getPermissionsEndpoint(user_ep)
 	addUserUpdateEndpoints(user_ep)
 	addUserTrainingEndpoints(user_ep)
 	addUserHoldsEndpoints(user_ep)

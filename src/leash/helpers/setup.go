@@ -50,6 +50,7 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	// User Get EPs
 	enforcer.AddPermissionForUser(volunteer, "leash.users.get:email")
 	enforcer.AddPermissionForUser(admin, "leash.users.get:card")
+	enforcer.AddPermissionForUser(admin, "leash.users.get:checkin")
 	enforcer.AddPermissionForUser(volunteer, "leash.users.get.trainings:list")
 	enforcer.AddPermissionForUser(volunteer, "leash.users.get.holds:list")
 	enforcer.AddPermissionForUser(admin, "leash.users.get.apikeys:list")
@@ -62,6 +63,8 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(admin, "leash.users.self:update_card_id")
 	enforcer.AddPermissionForUser(admin, "leash.users.self:update_role")
 	// --No self delete EP--
+	enforcer.AddPermissionForUser(member, "leash.users.self:checkin")
+	enforcer.AddPermissionForUser(member, "leash.users.self:permissions")
 	//   Updates
 	enforcer.AddPermissionForUser(member, "leash.users.self.updates:list")
 	//   Trainings
@@ -92,6 +95,8 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(admin, "leash.users.others:update_card_id")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:update_role")
 	enforcer.AddPermissionForUser(admin, "leash.users.others:delete")
+	enforcer.AddPermissionForUser(admin, "leash.users.others:checkin")
+	enforcer.AddPermissionForUser(volunteer, "leash.users.others:permissions")
 	//   Updates
 	enforcer.AddPermissionForUser(volunteer, "leash.users.others.updates:list")
 	//   Trainings
