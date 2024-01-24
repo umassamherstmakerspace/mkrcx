@@ -13,5 +13,5 @@ export const load: LayoutLoad = async ({ parent }) => {
         error(403, 'You do not have permission to access this page.');
     }
 
-    return {};
+    return {user};
 };
