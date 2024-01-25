@@ -63,7 +63,6 @@
 		users = [...list, ...res.data];
     requestOffset += res.data.length;
 		offset = requestOffset;
-    console.log("Offset", requestOffset);
 		return res.total > requestOffset;
 	}
 
