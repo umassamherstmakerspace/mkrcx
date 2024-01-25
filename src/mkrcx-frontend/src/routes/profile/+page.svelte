@@ -15,15 +15,59 @@
 		TableBodyRow,
 		TableBodyCell
 	} from 'flowbite-svelte';
-	import { UserCircleSolid, RectangleListSolid } from 'flowbite-svelte-icons';
+	import { UserCircleSolid, RectangleListSolid, AnnotationSolid } from 'flowbite-svelte-icons';
 
 	import type { UserUpdateOptions } from '$lib/leash';
 	import type { ConvertFields } from '$lib/types';
 	import type { PageData } from './$types';
 	import Timestamp from '$lib/components/Timestamp.svelte';
+	import { page } from '$app/stores';
+	import type { Snapshot } from './$types';
 
 	export let data: PageData;
 	let { user } = data;
+
+	let tabsOpen = {
+		profile: true,
+		trainings: false,
+		holds: false,
+	};
+
+	type Data = {
+		tabsOpen: typeof tabsOpen;
+	};
+
+	function setTab(tab: keyof typeof tabsOpen) {
+		Object.keys(tabsOpen).forEach((key) => {
+			tabsOpen[key as keyof typeof tabsOpen] = false;
+		});
+		tabsOpen[tab] = true;
+
+		tabsOpen = { ...tabsOpen };
+	}
+
+	$: switch ($page.url.hash) {
+		case '#trainings':
+			setTab('trainings');
+			break;
+		case '#holds':
+			setTab('holds');
+			break;
+		default:
+			setTab('profile');
+			break;
+	}
+
+	export const snapshot: Snapshot<Data> = {
+		capture: () => {
+			return {
+				tabsOpen: tabsOpen
+			};
+		},
+		restore: (value) => {
+			tabsOpen = value.tabsOpen;
+		}
+	};
 
 	let changed = false;
 	const change = () => (changed = true);
@@ -125,10 +169,18 @@
 			console.error(error);
 		}
 	}
+
+	async function getHolds() {
+		const holds = await user.getAllHolds();
+		return holds.filter((hold) => {
+			if (hold.holdEnd == undefined) return true;
+			return hold.holdEnd.getTime() > Date.now();
+		});
+	}
 </script>
 
 <Tabs style="underline">
-	<TabItem open>
+	<TabItem bind:open={tabsOpen.profile}>
 		<div slot="title" class="flex items-center gap-2">
 			<UserCircleSolid size="sm" />
 			Profile
@@ -255,7 +307,7 @@
 			</div>
 		</form>
 	</TabItem>
-	<TabItem>
+	<TabItem bind:open={tabsOpen.trainings}>
 		<div slot="title" class="flex items-center gap-2">
 			<RectangleListSolid size="sm" />
 			Trainings
@@ -275,6 +327,52 @@
 						<TableBodyRow>
 							<TableBodyCell>{training.trainingType}</TableBodyCell>
 							<TableBodyCell><Timestamp timestamp={training.createdAt} /></TableBodyCell>
+						</TableBodyRow>
+					{/each}
+				{:catch error}
+					<TableBodyRow>
+						<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+					</TableBodyRow>
+				{/await}
+			</TableBody>
+		</Table>
+	</TabItem>
+	<TabItem bind:open={tabsOpen.holds}>
+		<div slot="title" class="flex items-center gap-2">
+			<AnnotationSolid size="sm" />
+			Holds
+		</div>
+		<Table>
+			<TableHead>
+				<TableHeadCell>Hold Type</TableHeadCell>
+				<TableHeadCell>Reason</TableHeadCell>
+				<TableHeadCell>Start Date</TableHeadCell>
+				<TableHeadCell>End Date</TableHeadCell>
+			</TableHead>
+			<TableBody>
+				{#await getHolds()}
+					<TableBodyRow>
+						<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
+					</TableBodyRow>
+				{:then holds}
+					{#each holds as hold}
+						<TableBodyRow>
+							<TableBodyCell>{hold.holdType}</TableBodyCell>
+							<TableBodyCell>{hold.reason}</TableBodyCell>
+							<TableBodyCell>
+								{#if hold.holdStart}
+									<Timestamp timestamp={hold.holdStart} />
+								{:else}
+									-
+								{/if}
+							</TableBodyCell>
+							<TableBodyCell>
+								{#if hold.holdEnd}
+									<Timestamp timestamp={hold.holdEnd} />
+								{:else}
+									-
+								{/if}
+							</TableBodyCell>
 						</TableBodyRow>
 					{/each}
 				{:catch error}
