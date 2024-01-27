@@ -1,8 +1,6 @@
 package leash_helpers
 
 import (
-	"os"
-
 	"github.com/casbin/casbin/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -224,9 +222,9 @@ func MigrateSchema(db *gorm.DB) error {
 func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, externalAuth leash_auth.ExternalAuthenticator, enforcer *casbin.Enforcer) {
 	// Allow all origins in development
 	app.Use(cors.New(cors.Config{
-		AllowOriginsFunc: func(origin string) bool {
-			return os.Getenv("ENVIRONMENT") == "development"
-		},
+		AllowOrigins: "*",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "*",
 	}))
 
 	app.Use(leash_auth.LocalsMiddleware(db, keys, externalAuth, enforcer))
