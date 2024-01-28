@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Hold, Training, User } from '$lib/leash';
 	import {
-		Avatar,
 		Button,
 		CloseButton,
 		Table,
@@ -9,10 +8,14 @@
 		TableBodyCell,
 		TableBodyRow,
 		TableHead,
-		TableHeadCell
+		TableHeadCell,
+
+		type IndicatorColorType
+
 	} from 'flowbite-svelte';
 	import { slide } from 'svelte/transition';
-	import Timestamp from '../../../lib/components/Timestamp.svelte';
+	import Timestamp from '$lib/components/Timestamp.svelte';
+	import UserCell from '$lib/components/UserCell.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
@@ -20,7 +23,7 @@
 	export let user: User;
 	export let open: boolean;
 
-	let userColor = 'green';
+	let userColor: IndicatorColorType = 'green';
 
 	function updateUserColor(user: User) {
 		user.getAllHolds().then((holds) => {
@@ -62,13 +65,7 @@
 
 <TableBodyRow on:click>
 	<TableBodyCell>
-		<div class="flex items-center">
-			<Avatar id="avatar-menu" src={user.iconURL} rounded dot={{ color: userColor }} />
-			<div class="ms-3">
-				<div class="font-semibold">{user.name}</div>
-				<div class="text-gray-500 dark:text-gray-400">{user.email}</div>
-			</div>
-		</div>
+		<UserCell user={user} dot={{ color: userColor }} />
 	</TableBodyCell>
 	<TableBodyCell>{user.role}</TableBodyCell>
 	<TableBodyCell>{user.type}</TableBodyCell>
@@ -140,7 +137,7 @@
 							</TableBodyRow>
 							<TableBodyRow>
 								<TableBodyCell colspan="2" class="p-0">
-									<Button color="yellow" class="w-full">Edit User</Button>
+									<Button color="yellow" class="w-full" href={"/staff/user/"+user.id}>Edit User</Button>
 								</TableBodyCell>
 							</TableBodyRow>
 						</TableBody>

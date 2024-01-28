@@ -254,7 +254,6 @@ async function listAll<T>(getter: LeashListGetter<T>, includeDeleted = false, li
 	let offset = 0;
 	let result: T[] = [];
 	let currentResult: LeashListResponse<T>;
-    console.log('listAll');
 	do {
 		currentResult = await getter({
 			offset,
@@ -717,9 +716,9 @@ export class Training {
         return User.fromID(this.addedById, options);
     }
 
-    async getRemovedBy(options: LeashUserOptions = {}): Promise<User | undefined> {
+    async getRemovedBy(options: LeashUserOptions = {}): Promise<User> {
         if (!this.removedById) {
-            return undefined;
+            throw new Error('Training has not been removed.');
         }
 
         return User.fromID(this.removedById, options);
@@ -793,15 +792,21 @@ export class Hold {
         return User.fromID(this.addedById);
     }
 
-    async getRemovedBy(): Promise<User | undefined> {
+    async getRemovedBy(): Promise<User> {
         if (!this.removedById) {
-            return undefined;
+            throw new Error('Hold has not been removed.');
         }
 
         return User.fromID(this.removedById);
     }
 
-    get isActive(): boolean {
+    isPending(): boolean {
+        const ended = this.holdEnd ? isAfter(new Date(), this.holdEnd) : false;
+        const started = this.holdStart ? isAfter(new Date(), this.holdStart) : true;
+        return !started && !ended;
+    }
+
+    isActive(): boolean {
         const ended = this.holdEnd ? isAfter(new Date(), this.holdEnd) : false;
         const started = this.holdStart ? isAfter(new Date(), this.holdStart) : true;
         return started && !ended;

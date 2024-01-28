@@ -19,6 +19,11 @@
 	let { user } = data;
 </script>
 
+<svelte:head>
+  <link rel="icon" type="image/svg" href='/favicon.svg' />
+</svelte:head>
+
+
 <SideMenu bind:hidden={hideSidebar} {user} />
 <div class="flex h-dvh w-dvw flex-col">
 	<Header bind:hideSidebar {user} />

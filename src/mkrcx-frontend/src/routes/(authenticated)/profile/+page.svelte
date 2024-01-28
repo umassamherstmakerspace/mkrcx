@@ -13,7 +13,8 @@
 		TableHeadCell,
 		TableBody,
 		TableBodyRow,
-		TableBodyCell
+		TableBodyCell,
+		Alert
 	} from 'flowbite-svelte';
 	import { UserCircleSolid, RectangleListSolid, AnnotationSolid } from 'flowbite-svelte-icons';
 
@@ -27,10 +28,12 @@
 	export let data: PageData;
 	let { user } = data;
 
+	let profileError: string = '';
+
 	let tabsOpen = {
 		profile: true,
 		trainings: false,
-		holds: false,
+		holds: false
 	};
 
 	type Data = {
@@ -167,6 +170,14 @@
 			loadUser();
 		} catch (error) {
 			console.error(error);
+			let message = '';
+			if (error instanceof Error) {
+				message = error.message;
+			} else {
+				message = String(error);
+			}
+
+			profileError = message;
 		}
 	}
 
@@ -179,16 +190,26 @@
 	}
 </script>
 
+<svelte:head>
+	<title>mkr.cx | Profile</title>
+</svelte:head>
+
 <Tabs style="underline">
 	<TabItem bind:open={tabsOpen.profile}>
 		<div slot="title" class="flex items-center gap-2">
 			<UserCircleSolid size="sm" />
 			Profile
 		</div>
+		{#if profileError}
+			<Alert border color="red" dismissable on:close={() => (profileError = '')}>
+				<span class="font-medium">Error: </span>
+				{profileError}
+			</Alert>
+		{/if}
 		<form on:submit|preventDefault={updateUser}>
 			<div class="flex flex-col space-y-10">
 				<div class="flex flex-col justify-between">
-					<Label color={labelColor(userUpdateError.name)} for="large-input" class="mb-2 block"
+					<Label color={labelColor(userUpdateError.name)} for="name-input" class="mb-2 block"
 						>Name</Label
 					>
 					<Input
@@ -197,6 +218,7 @@
 						on:input={change}
 						on:change={validate}
 						type="text"
+						id="name-input"
 					/>
 					{#if isError(userUpdateError.name)}
 						<Helper class="mt-2" color="red">
@@ -206,7 +228,7 @@
 					{/if}
 				</div>
 				<div class="flex flex-col justify-between">
-					<Label color={labelColor(userUpdateError.email)} for="large-input" class="mb-2 block"
+					<Label color={labelColor(userUpdateError.email)} for="email-input" class="mb-2 block"
 						>Email</Label
 					>
 					<Input
@@ -215,6 +237,7 @@
 						on:input={change}
 						on:change={validate}
 						type="email"
+						id="email-input"
 					/>
 					{#if isError(userUpdateError.email)}
 						<Helper class="mt-2" color="red">
@@ -233,7 +256,7 @@
 					</p>
 				</div>
 				<div class="flex flex-col justify-between">
-					<Label color={labelColor(userUpdateError.type)} for="large-input" class="mb-2 block"
+					<Label color={labelColor(userUpdateError.type)} for="type-selector" class="mb-2 block"
 						>User Type</Label
 					>
 					<Select
@@ -241,6 +264,7 @@
 						bind:value={userUpdate.type}
 						on:input={change}
 						on:change={validate}
+						id="type-selector"
 					>
 						{#if studentLike}
 							<option value="undergrad">Undergraduate Student</option>
@@ -263,7 +287,7 @@
 				</div>
 				{#if studentLike}
 					<div class="flex flex-col justify-between">
-						<Label color={labelColor(userUpdateError.major)} for="large-input" class="mb-2 block"
+						<Label color={labelColor(userUpdateError.major)} for="major-input" class="mb-2 block"
 							>Major</Label
 						>
 						<Input
@@ -272,6 +296,7 @@
 							on:input={change}
 							on:change={validate}
 							type="text"
+							id="major-input"
 						/>
 						{#if isError(userUpdateError.major)}
 							<Helper class="mt-2" color="red">
@@ -283,7 +308,7 @@
 					<div class="flex flex-col justify-between">
 						<Label
 							color={labelColor(userUpdateError.graduationYear)}
-							for="large-input"
+							for="graduation-year-input"
 							class="mb-2 block">Graduation Year</Label
 						>
 						<NumberInput
@@ -292,6 +317,7 @@
 							on:input={change}
 							on:change={validate}
 							type="number"
+							id="graduation-year-input"
 						/>
 						{#if isError(userUpdateError.graduationYear)}
 							<Helper class="mt-2" color="red">

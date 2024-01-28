@@ -7,16 +7,16 @@
 
 <li class="flex flex-col space-y-10">
     <div class="flex justify-between flex-col">
-        <Label for="large-input" class="mb-2 block">Theme</Label>
-        <Select bind:value={$theme}>
+        <Label for="theme-selector" class="mb-2 block">Theme</Label>
+        <Select bind:value={$theme} id="theme-selector">
             <option value="dark">Dark</option>
             <option value="light">Light</option>
             <option value="system">System</option>
         </Select>
     </div>
     <div class="flex justify-between flex-col">
-    <Label for="large-input" class="mb-2 block">Date locale</Label>
-    <Select bind:value={$dateLocale}>
+    <Label for="locale-selector" class="mb-2 block">Date locale</Label>
+    <Select bind:value={$dateLocale} id="locale-selector">
         <option value="ISO">ISO 8601</option>
         <option value="US">American</option>
         <option value="EU">European</option>
