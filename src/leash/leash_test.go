@@ -1284,7 +1284,7 @@ func TestLeash(t *testing.T) {
 				return db.Create(&training).Error
 			}).
 			Test("Get Self Single Training", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.trainings:get"}).
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.trainings:target", "leash.users.self.trainings:get"}).
 					MinimumRole(ROLE_MEMBER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1299,7 +1299,7 @@ func TestLeash(t *testing.T) {
 				return db.Create(&training).Error
 			}).
 			Test("Delete Self Training", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.trainings:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.trainings:target", "leash.users.self.trainings:delete"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1349,7 +1349,7 @@ func TestLeash(t *testing.T) {
 				return db.Create(&hold).Error
 			}).
 			Test("Get Self Single Hold", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.holds:get"}).
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.holds:target", "leash.users.self.holds:get"}).
 					MinimumRole(ROLE_MEMBER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1364,7 +1364,7 @@ func TestLeash(t *testing.T) {
 				return db.Create(&hold).Error
 			}).
 			Test("Delete Self Hold", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.holds:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.holds:target", "leash.users.self.holds:delete"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1418,11 +1418,38 @@ func TestLeash(t *testing.T) {
 				return db.Unscoped().Delete(&models.APIKey{}, &models.APIKey{Key: "test"}).Error
 			}).
 			Test("Delete Self Api Key", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.apikeys:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.apikeys:target", "leash.users.self.apikeys:delete"}).
 					MinimumRole(ROLE_MEMBER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
 						defaultStatusResponse,
+					)
+			})
+
+		test.Endpoint("/api/users/self/apikeys/test", fiber.MethodGet).
+			SetupUser(func(_ string, user models.User) error {
+				apiKey := models.APIKey{
+					Key:         "test",
+					UserID:      user.ID,
+					FullAccess:  true,
+					Permissions: []string{},
+				}
+				return db.Create(&apiKey).Error
+			}).
+			CleanupUser(func(_ string, user models.User) error {
+				return db.Unscoped().Delete(&models.APIKey{}, &models.APIKey{Key: "test"}).Error
+			}).
+			Test("Get Self Single Api Key", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.apikeys:target", "leash.users.self.apikeys:get"}).
+					MinimumRole(ROLE_MEMBER).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						apiKeyEQ(models.APIKey{
+							Key:         "test",
+							UserID:      responseUser.ID,
+							FullAccess:  true,
+							Permissions: []string{},
+						}),
 					)
 			})
 
@@ -1487,7 +1514,7 @@ func TestLeash(t *testing.T) {
 				return db.Unscoped().Delete(&models.Notification{}, &models.Notification{ID: notificationID}).Error
 			}).
 			Test("Delete Self Notification", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.notifications:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.notifications:target", "leash.users.self.notifications:delete"}).
 					MinimumRole(ROLE_MEMBER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1505,7 +1532,7 @@ func TestLeash(t *testing.T) {
 				return db.Unscoped().Delete(&models.Notification{}, &models.Notification{ID: notificationID}).Error
 			}).
 			Test("Get Self Single Notification", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.notifications:get"}).
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.notifications:target", "leash.users.self.notifications:get"}).
 					MinimumRole(ROLE_MEMBER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1670,6 +1697,18 @@ func TestLeash(t *testing.T) {
 					)
 			})
 
+		test.Endpoint(userEP, fiber.MethodDelete).
+			SetupUser(createUser).
+			CleanupUser(cleanupUser).
+			Test("Delete User", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others:delete"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						defaultStatusResponse,
+					)
+			})
+
 		test.Endpoint(fmt.Sprintf("/api/users/%d/updates", testingUser.ID), fiber.MethodGet).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
@@ -1745,7 +1784,7 @@ func TestLeash(t *testing.T) {
 			}).
 			CleanupUser(cleanupUser).
 			Test("Get User Single Training", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.trainings:get"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.trainings:target", "leash.users.others.trainings:get"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1762,7 +1801,7 @@ func TestLeash(t *testing.T) {
 			}).
 			CleanupUser(cleanupUser).
 			Test("Delete User Training", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.trainings:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.trainings:target", "leash.users.others.trainings:delete"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1818,7 +1857,7 @@ func TestLeash(t *testing.T) {
 			}).
 			CleanupUser(cleanupUser).
 			Test("Get User Single Hold", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.holds:get"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.holds:target", "leash.users.others.holds:get"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1835,7 +1874,7 @@ func TestLeash(t *testing.T) {
 			}).
 			CleanupUser(cleanupUser).
 			Test("Delete User Hold", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.holds:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.holds:target", "leash.users.others.holds:delete"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -1910,11 +1949,37 @@ func TestLeash(t *testing.T) {
 			}).
 			CleanupUser(cleanupUser).
 			Test("Delete User Api Key", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.apikeys:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.apikeys:target", "leash.users.others.apikeys:delete"}).
 					MinimumRole(ROLE_ADMIN).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
 						defaultStatusResponse,
+					)
+			})
+
+		test.Endpoint(fmt.Sprintf("/api/users/%d/apikeys/test", testingUser.ID), fiber.MethodGet).
+			SetupUser(func(_ string, user models.User) error {
+				createUser("", user)
+				apiKey := models.APIKey{
+					Key:         "test",
+					UserID:      testingUser.ID,
+					FullAccess:  true,
+					Permissions: []string{},
+				}
+				return db.Create(&apiKey).Error
+			}).
+			CleanupUser(cleanupUser).
+			Test("Get User Single Api Key", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.apikeys:target", "leash.users.others.apikeys:get"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						apiKeyEQ(models.APIKey{
+							Key:         "test",
+							UserID:      testingUser.ID,
+							FullAccess:  true,
+							Permissions: []string{},
+						}),
 					)
 			})
 
@@ -1985,7 +2050,7 @@ func TestLeash(t *testing.T) {
 			}).
 			CleanupUser(cleanupUser).
 			Test("Delete User Notification", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.notifications:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.notifications:target", "leash.users.others.notifications:delete"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -2002,7 +2067,7 @@ func TestLeash(t *testing.T) {
 			}).
 			CleanupUser(cleanupUser).
 			Test("Get User Single Notification", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.notifications:get"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others.notifications:target", "leash.users.others.notifications:get"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -2029,6 +2094,8 @@ func TestLeash(t *testing.T) {
 			if err := db.FirstOrCreate(&serviceUser, &serviceUser).Error; err != nil {
 				return err
 			}
+
+			fmt.Println(serviceUser.ID)
 
 			test.enforcer.SetPermissionsForUser(serviceUser, serviceUser.Permissions)
 			return test.enforcer.SavePolicy()
@@ -2057,11 +2124,11 @@ func TestLeash(t *testing.T) {
 					)
 			})
 
-		test.Endpoint("/api/users/service/service_testing", fiber.MethodGet).
+		test.Endpoint(fmt.Sprintf("/api/users/%d", serviceUser.ID), fiber.MethodGet).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
 			Test("Get Service User", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service:get"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others:get"}).
 					MinimumRole(ROLE_VOLUNTEER).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -2072,14 +2139,14 @@ func TestLeash(t *testing.T) {
 		updateUser := serviceUser
 		updateUser.Name = "New Name"
 
-		test.Endpoint("/api/users/service/service_testing", fiber.MethodPatch).
+		test.Endpoint(fmt.Sprintf("/api/users/%d/service", serviceUser.ID), fiber.MethodPatch).
 			WithBody(encode(map[string]interface{}{
 				"name": "New Name",
 			})).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
 			Test("Update Service User", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service:update"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others:service_update"}).
 					MinimumRole(ROLE_ADMIN).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -2090,20 +2157,20 @@ func TestLeash(t *testing.T) {
 		updateUser = serviceUser
 		updateUser.Permissions = []string{
 			"leash.users:target_self",
-			"leash.users:target_service",
+			"leash.users:target_others",
 		}
 
-		test.Endpoint("/api/users/service/service_testing", fiber.MethodPatch).
+		test.Endpoint(fmt.Sprintf("/api/users/%d/service", serviceUser.ID), fiber.MethodPatch).
 			WithBody(encode(map[string]interface{}{
 				"permissions": []string{
 					"leash.users:target_self",
-					"leash.users:target_service",
+					"leash.users:target_others",
 				},
 			})).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
 			Test("Update Service User Permissions", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service:update"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others:service_update"}).
 					MinimumRole(ROLE_ADMIN).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -2111,11 +2178,11 @@ func TestLeash(t *testing.T) {
 					)
 			})
 
-		test.Endpoint("/api/users/service/service_testing", fiber.MethodDelete).
+		test.Endpoint(fmt.Sprintf("/api/users/%d", serviceUser.ID), fiber.MethodDelete).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
 			Test("Delete Service User", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service:delete"}).
+				e.RequiresPermissions([]string{"leash.users:target_others", "leash.users.others:delete"}).
 					MinimumRole(ROLE_ADMIN).
 					GivesResponse(
 						statusCode(fiber.StatusOK),
@@ -2123,326 +2190,6 @@ func TestLeash(t *testing.T) {
 					)
 			})
 
-		test.Endpoint("/api/users/service/service_testing/updates", fiber.MethodGet).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Updates", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.updates:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(0),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/trainings", fiber.MethodGet).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Trainings Empty", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.trainings:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(0),
-					)
-			})
-
-		newTraining := models.Training{
-			TrainingType: "other",
-			UserID:       serviceUser.ID,
-			AddedBy:      serviceUser.ID,
-		}
-
-		test.Endpoint("/api/users/service/service_testing/trainings", fiber.MethodPost).
-			WithBody(encode(map[string]interface{}{
-				"training_type": "other",
-			})).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Create Service User Training", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.trainings:create"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						trainingEQ(newTraining),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/trainings/other", fiber.MethodGet).
-			SetupUser(func(_ string, user models.User) error {
-				createUser("", user)
-				training := newTraining
-				training.UserID = serviceUser.ID
-				return db.Create(&training).Error
-			}).CleanupUser(cleanupUser).
-			Test("Get Service User Single Training", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.trainings:get"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						trainingEQ(newTraining),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/trainings/other", fiber.MethodDelete).
-			SetupUser(func(_ string, user models.User) error {
-				createUser("", user)
-				training := newTraining
-				training.UserID = serviceUser.ID
-				return db.Create(&training).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Delete Service User Training", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.trainings:delete"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						defaultStatusResponse,
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/holds", fiber.MethodGet).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Holds Empty", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.holds:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(0),
-					)
-			})
-
-		newHold := models.Hold{
-			Reason:    "Test Hold",
-			HoldType:  "other",
-			UserID:    serviceUser.ID,
-			AddedBy:   serviceUser.ID,
-			Priority:  10,
-			HoldStart: nil,
-			HoldEnd:   nil,
-		}
-
-		test.Endpoint("/api/users/service/service_testing/holds", fiber.MethodPost).
-			WithBody(encode(map[string]interface{}{
-				"reason":    "Test Hold",
-				"hold_type": "other",
-				"priority":  10,
-			})).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Create Service User Hold", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.holds:create"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						holdEQ(newHold),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/holds/other", fiber.MethodGet).
-			SetupUser(func(_ string, user models.User) error {
-				createUser("", user)
-				hold := newHold
-				hold.UserID = serviceUser.ID
-				return db.Create(&hold).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Single Hold", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.holds:get"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						holdEQ(newHold),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/holds/other", fiber.MethodDelete).
-			SetupUser(func(_ string, user models.User) error {
-				createUser("", user)
-				hold := newHold
-				hold.UserID = serviceUser.ID
-				return db.Create(&hold).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Delete Service User Hold", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.holds:delete"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						defaultStatusResponse,
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/apikeys", fiber.MethodGet).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Api Keys Empty", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.apikeys:list"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(0),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/apikeys", fiber.MethodGet).
-			SetupUser(func(_ string, user models.User) error {
-				createUser("", user)
-				apiKey := models.APIKey{
-					Key:         "test",
-					UserID:      serviceUser.ID,
-					FullAccess:  true,
-					Permissions: []string{},
-				}
-				return db.Create(&apiKey).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Api Keys Not Empty", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.apikeys:list"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/apikeys", fiber.MethodPost).
-			WithBody(encode(map[string]interface{}{
-				"full_access": true,
-				"permissions": []string{},
-			})).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Create Service User Api Key", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.apikeys:create"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						apiKeyEQ(models.APIKey{
-							Key:         "",
-							UserID:      serviceUser.ID,
-							FullAccess:  true,
-							Permissions: []string{},
-						}),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/apikeys/test", fiber.MethodDelete).
-			SetupUser(func(_ string, user models.User) error {
-				createUser("", user)
-				apiKey := models.APIKey{
-					Key:         "test",
-					UserID:      serviceUser.ID,
-					FullAccess:  true,
-					Permissions: []string{},
-				}
-				return db.Create(&apiKey).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Delete Service User Api Key", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.apikeys:delete"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						defaultStatusResponse,
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/notifications", fiber.MethodGet).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Notifications Empty", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.notifications:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(0),
-					)
-			})
-
-		newNotification := models.Notification{
-			Title:   "Test Notification",
-			Message: "Test Message",
-			UserID:  serviceUser.ID,
-			AddedBy: serviceUser.ID,
-		}
-
-		test.Endpoint("/api/users/service/service_testing/notifications", fiber.MethodPost).
-			WithBody(encode(map[string]interface{}{
-				"title":   "Test Notification",
-				"message": "Test Message",
-			})).
-			SetupUser(createUser).
-			CleanupUser(cleanupUser).
-			Test("Create Service User Notification", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.notifications:create"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						notificationEQ(newNotification),
-					)
-			})
-
-		test.Endpoint("/api/users/service/service_testing/notifications", fiber.MethodGet).
-			SetupUser(func(_ string, user models.User) error {
-				cleanupUser("", user)
-				createUser("", user)
-				notification := newNotification
-				notification.UserID = serviceUser.ID
-				return db.Create(&notification).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Notifications Not Empty", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.notifications:list"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						listLengthEQ(1),
-					)
-			})
-
-		testNotification := newNotification
-		db.FirstOrCreate(&testNotification, &testNotification)
-		db.Unscoped().Delete(&testNotification)
-
-		notificationID := testNotification.ID
-
-		test.Endpoint(fmt.Sprintf("/api/users/service/service_testing/notifications/%d", notificationID), fiber.MethodDelete).
-			SetupUser(func(_ string, user models.User) error {
-				cleanupUser("", user)
-				createUser("", user)
-				notification := testNotification
-				notification.UserID = serviceUser.ID
-				return db.Create(&notification).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Delete Service User Notification", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.notifications:delete"}).
-					MinimumRole(ROLE_ADMIN).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						defaultStatusResponse,
-					)
-			})
-
-		test.Endpoint(fmt.Sprintf("/api/users/service/service_testing/notifications/%d", notificationID), fiber.MethodGet).
-			SetupUser(func(_ string, user models.User) error {
-				cleanupUser("", user)
-				createUser("", user)
-				notification := testNotification
-				notification.UserID = serviceUser.ID
-				return db.Create(&notification).Error
-			}).
-			CleanupUser(cleanupUser).
-			Test("Get Service User Single Notification", func(e *EndpointTester) {
-				e.RequiresPermissions([]string{"leash.users:target_service", "leash.users.service.notifications:get"}).
-					MinimumRole(ROLE_VOLUNTEER).
-					GivesResponse(
-						statusCode(fiber.StatusOK),
-						notificationEQ(testNotification),
-					)
-			})
 	})
 
 	tester.Test("Login Endpoints", func(test *Tester) {
@@ -2459,6 +2206,7 @@ func TestLeash(t *testing.T) {
 			Issuer(leash_auth.ISSUER).
 			IssuedAt(time.Now()).
 			Expiration(time.Now().Add(5*time.Minute)).
+			Audience([]string{"leash", "login-callback"}).
 			Claim("return", "/").
 			Claim("state", "state").
 			Build()

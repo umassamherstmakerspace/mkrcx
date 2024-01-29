@@ -11,40 +11,51 @@ import (
 
 // userApiKeyMiddleware is a middleware that fetches the api key from a user and stores it in the context
 func userApiKeyMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
-		user := c.Locals("target_user").(models.User)
-		var apikey = models.APIKey{
-			UserID: user.ID,
-			Key:    c.Params("api_key"),
-		}
+	db := leash_auth.GetDB(c)
+	user := c.Locals("target_user").(models.User)
+	authentication := leash_auth.GetAuthentication(c)
+	permissionPrefix := c.Locals("permission_prefix").(string)
 
-		if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "API Key not found")
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize(permissionPrefix+":target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read this user's api keys")
+	}
 
-		c.Locals("apikey", apikey)
+	var apikey = models.APIKey{
+		UserID: user.ID,
+		Key:    c.Params("api_key"),
+	}
 
-		return nil
-	})(c)
+	if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
+	}
+
+	c.Locals("apikey", apikey)
+
+	return c.Next()
 }
 
 // generalApiKeyMiddleware is a middleware that fetches the api key by ID and stores it in the context
 func generalApiKeyMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
-		var apikey = models.APIKey{
-			Key: c.Params("api_key"),
-		}
+	db := leash_auth.GetDB(c)
+	authentication := leash_auth.GetAuthentication(c)
 
-		if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "API Key not found")
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize("leash.apikeys:target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read api keys")
+	}
 
-		c.Locals("apikey", apikey)
+	var apikey = models.APIKey{
+		Key: c.Params("api_key"),
+	}
 
-		return nil
-	})(c)
+	if res := db.Limit(1).Where(&apikey).Find(&apikey); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "API Key not found")
+	}
+
+	c.Locals("apikey", apikey)
+
+	return c.Next()
 }
 
 // addCommonApiKeyEndpoints adds the common endpoints for api keys

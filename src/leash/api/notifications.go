@@ -10,49 +10,59 @@ import (
 
 // userNotificationMiddleware is a middleware that fetches the notification from a user and stores it in the context
 func userNotificationMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
-		user := c.Locals("target_user").(models.User)
-		notification_id, err := strconv.Atoi(c.Params("notification_id"))
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
-		}
+	db := leash_auth.GetDB(c)
+	user := c.Locals("target_user").(models.User)
+	authentication := leash_auth.GetAuthentication(c)
+	permissionPrefix := c.Locals("permission_prefix").(string)
 
-		var notification = models.Notification{
-			UserID: user.ID,
-			ID:     uint(notification_id),
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize(permissionPrefix+":target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read this user's notifications")
+	}
 
-		if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "Notification not found")
-		}
-		c.Locals("notification", notification)
+	notification_id, err := strconv.Atoi(c.Params("notification_id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
+	}
 
-		return nil
-	})(c)
+	var notification = models.Notification{
+		UserID: user.ID,
+		ID:     uint(notification_id),
+	}
+
+	if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "Notification not found")
+	}
+	c.Locals("notification", notification)
+
+	return c.Next()
 }
 
 // generalNotificationMiddleware is a middleware that fetches the notification by ID and stores it in the context
 func generalNotificationMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
+	db := leash_auth.GetDB(c)
+	authentication := leash_auth.GetAuthentication(c)
 
-		notification_id, err := strconv.Atoi(c.Params("notification_id"))
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize("leash.notifications:target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read notifications")
+	}
 
-		var notification = models.Notification{
-			ID: uint(notification_id),
-		}
+	notification_id, err := strconv.Atoi(c.Params("notification_id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid notification ID")
+	}
 
-		if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "Notification not found")
-		}
-		c.Locals("notification", notification)
+	var notification = models.Notification{
+		ID: uint(notification_id),
+	}
 
-		return nil
-	})(c)
+	if res := db.Limit(1).Where(&notification).Find(&notification); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "Notification not found")
+	}
+	c.Locals("notification", notification)
+
+	return c.Next()
 }
 
 // addCommonNotificationEndpoints adds the common endpoints for notifications

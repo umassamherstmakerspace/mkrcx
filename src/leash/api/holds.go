@@ -12,49 +12,58 @@ import (
 
 // userHoldMiddleware is a middleware that fetches the hold from a user and stores it in the context
 func userHoldMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
-		user := c.Locals("target_user").(models.User)
+	db := leash_auth.GetDB(c)
+	user := c.Locals("target_user").(models.User)
+	authentication := leash_auth.GetAuthentication(c)
+	permissionPrefix := c.Locals("permission_prefix").(string)
 
-		hold_type, err := url.QueryUnescape(c.Params("hold_type"))
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid hold type")
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize(permissionPrefix+":target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read this user's holds")
+	}
 
-		var hold = models.Hold{
-			UserID:   user.ID,
-			HoldType: hold_type,
-		}
-		if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "Hold not found")
-		}
-		c.Locals("hold", hold)
+	hold_type, err := url.QueryUnescape(c.Params("hold_type"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid hold type")
+	}
 
-		return nil
-	})(c)
+	var hold = models.Hold{
+		UserID:   user.ID,
+		HoldType: hold_type,
+	}
+	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
+	}
+	c.Locals("hold", hold)
+
+	return c.Next()
 }
 
 // generalHoldMiddleware is a middleware that fetches the hold by ID and stores it in the context
 func generalHoldMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
+	db := leash_auth.GetDB(c)
+	authentication := leash_auth.GetAuthentication(c)
 
-		hold_id, err := strconv.Atoi(c.Params("hold_id"))
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid hold ID")
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize("leash.holds:target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read holds")
+	}
 
-		var hold = models.Hold{
-			ID: uint(hold_id),
-		}
+	hold_id, err := strconv.Atoi(c.Params("hold_id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid hold ID")
+	}
 
-		if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "Hold not found")
-		}
-		c.Locals("hold", hold)
+	var hold = models.Hold{
+		ID: uint(hold_id),
+	}
 
-		return nil
-	})(c)
+	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
+	}
+	c.Locals("hold", hold)
+
+	return c.Next()
 }
 
 // addCommonHoldEndpoints adds the common endpoints for holds

@@ -11,52 +11,61 @@ import (
 
 // userTrainingMiddleware is a middleware that fetches the training from a user and stores it in the context
 func userTrainingMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
-		user := c.Locals("target_user").(models.User)
+	db := leash_auth.GetDB(c)
+	user := c.Locals("target_user").(models.User)
+	authentication := leash_auth.GetAuthentication(c)
+	permissionPrefix := c.Locals("permission_prefix").(string)
 
-		training_type, err := url.QueryUnescape(c.Params("training_type"))
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid training type")
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize(permissionPrefix+":target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read this user's trainings")
+	}
 
-		var training = models.Training{
-			UserID:       user.ID,
-			TrainingType: training_type,
-		}
+	training_type, err := url.QueryUnescape(c.Params("training_type"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid training type")
+	}
 
-		if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "Training not found")
-		}
+	var training = models.Training{
+		UserID:       user.ID,
+		TrainingType: training_type,
+	}
 
-		c.Locals("training", training)
+	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "Training not found")
+	}
 
-		return nil
-	})(c)
+	c.Locals("training", training)
+
+	return c.Next()
 }
 
 // generalTrainingMiddleware is a middleware that fetches the training by ID and stores it in the context
 func generalTrainingMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
+	db := leash_auth.GetDB(c)
+	authentication := leash_auth.GetAuthentication(c)
 
-		training_id, err := strconv.Atoi(c.Params("training_id"))
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid training ID")
-		}
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize("leash.trainings:target") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read trainings")
+	}
 
-		var training = models.Training{
-			ID: uint(training_id),
-		}
+	training_id, err := strconv.Atoi(c.Params("training_id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid training ID")
+	}
 
-		if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "Training not found")
-		}
+	var training = models.Training{
+		ID: uint(training_id),
+	}
 
-		c.Locals("training", training)
+	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "Training not found")
+	}
 
-		return nil
-	})(c)
+	c.Locals("training", training)
+
+	return c.Next()
 }
 
 // addCommonTrainingEndpoints adds the common endpoints for training

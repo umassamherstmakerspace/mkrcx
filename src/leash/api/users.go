@@ -27,8 +27,12 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	prefix := c.Locals("permission_prefix").(string)
 	authenticator := leash_auth.GetAuthentication(c)
 
+	auth := func(item string) bool {
+		return authenticator.Authorize(prefix+"."+item+":list") == nil
+	}
+
 	if req.WithTrainings != nil && *req.WithTrainings {
-		if authenticator.Authorize(prefix+".trainings:list") == nil {
+		if auth("trainings") {
 			user.Trainings = []models.Training{}
 			db.Model(&user).Association("Trainings").Find(&user.Trainings)
 		} else {
@@ -37,7 +41,7 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	}
 
 	if req.WithHolds != nil && *req.WithHolds {
-		if authenticator.Authorize(prefix+".holds:list") == nil {
+		if auth("holds") {
 			user.Holds = []models.Hold{}
 			db.Model(&user).Association("Holds").Find(&user.Holds)
 		} else {
@@ -46,7 +50,7 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	}
 
 	if req.WithApiKeys != nil && *req.WithApiKeys {
-		if authenticator.Authorize(prefix+".apikeys:list") == nil {
+		if auth("apikeys") {
 			user.APIKeys = []models.APIKey{}
 			db.Model(&user).Association("APIKeys").Find(&user.APIKeys)
 		} else {
@@ -55,7 +59,7 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	}
 
 	if req.WithUpdates != nil && *req.WithUpdates {
-		if authenticator.Authorize(prefix+".updates:list") == nil {
+		if auth("updates") {
 			user.UserUpdates = []models.UserUpdate{}
 			db.Model(&user).Association("UserUpdates").Find(&user.UserUpdates)
 		} else {
@@ -64,7 +68,7 @@ func (req *userGetRequest) Preload(c *fiber.Ctx, db *gorm.DB, user *models.User)
 	}
 
 	if req.WithNotifications != nil && *req.WithNotifications {
-		if authenticator.Authorize(prefix+".notifications:list") == nil {
+		if auth("notifications") {
 			user.Notifications = []models.Notification{}
 			db.Model(&user).Association("Notifications").Find(&user.Notifications)
 		} else {
@@ -94,101 +98,67 @@ func searchEmail(db *gorm.DB, email string) (models.User, error) {
 
 // selfMiddleware is a middleware that sets the target user to the current user
 func selfMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		authentication := leash_auth.GetAuthentication(c)
-		// Check if the user is authorized to perform the action
-		if authentication.Authorize("leash.users:target_self") != nil {
-			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target yourself")
-		}
+	authentication := leash_auth.GetAuthentication(c)
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize("leash.users:target_self") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target yourself")
+	}
 
-		// Get the user from the authentication
-		apiUser := authentication.User
+	// Get the user from the authentication
+	apiUser := authentication.User
 
-		c.Locals("target_user", apiUser)
-		return nil
-	})(c)
+	c.Locals("target_user", apiUser)
+	return c.Next()
 }
 
 // userMiddleware is a middleware that sets the target user to the user specified in the URL
 func userMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
-		authentication := leash_auth.GetAuthentication(c)
-		// Check if the user is authorized to perform the action
-		if authentication.Authorize("leash.users:target_others") != nil {
-			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target other users")
-		}
+	db := leash_auth.GetDB(c)
+	authentication := leash_auth.GetAuthentication(c)
+	// Check if the user is authorized to perform the action
+	if authentication.Authorize("leash.users:target_others") != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target other users")
+	}
 
-		// Get the user ID from the URL
-		user_id, err := strconv.Atoi(c.Params("user_id"))
+	// Get the user ID from the URL
+	user_id, err := strconv.Atoi(c.Params("user_id"))
 
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
-		}
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
+	}
 
-		var user = models.User{
-			ID: uint(user_id),
-		}
+	var user = models.User{
+		ID: uint(user_id),
+	}
 
-		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "User not found")
-		}
+	if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
+		return fiber.NewError(fiber.StatusNotFound, "User not found")
+	}
 
-		c.Locals("target_user", user)
-		return nil
-	})(c)
-}
-
-// serviceMiddleware is a middleware that sets the target user to the user specified in the URL from the service tag
-func serviceMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		db := leash_auth.GetDB(c)
-		authentication := leash_auth.GetAuthentication(c)
-		// Check if the user is authorized to perform the action
-		if authentication.Authorize("leash.users:target_service") != nil {
-			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to target service users")
-		}
-
-		// Get the service tag from the URL
-		service_tag := c.Params("service_tag")
-
-		var user = models.User{
-			Email: service_tag + "@mkrcx",
-		}
-
-		if res := db.Limit(1).Where(&user).Find(&user); res.Error != nil || res.RowsAffected == 0 {
-			return fiber.NewError(fiber.StatusNotFound, "User not found")
-		}
-
-		c.Locals("target_user", user)
-		return nil
-	})(c)
+	c.Locals("target_user", user)
+	return c.Next()
 }
 
 // noServiceMiddleware is a middleware that prevents targeting service accounts
 func noServiceMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		user := c.Locals("target_user").(models.User)
+	user := c.Locals("target_user").(models.User)
 
-		if user.Role == "service" {
-			return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint cannot target service accounts")
-		}
+	if user.Role == "service" {
+		return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint cannot target service accounts")
+	}
 
-		return nil
-	})(c)
+	return c.Next()
 }
 
 // onlyServiceMiddleware is a middleware that prevents targeting non-service accounts
 func onlyServiceMiddleware(c *fiber.Ctx) error {
-	return leash_auth.AfterAuthenticationMiddleware(func(c *fiber.Ctx) error {
-		user := c.Locals("target_user").(models.User)
+	user := c.Locals("target_user").(models.User)
 
-		if user.Role != "service" {
-			return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint can only target service accounts")
-		}
+	if user.Role != "service" {
+		return fiber.NewError(fiber.StatusNotAcceptable, "This endpoint can only target service accounts")
+	}
 
-		return nil
-	})(c)
+	return c.Next()
 }
 
 // createBaseEndpoints creates the common endpoints for the base user endpoint
@@ -253,15 +223,8 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		var users []models.User
 
 		showService := req.ShowService != nil && *req.ShowService
-		if showService && authenticator.Authorize("leash.users:target_service") != nil {
-			return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to view service accounts")
-		}
 
 		authorizeList := func(item string) bool {
-			if showService && authenticator.Authorize("leash.users.service."+item+":list") != nil {
-				return false
-			}
-
 			return authenticator.Authorize("leash.users.others."+item+":list") == nil
 		}
 
@@ -506,7 +469,7 @@ func updateUserEndpoint(user_ep fiber.Router) {
 		GraduationYear *int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		Major          *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
-	user_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[userUpdateRequest], func(c *fiber.Ctx) error {
+	user_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), noServiceMiddleware, models.GetBodyMiddleware[userUpdateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("body").(userUpdateRequest)
 		user := c.Locals("target_user").(models.User)
@@ -744,8 +707,8 @@ func getPermissionsEndpoint(user_ep fiber.Router) {
 	})
 }
 
-// serviceEndpoints creates the endpoints for service accounts
-func serviceEndpoints(service_ep fiber.Router) {
+// serviceCreateEndpoint creates the service user creation endpoint
+func serviceCreateEndpoint(service_ep fiber.Router) {
 	// Create a new service user endpoint
 	type serviceUserCreateRequest struct {
 		Name        string   `json:"name" xml:"name" form:"name" validate:"required"`
@@ -786,10 +749,10 @@ func serviceEndpoints(service_ep fiber.Router) {
 
 		return c.JSON(user)
 	})
+}
 
-	specific_ep := service_ep.Group("/:service_tag", serviceMiddleware, onlyServiceMiddleware)
-	getUserEndpoint(specific_ep)
-
+// updateServiceEndpoint creates the service user editing endpoint
+func updateServiceEndpoint(user_ep fiber.Router) {
 	// Update the current service user endpoint
 	type serviceUserUpdateRequest struct {
 		Name        *string   `json:"name" xml:"name" form:"name" validate:"omitempty"`
@@ -797,7 +760,7 @@ func serviceEndpoints(service_ep fiber.Router) {
 		ServiceTag  *string   `json:"service_tag" xml:"service_tag" form:"service_tag" validate:"omitempty"`
 	}
 
-	specific_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), models.GetBodyMiddleware[serviceUserUpdateRequest], func(c *fiber.Ctx) error {
+	user_ep.Patch("/service", leash_auth.PrefixAuthorizationMiddleware("service_update"), onlyServiceMiddleware, models.GetBodyMiddleware[serviceUserUpdateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("body").(serviceUserUpdateRequest)
 		user := c.Locals("target_user").(models.User)
@@ -856,13 +819,6 @@ func serviceEndpoints(service_ep fiber.Router) {
 
 		return c.JSON(user)
 	})
-
-	deleteUserEndpoint(specific_ep)
-	addUserUpdateEndpoints(specific_ep)
-	addUserTrainingEndpoints(specific_ep)
-	addUserHoldsEndpoints(specific_ep)
-	addUserApiKeyEndpoints(specific_ep)
-	addUserNotificationsEndpoints(specific_ep)
 }
 
 // registerUserEndpoints registers all the User endpoints for Leash
@@ -894,9 +850,13 @@ func registerUserEndpoints(api fiber.Router) {
 	get_ep := users_ep.Group("/get", leash_auth.ConcatPermissionPrefixMiddleware("get"))
 	createGetUserEndpoints(get_ep)
 
-	self_ep := users_ep.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware, noServiceMiddleware)
+	service_ep := users_ep.Group("/service", leash_auth.ConcatPermissionPrefixMiddleware("service"))
+	serviceCreateEndpoint(service_ep)
+
+	self_ep := users_ep.Group("/self", leash_auth.ConcatPermissionPrefixMiddleware("self"), selfMiddleware)
 	getUserEndpoint(self_ep)
 	updateUserEndpoint(self_ep)
+	updateServiceEndpoint(self_ep)
 	checkinUserEndpoint(self_ep)
 	getPermissionsEndpoint(self_ep)
 	addUserUpdateEndpoints(self_ep)
@@ -905,12 +865,10 @@ func registerUserEndpoints(api fiber.Router) {
 	addUserApiKeyEndpoints(self_ep)
 	addUserNotificationsEndpoints(self_ep)
 
-	service_ep := users_ep.Group("/service", leash_auth.ConcatPermissionPrefixMiddleware("service"))
-	serviceEndpoints(service_ep)
-
-	user_ep := users_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware, noServiceMiddleware)
+	user_ep := users_ep.Group("/:user_id", leash_auth.ConcatPermissionPrefixMiddleware("others"), userMiddleware)
 	getUserEndpoint(user_ep)
 	updateUserEndpoint(user_ep)
+	updateServiceEndpoint(user_ep)
 	deleteUserEndpoint(user_ep)
 	checkinUserEndpoint(user_ep)
 	getPermissionsEndpoint(user_ep)

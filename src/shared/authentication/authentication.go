@@ -278,41 +278,14 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-type ctxAuthNextKey struct{}
-
-// AfterAuthenticationMiddleware is the middleware that runs the middleware after authentication
-func AfterAuthenticationMiddleware(next ...fiber.Handler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		all := []fiber.Handler{}
-		if c.Locals(ctxAuthNextKey{}) != nil {
-			all = c.Locals(ctxAuthNextKey{}).([]fiber.Handler)
-		}
-
-		all = append(all, next...)
-		c.Locals(ctxAuthNextKey{}, all)
-		return c.Next()
-	}
-}
-
 // AuthorizationMiddleware is the middleware that handles authorization
 func AuthorizationMiddleware(permission string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		fmt.Println(permission)
 		// Check if the user is authorized to perform the action
 		authentication := GetAuthentication(c)
 		if authentication.Authorize(permission) != nil {
 			return c.SendStatus(fiber.StatusUnauthorized)
-		}
-
-		// Run the next middleware
-		if c.Locals(ctxAuthNextKey{}) != nil {
-			all := c.Locals(ctxAuthNextKey{}).([]fiber.Handler)
-			for _, handler := range all {
-				err := handler(c)
-				if err != nil {
-					return err
-				}
-			}
-			c.Locals(ctxAuthNextKey{}, nil)
 		}
 
 		return c.Next()
