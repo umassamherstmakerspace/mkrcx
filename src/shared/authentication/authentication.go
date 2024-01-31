@@ -281,7 +281,6 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 // AuthorizationMiddleware is the middleware that handles authorization
 func AuthorizationMiddleware(permission string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		fmt.Println(permission)
 		// Check if the user is authorized to perform the action
 		authentication := GetAuthentication(c)
 		if authentication.Authorize(permission) != nil {

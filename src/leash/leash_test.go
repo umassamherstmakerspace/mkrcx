@@ -2095,8 +2095,6 @@ func TestLeash(t *testing.T) {
 				return err
 			}
 
-			fmt.Println(serviceUser.ID)
-
 			test.enforcer.SetPermissionsForUser(serviceUser, serviceUser.Permissions)
 			return test.enforcer.SavePolicy()
 		}
