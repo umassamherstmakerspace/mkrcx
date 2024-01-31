@@ -9,9 +9,7 @@
 		TableBodyRow,
 		TableHead,
 		TableHeadCell,
-
 		type IndicatorColorType
-
 	} from 'flowbite-svelte';
 	import { slide } from 'svelte/transition';
 	import Timestamp from '$lib/components/Timestamp.svelte';
@@ -65,7 +63,7 @@
 
 <TableBodyRow on:click>
 	<TableBodyCell>
-		<UserCell user={user} dot={{ color: userColor }} />
+		<UserCell {user} dot={{ color: userColor }} />
 	</TableBodyCell>
 	<TableBodyCell>{user.role}</TableBodyCell>
 	<TableBodyCell>{user.type}</TableBodyCell>
@@ -137,7 +135,9 @@
 							</TableBodyRow>
 							<TableBodyRow>
 								<TableBodyCell colspan="2" class="p-0">
-									<Button color="yellow" class="w-full" href={"/staff/user/"+user.id}>Edit User</Button>
+									<Button color="yellow" class="w-full" href={'/staff/user/' + user.id}
+										>Edit User</Button
+									>
 								</TableBodyCell>
 							</TableBodyRow>
 						</TableBody>

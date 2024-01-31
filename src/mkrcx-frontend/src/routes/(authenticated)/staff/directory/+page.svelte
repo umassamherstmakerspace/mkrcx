@@ -19,25 +19,25 @@
 	import { ExclamationCircleOutline } from 'flowbite-svelte-icons';
 	import { inview, type Options as InviewOptions } from 'svelte-inview';
 	import { getUnixTime } from 'date-fns';
-  import type { Snapshot } from './$types';
+	import type { Snapshot } from './$types';
 
-  type Data = {
-    query: string;
-  };
+	type Data = {
+		query: string;
+	};
 
-  let lastRequestTime = 0;
-	let query: string = "";
+	let lastRequestTime = 0;
+	let query: string = '';
 
-  export const snapshot: Snapshot<Data> = {
-    capture: () => {
-      return {
-        query: query,
-      };
-    },
+	export const snapshot: Snapshot<Data> = {
+		capture: () => {
+			return {
+				query: query
+			};
+		},
 		restore: (value) => {
-      query = value.query;
-    },
-  };
+			query = value.query;
+		}
+	};
 
 	let users: User[] = [];
 	let offset = 0;
@@ -48,7 +48,7 @@
 	};
 
 	async function search(q: string, list: User[] = [], requestOffset = 0): Promise<boolean> {
-    const now = Date.now();
+		const now = Date.now();
 
 		const res = await User.search(q, {
 			offset: requestOffset,
@@ -57,16 +57,16 @@
 			withTrainings: true
 		});
 
-    if (lastRequestTime >= now) return false;
-    lastRequestTime = now;
+		if (lastRequestTime >= now) return false;
+		lastRequestTime = now;
 
 		users = [...list, ...res.data];
-    requestOffset += res.data.length;
+		requestOffset += res.data.length;
 		offset = requestOffset;
 		return res.total > requestOffset;
 	}
 
-  $: loadResult = search(query);
+	$: loadResult = search(query);
 
 	let activeRow: number | null = null;
 
@@ -343,27 +343,27 @@
 						on:createTraining={createTraining}
 					/>
 				{/each}
-        {#await loadResult then hasMore}
-        {#if hasMore}
-					<TableBodyRow>
-						<TableBodyCell colspan="8" class="p-0">
-							<div
-								class="px-2 py-3"
-								use:inview={inviewOptions}
-								on:inview_enter={() => loadResult = search(query, users, offset)}
-							>
-								<div class="flex w-full animate-pulse flex-col items-center">
-									<P size="sm" weight="light" class="mb-2.5 text-gray-200 dark:text-gray-700">
-										Loading More...
-									</P>
-									<div class="mb-2.5 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700" />
-									<div class="mb-2.5 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700" />
+				{#await loadResult then hasMore}
+					{#if hasMore}
+						<TableBodyRow>
+							<TableBodyCell colspan="8" class="p-0">
+								<div
+									class="px-2 py-3"
+									use:inview={inviewOptions}
+									on:inview_enter={() => (loadResult = search(query, users, offset))}
+								>
+									<div class="flex w-full animate-pulse flex-col items-center">
+										<P size="sm" weight="light" class="mb-2.5 text-gray-200 dark:text-gray-700">
+											Loading More...
+										</P>
+										<div class="mb-2.5 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700" />
+										<div class="mb-2.5 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700" />
+									</div>
 								</div>
-							</div>
-						</TableBodyCell>
-					</TableBodyRow>
-				{/if}
-        {/await}
+							</TableBodyCell>
+						</TableBodyRow>
+					{/if}
+				{/await}
 			</TableBody>
 		</Table>
 	</TableSearch>

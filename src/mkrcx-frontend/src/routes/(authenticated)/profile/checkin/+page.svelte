@@ -1,34 +1,34 @@
 <script lang="ts">
-    import QRCode from 'qrcode'
+	import QRCode from 'qrcode';
 	import type { PageData } from './$types';
-    import { Heading, P } from 'flowbite-svelte';
+	import { Heading, P } from 'flowbite-svelte';
 
-    export let data: PageData;
-    let { user } = data;
+	export let data: PageData;
+	let { user } = data;
 
-    let imageURI = '';
+	let imageURI = '';
 
-    async function loadQRCode() {
-        if (imageURI) {
-            URL.revokeObjectURL(imageURI);
-        }
-        
-        const res = await user.checkin();
+	async function loadQRCode() {
+		if (imageURI) {
+			URL.revokeObjectURL(imageURI);
+		}
 
-        const qrSVG = await QRCode.toString(res.token, { errorCorrectionLevel: 'H', type: 'svg' });
-        const blob = new Blob([qrSVG], { type: 'image/svg+xml' });
-        imageURI = URL.createObjectURL(blob);
+		const res = await user.checkin();
 
-        setTimeout(loadQRCode, 60 * 1000);
-    }
+		const qrSVG = await QRCode.toString(res.token, { errorCorrectionLevel: 'H', type: 'svg' });
+		const blob = new Blob([qrSVG], { type: 'image/svg+xml' });
+		imageURI = URL.createObjectURL(blob);
 
-    loadQRCode();
+		setTimeout(loadQRCode, 60 * 1000);
+	}
+
+	loadQRCode();
 </script>
 
-<div class="flex flex-col items-center space-y-4 w-full h-full">
-    <Heading level={1} class="text-center">Check In</Heading>
-    <P class="text-xl">Scan the QR code below to check in.</P>
-    <div class="flex-1 flex items-center justify-center aspect-square max-w-full max-h-full"> 
-        <img class="object-contain flex-1 h-full w-full" src={imageURI} alt="Check In QR Code" />
-    </div>
+<div class="flex h-full w-full flex-col items-center space-y-4">
+	<Heading level={1} class="text-center">Check In</Heading>
+	<P class="text-xl">Scan the QR code below to check in.</P>
+	<div class="flex aspect-square max-h-full max-w-full flex-1 items-center justify-center">
+		<img class="h-full w-full flex-1 object-contain" src={imageURI} alt="Check In QR Code" />
+	</div>
 </div>

@@ -108,23 +108,23 @@
 
 	const studentLike = user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni';
 
-	const isError = (value: any | undefined) => {
+	const isError = (value: string | undefined) => {
 		return value != undefined;
 	};
 
-	const labelColor = (value: any | undefined) => {
+	const labelColor = (value: string | undefined) => {
 		if (isError(value)) return 'red';
 		return 'gray';
 	};
 
-	const inputColor = (value: any | undefined) => {
+	const inputColor = (value: string | undefined) => {
 		if (isError(value)) return 'red';
 		return 'base';
 	};
 
 	function validate(): boolean {
 		const emailRe =
-			/^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
+			/^(([^<>()[\].,;:\s@"]+(\.[^<>()[\].,;:\s@"]+)*)|(".+"))@(([^<>()[\].,;:\s@"]+\.)+[^<>()[\].,;:\s@"]{2,})$/i;
 		let hasError = false;
 		if (!userUpdate.name) {
 			userUpdateError.name = 'Name cannot be empty';

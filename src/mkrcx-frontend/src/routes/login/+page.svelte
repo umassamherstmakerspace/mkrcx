@@ -1,49 +1,47 @@
 <script lang="ts">
-    import { afterNavigate } from '$app/navigation';
-    import { base } from '$app/paths'
-	import { login, validateToken } from '$lib/leash';
-    import { page } from '$app/stores';
-    import Cookies from 'js-cookie';
+	import { afterNavigate } from '$app/navigation';
+	import { base } from '$app/paths';
+	import { login } from '$lib/leash';
+	import { page } from '$app/stores';
+	import Cookies from 'js-cookie';
 	import type { PageData } from './$types';
 
-    export let data: PageData;
-    let { user } = data;
+	export let data: PageData;
+	let { user } = data;
 
-    let previousPage : string = base;
+	let previousPage: string = base;
 
-    afterNavigate(async ({from}) => {
-        previousPage = from?.url?.href || previousPage;
-        if (previousPage.includes("/login")) {
-            previousPage = "/";
-        } else if (previousPage == "") {
-            previousPage = "/";
-        }
-        
+	afterNavigate(async ({ from }) => {
+		previousPage = from?.url?.href || previousPage;
+		if (previousPage.includes('/login')) {
+			previousPage = '/';
+		} else if (previousPage == '') {
+			previousPage = '/';
+		}
 
-        let token = $page.url.searchParams.get('token');
-        let state = $page.url.searchParams.get('state');
-        let expires_at = $page.url.searchParams.get('expires_at');
+		let token = $page.url.searchParams.get('token');
+		let state = $page.url.searchParams.get('state');
+		let expires_at = $page.url.searchParams.get('expires_at');
 
+		if (token && state && expires_at) {
+			Cookies.set('token', token, {
+				expires: new Date(expires_at),
+				sameSite: 'strict'
+			});
 
-        if (token && state && expires_at) {
-            Cookies.set('token', token, {
-                expires: new Date(expires_at),
-                sameSite: 'strict'
-            });
+			let ret = atob(state);
 
-            let ret = atob(state);
+			if (ret.includes('/login')) {
+				ret = '/';
+			}
 
-            if (ret.includes("/login")) {
-                ret = "/";
-            }
-
-            window.location.href = ret;
-        } else {
-            if (user) {
-                window.location.href = previousPage;
-            } else {
-                await login($page.url.href || '', previousPage);
-            }
-        }
-    }) 
+			window.location.href = ret;
+		} else {
+			if (user) {
+				window.location.href = previousPage;
+			} else {
+				await login($page.url.href || '', previousPage);
+			}
+		}
+	});
 </script>

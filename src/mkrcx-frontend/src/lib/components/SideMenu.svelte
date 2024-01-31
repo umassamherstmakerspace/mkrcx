@@ -1,20 +1,29 @@
 <script lang="ts">
-	import { User } from "$lib/leash";
-	import { CloseButton, Drawer, Sidebar, SidebarDropdownItem, SidebarDropdownWrapper, SidebarGroup, SidebarItem, SidebarWrapper } from "flowbite-svelte";
-	import { DrawSquareSolid, HomeSolid, LockSolid, UploadSolid } from "flowbite-svelte-icons";
-	import { sineIn } from "svelte/easing";
-    
-    export let hidden: boolean;
-    export let user: User | null;
+	import { User } from '$lib/leash';
+	import {
+		CloseButton,
+		Drawer,
+		Sidebar,
+		SidebarDropdownItem,
+		SidebarDropdownWrapper,
+		SidebarGroup,
+		SidebarItem,
+		SidebarWrapper
+	} from 'flowbite-svelte';
+	import { DrawSquareSolid, HomeSolid, LockSolid, UploadSolid } from 'flowbite-svelte-icons';
+	import { sineIn } from 'svelte/easing';
 
-    const spanClass = 'flex-1 ms-3 whitespace-nowrap';
-    let transitionParams = {
-        x: -320,
-        duration: 200,
-        easing: sineIn
-    };
-    
-    const iconClass = "h-5 w-5 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white";
+	export let hidden: boolean;
+	export let user: User | null;
+
+	let transitionParams = {
+		x: -320,
+		duration: 200,
+		easing: sineIn
+	};
+
+	const iconClass =
+		'h-5 w-5 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white';
 </script>
 
 <Drawer transitionType="fly" {transitionParams} bind:hidden id="sidebar2">
@@ -32,41 +41,33 @@
 			<SidebarGroup>
 				<SidebarItem label="Home" href="/">
 					<svelte:fragment slot="icon">
-						<HomeSolid
-							class={iconClass}
-						/>
+						<HomeSolid class={iconClass} />
 					</svelte:fragment>
 				</SidebarItem>
-                {#if user}
-                    <SidebarItem label="File Upload" href="/wormhole">
-                        <svelte:fragment slot="icon">
-                            <UploadSolid
-                                class={iconClass}
-                            />
-                        </svelte:fragment>
-                    </SidebarItem>
-                    <SidebarDropdownWrapper label="3D Printing">
-                        <svelte:fragment slot="icon">
-                            <DrawSquareSolid
-                                class={iconClass}
-                            />
-                        </svelte:fragment>
-                        <SidebarDropdownItem label="Home" href="/spectrum" />
-                        <SidebarDropdownItem label="Printers" href="/spectrum/printers" />
-                        <SidebarDropdownItem label="My Prints" href="/spectrum/my-prints" />
-                    </SidebarDropdownWrapper>
-                    {#if user.isStaff}
-                        <SidebarDropdownWrapper label="Staff Zone">
-                            <svelte:fragment slot="icon">
-                                <LockSolid
-                                    class={iconClass}
-                                />
-                            </svelte:fragment>
-                            <SidebarDropdownItem label="Home" href="/staff" />
-                            <SidebarDropdownItem label="User Directory" href="/staff/directory" />
-                        </SidebarDropdownWrapper>
-                    {/if}
-                {/if}
+				{#if user}
+					<SidebarItem label="File Upload" href="/wormhole">
+						<svelte:fragment slot="icon">
+							<UploadSolid class={iconClass} />
+						</svelte:fragment>
+					</SidebarItem>
+					<SidebarDropdownWrapper label="3D Printing">
+						<svelte:fragment slot="icon">
+							<DrawSquareSolid class={iconClass} />
+						</svelte:fragment>
+						<SidebarDropdownItem label="Home" href="/spectrum" />
+						<SidebarDropdownItem label="Printers" href="/spectrum/printers" />
+						<SidebarDropdownItem label="My Prints" href="/spectrum/my-prints" />
+					</SidebarDropdownWrapper>
+					{#if user.isStaff}
+						<SidebarDropdownWrapper label="Staff Zone">
+							<svelte:fragment slot="icon">
+								<LockSolid class={iconClass} />
+							</svelte:fragment>
+							<SidebarDropdownItem label="Home" href="/staff" />
+							<SidebarDropdownItem label="User Directory" href="/staff/directory" />
+						</SidebarDropdownWrapper>
+					{/if}
+				{/if}
 			</SidebarGroup>
 		</SidebarWrapper>
 	</Sidebar>

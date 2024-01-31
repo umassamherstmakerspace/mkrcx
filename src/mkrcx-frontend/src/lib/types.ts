@@ -1,4 +1,4 @@
-import { isAfter, addMilliseconds } from "date-fns";
+import { isAfter, addMilliseconds } from 'date-fns';
 
 export class Cached<T> {
 	private value: T | null = null;
@@ -6,7 +6,10 @@ export class Cached<T> {
 	private expiresAt: Date | null = null;
 	private defaultTTL: number = 1000 * 30; // 30 seconds
 
-	constructor(private getter: () => Promise<T>, defaultTTL?: number) {
+	constructor(
+		private getter: () => Promise<T>,
+		defaultTTL?: number
+	) {
 		if (defaultTTL) {
 			this.defaultTTL = defaultTTL;
 		}
@@ -35,7 +38,7 @@ export class Cached<T> {
 
 		return this.promise;
 	}
-	
+
 	async invalidate(): Promise<void> {
 		this.value = null;
 		this.promise = null;
@@ -44,7 +47,7 @@ export class Cached<T> {
 
 	async setValue(value: T, expires = true): Promise<void> {
 		this.value = value;
-		if (expires) { 
+		if (expires) {
 			this.expiresAt = addMilliseconds(new Date(), this.defaultTTL);
 		} else {
 			this.expiresAt = null;
@@ -54,4 +57,8 @@ export class Cached<T> {
 	}
 }
 
-export type ConvertFields<T, V> = T extends string | number | boolean | undefined ? V : T extends object ? { [K in keyof T]: ConvertFields<T[K], V> } : never;
+export type ConvertFields<T, V> = T extends string | number | boolean | undefined
+	? V
+	: T extends object
+		? { [K in keyof T]: ConvertFields<T[K], V> }
+		: never;

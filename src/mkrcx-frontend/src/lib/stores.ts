@@ -1,64 +1,13 @@
-import { derived, writable, type Readable, type Writable } from "svelte/store";
-import type { User } from "./leash";
+import { getContext } from 'svelte';
+import type { Readable, Writable } from 'svelte/store';
 
-export type Themes = "light" | "dark" | "system";
+export type Themes = 'light' | 'dark' | 'system';
+export type DateTimeFormats = 'ISO' | 'US' | 'EU';
 
-export const theme: Writable<Themes> = writable("system");
-export const isDark: Readable<boolean> = derived(theme, ($theme) => {
-    switch ($theme) {
-        case "light":
-            return false;
-        case "dark":
-            return true;
-        case "system":
-            return window.matchMedia("(prefers-color-scheme: dark)").matches;
-        default:
-            return false;
-    }
-});
-
-export type DateTimeFormats = "ISO" | "US" | "EU";
-export const dateLocale: Writable<DateTimeFormats> = writable("ISO");
-
-export const dateFormat: Readable<string> = derived(dateLocale, ($dateLocale) => {
-    switch ($dateLocale) {
-        case "US":
-            return "MM/dd/yyyy";
-        case "EU":
-            return "dd/MM/yyyy";
-        case "ISO":
-        default:
-            return "yyyy-MM-dd";
-            
-    }
-});
-
-export const timeFormat: Readable<string> = derived(dateLocale, ($dateLocale) => {
-    switch ($dateLocale) {
-        case "US":
-            return "hh:mm:ss a";
-        case "EU":
-            return "HH:mm:ss";
-        case "ISO":
-        default:
-            return "HH:mm:ssXXX";
-            
-    }
-});
-
-
-export const dateTimeJoiner: Readable<string> = derived(dateLocale, ($dateLocale) => {
-    switch ($dateLocale) {
-        case "US":
-        case "EU":
-            return " ";
-        case "ISO":
-        default:
-            return "'T'";
-            
-    }
-});
-
-export const dateTimeFormat: Readable<string> = derived([dateFormat, timeFormat, dateTimeJoiner], ([$dateFormat, $timeFormat, $dateTimeJoiner]) => {
-    return `${$dateFormat}${$dateTimeJoiner}${$timeFormat}`;
-});
+export const getTheme: () => Writable<Themes> = () => getContext('theme');
+export const getIsDark: () => Readable<boolean> = () => getContext('isDark');
+export const getDateLocale: () => Writable<DateTimeFormats> = () => getContext('dateLocale');
+export const getDateFormat: () => Readable<string> = () => getContext('dateFormat');
+export const getTimeFormat: () => Readable<string> = () => getContext('timeFormat');
+export const getDateTimeJoiner: () => Readable<string> = () => getContext('dateTimeJoiner');
+export const getDateTimeFormat: () => Readable<string> = () => getContext('dateTimeFormat');

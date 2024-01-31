@@ -31,13 +31,15 @@
 	}
 
 	let notifications: Promise<Notification[]> = user?.getAllNotifications() ?? Promise.resolve([]);
-	let holds: Promise<Hold[]> = user?.getAllHolds().then((holds) => holds.filter((h) => h.isActive).sort(holdSort)) ?? Promise.resolve([]);
+	let holds: Promise<Hold[]> =
+		user?.getAllHolds().then((holds) => holds.filter((h) => h.isActive).sort(holdSort)) ??
+		Promise.resolve([]);
 
 	async function clearNotification(notification: Notification) {
 		await notification.delete();
 
 		if (!user) return;
-		user = await user.get({ withNotifications: true, withHolds: true })
+		user = await user.get({ withNotifications: true, withHolds: true });
 		notifications = user.getAllNotifications();
 	}
 
@@ -45,7 +47,7 @@
 		if (!user) return;
 
 		(await notifications).forEach((notification) => notification.delete());
-		user = await user.get({ withNotifications: true, withHolds: true })
+		user = await user.get({ withNotifications: true, withHolds: true });
 		notifications = user.getAllNotifications();
 	}
 
@@ -105,20 +107,22 @@
 		</Dropdown>
 		<Dropdown
 			triggeredBy="#bell"
-			class="w-full max-w-md min-w-64 divide-y divide-gray-100 rounded shadow dark:divide-gray-700 dark:bg-gray-800 max-h-72 overflow-y-auto"
+			class="max-h-72 w-full min-w-64 max-w-md divide-y divide-gray-100 overflow-y-auto rounded shadow dark:divide-gray-700 dark:bg-gray-800"
 		>
 			<div slot="header" class="py-2 text-center font-bold">Notifications</div>
 			{#await notifications then notifications}
 				{#if notifications.length > 0}
 					{#each notifications as notification}
 						<DropdownItem class="flex space-x-4 rtl:space-x-reverse">
-							<div class="w-full ps-3 flex gap-3">
+							<div class="flex w-full gap-3 ps-3">
 								<div class="flex-shrink-0">
-								<div class="font-bold">{notification.title}</div>
-								<div class="mb-1.5 text-sm text-gray-500 dark:text-gray-400">
-									{notification.message}
-								</div>
-								<div class="text-xs xtext-primary-600 dark:text-primary-500"><Timestamp timestamp={notification.createdAt} formatter="relative" /></div>
+									<div class="font-bold">{notification.title}</div>
+									<div class="mb-1.5 text-sm text-gray-500 dark:text-gray-400">
+										{notification.message}
+									</div>
+									<div class="xtext-primary-600 text-xs dark:text-primary-500">
+										<Timestamp timestamp={notification.createdAt} formatter="relative" />
+									</div>
 								</div>
 								<CloseButton on:click={() => clearNotification(notification)} />
 							</div>
@@ -131,7 +135,7 @@
 						</div>
 					</DropdownItem>
 				{:else}
-					<div class="font-medium py-2 px-4 text-sm text-center">No notifications</div>
+					<div class="px-4 py-2 text-center text-sm font-medium">No notifications</div>
 				{/if}
 			{/await}
 		</Dropdown>
@@ -144,15 +148,15 @@
 	{/if}
 </Navbar>
 {#if user}
-{#await holds then holds}
-	{#if holds.length > 0}
-	<Alert border class="text-center" color={holdColor(holds[0])}>
-		{holds[0].reason}
-	</Alert>
-	{:else if user.pendingEmail}
-	<Alert border class="text-center" color="yellow">
-		Your email is pending verification. Please log in with your new email.
-	</Alert>
-	{/if}
-{/await}
+	{#await holds then holds}
+		{#if holds.length > 0}
+			<Alert border class="text-center" color={holdColor(holds[0])}>
+				{holds[0].reason}
+			</Alert>
+		{:else if user.pendingEmail}
+			<Alert border class="text-center" color="yellow">
+				Your email is pending verification. Please log in with your new email.
+			</Alert>
+		{/if}
+	{/await}
 {/if}
