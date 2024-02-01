@@ -1,6 +1,8 @@
 package leash_backend_api
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strconv"
@@ -8,7 +10,6 @@ import (
 
 	"github.com/disgoorg/log"
 	"github.com/gofiber/fiber/v2"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
@@ -358,22 +359,33 @@ func createGetUserEndpoints(get_ep fiber.Router) {
 	// Get a user by checkin token endpoint
 	get_ep.Get("/checkin/:token", leash_auth.PrefixAuthorizationMiddleware("checkin"), models.GetQueryMiddleware[userGetRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
-		keys := leash_auth.GetKeys(c)
+		hmac := leash_auth.GetHMAC(c)
 		token := c.Params("token")
 
-		// Parse the token
-		tok, err := keys.Parse(token, []string{"leash", "checkin"})
+		// Decode the token
+		data, err := base64.URLEncoding.DecodeString(token)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid token")
+		}
+
+		// Check if the token is expired
+		expires := int64(binary.LittleEndian.Uint64(data[4:12]))
+		if time.Now().Unix() > expires {
+			return fiber.NewError(fiber.StatusUnauthorized, "Token expired")
+		}
+
+		// Verify the token
+		_, err = hmac.Write(data[:12])
+		if err != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "Invalid token")
+		}
+
+		if string(hmac.Sum(nil)) != string(data[12:]) {
+			return fiber.NewError(fiber.StatusUnauthorized, "Invalid token")
 		}
 
 		// Get the user ID from the token
-		val := tok.Subject()
-
-		user_id, err := strconv.Atoi(val)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid token")
-		}
+		user_id := binary.LittleEndian.Uint32(data[:4])
 
 		// Check if the user exists
 		var user = models.User{
@@ -651,33 +663,33 @@ func deleteUserEndpoint(user_ep fiber.Router) {
 func checkinUserEndpoint(user_ep fiber.Router) {
 	user_ep.Get("/checkin", leash_auth.PrefixAuthorizationMiddleware("checkin"), func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
-		keys := leash_auth.GetKeys(c)
+		hmac := leash_auth.GetHMAC(c)
 
-		tok, err := jwt.NewBuilder().
-			Issuer(leash_auth.ISSUER).
-			IssuedAt(time.Now()).
-			Expiration(time.Now().Add(2 * time.Minute)).
-			Subject(fmt.Sprintf("%d", user.ID)).
-			Audience([]string{"leash", "checkin"}).
-			Build()
+		expires := time.Now().Add(2 * time.Minute).Unix()
 
-		if err != nil {
-			log.Error("Failed to build the checkin token: %s\n", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
+		// [0:3] is the user ID
+		// [4:11] is the expiration time
+		bs := make([]byte, 12)
+		binary.LittleEndian.PutUint32(bs, uint32(user.ID))
+		binary.LittleEndian.PutUint64(bs[4:], uint64(expires))
 
-		signed, err := keys.Sign(tok)
+		_, err := hmac.Write(bs)
 		if err != nil {
 			log.Error("Failed to sign the checkin token: %s\n", err)
 			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 
+		output := hmac.Sum(bs)
+
+		// Base64 encode the token
+		data := base64.URLEncoding.EncodeToString(output)
+
 		token := struct {
 			Token     string `json:"token"`
 			ExpiresAt int64  `json:"expires_at"`
 		}{
-			Token:     string(signed),
-			ExpiresAt: tok.Expiration().Unix(),
+			Token:     data,
+			ExpiresAt: expires,
 		}
 
 		return c.JSON(token)

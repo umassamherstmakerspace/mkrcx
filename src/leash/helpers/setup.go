@@ -202,7 +202,7 @@ func MigrateSchema(db *gorm.DB) error {
 	return nil
 }
 
-func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, externalAuth leash_auth.ExternalAuthenticator, enforcer *casbin.Enforcer) {
+func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, hmacSecret []byte, externalAuth leash_auth.ExternalAuthenticator, enforcer *casbin.Enforcer) {
 	// Allow all origins in development
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
@@ -210,7 +210,7 @@ func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, extern
 		AllowMethods: "*",
 	}))
 
-	app.Use(leash_auth.LocalsMiddleware(db, keys, externalAuth, enforcer))
+	app.Use(leash_auth.LocalsMiddleware(db, keys, hmacSecret, externalAuth, enforcer))
 }
 
 func SetupRoutes(app *fiber.App) {

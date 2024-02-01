@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -526,6 +527,9 @@ func TestLeash(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	hmacKey := make([]byte, 64)
+	rand.Read(hmacKey)
+
 	// Initialize RBAC
 	t.Log("Initializing RBAC...")
 	enforcer, err := leash_auth.InitializeCasbin(db)
@@ -545,7 +549,7 @@ func TestLeash(t *testing.T) {
 	app := fiber.New()
 
 	t.Log("Setting up middleware...")
-	leash_helpers.SetupMiddlewares(app, db, keys, externalAuth, enforcer)
+	leash_helpers.SetupMiddlewares(app, db, keys, hmacKey, externalAuth, enforcer)
 
 	t.Log("Setting up routes...")
 	leash_helpers.SetupRoutes(app)

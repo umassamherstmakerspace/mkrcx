@@ -53,6 +53,11 @@ func main() {
 		log.Panicln(err)
 	}
 
+	hmacSecret := os.Getenv("HMAC_SECRET")
+	if hmacSecret == "" {
+		log.Panicln("HMAC_SECRET is not set")
+	}
+
 	// Initialize RBAC
 	log.Println("Initializing RBAC...")
 	enforcer, err := leash_auth.InitializeCasbin(db)
@@ -72,7 +77,7 @@ func main() {
 	app := fiber.New()
 
 	log.Println("Setting up middleware...")
-	leash_helpers.SetupMiddlewares(app, db, keys, externalAuth, enforcer)
+	leash_helpers.SetupMiddlewares(app, db, keys, []byte(hmacSecret), externalAuth, enforcer)
 
 	log.Println("Setting up routes...")
 	leash_helpers.SetupRoutes(app)
