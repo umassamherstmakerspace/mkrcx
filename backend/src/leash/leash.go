@@ -37,7 +37,7 @@ func main() {
 	// Google OAuth2
 	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
 	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	googleRedirectURL := os.Getenv("FRONTEND_URL") + "/auth/callback"
+	googleRedirectURL := os.Getenv("LEASH_URL") + "/auth/callback"
 	externalAuth := leash_auth.GetGoogleAuthenticator(googleClientID, googleClientSecret, googleRedirectURL)
 
 	// JWT Key
