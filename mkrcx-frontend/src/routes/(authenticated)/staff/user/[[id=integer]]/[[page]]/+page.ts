@@ -51,8 +51,6 @@ export const load: PageLoad = async ({ parent, params }) => {
 		}
 	}
 
-	console.log('tabsOpen', tabsOpen);
-
 	return {
 		target,
 		tabs,
