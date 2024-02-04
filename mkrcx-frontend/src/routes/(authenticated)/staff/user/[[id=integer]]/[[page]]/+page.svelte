@@ -17,6 +17,7 @@
 	import type { PageData, Snapshot } from '../$types';
 	import Timestamp from '$lib/components/Timestamp.svelte';
 	import UserProfileTab from './UserProfileTab.svelte';
+	import ServiceProfileTab from './ServiceProfileTab.svelte';
 	import { page } from '$app/stores';
 
 	export let data: PageData;
@@ -56,7 +57,11 @@
 			<UserCircleSolid size="sm" />
 			Profile
 		</div>
-		<UserProfileTab {data} />
+		{#if target.role === 'service'}
+			<ServiceProfileTab {data} />
+		{:else}
+			<UserProfileTab {data} />
+		{/if}
 	</TabItem>
 	<TabItem bind:open={tabsOpen.trainings}>
 		<div slot="title" class="flex items-center gap-2">
