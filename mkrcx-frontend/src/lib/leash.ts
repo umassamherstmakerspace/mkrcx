@@ -143,7 +143,6 @@ export interface UserUpdateOptions {
 	name?: string;
 	email?: string;
 	cardID?: number;
-	enabled?: boolean;
 	role?: string;
 	type?: string;
 	graduationYear?: number;
@@ -487,7 +486,6 @@ export class User {
 		name,
 		email,
 		cardID,
-		enabled,
 		role,
 		type,
 		graduationYear,
@@ -501,7 +499,6 @@ export class User {
 			name,
 			email,
 			card_id: cardID,
-			enabled,
 			role,
 			type,
 			graduation_year: graduationYear,
