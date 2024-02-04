@@ -14,34 +14,13 @@
 	import { RectangleListSolid, AnnotationSolid, UserCircleSolid } from 'flowbite-svelte-icons';
 	import UserCell from '$lib/components/UserCell.svelte';
 
-	import type { PageData, Snapshot } from './$types';
+	import type { PageData, Snapshot } from '../$types';
 	import Timestamp from '$lib/components/Timestamp.svelte';
 	import UserProfileTab from './UserProfileTab.svelte';
 	import { page } from '$app/stores';
 
 	export let data: PageData;
 	let { user, target, tabs, tabsOpen } = data;
-
-	let activeTab: keyof typeof tabs = 'profile';
-
-	$: {
-		switch ($page.url.hash) {
-			case '#trainings':
-				activeTab = 'trainings';
-				break;
-			case '#holds':
-				activeTab = 'holds';
-				break;
-			case '#updates':
-				activeTab = 'updates';
-				break;
-			case '#apikeys':
-				activeTab = 'apikeys';
-				break;
-		}
-
-		tabs[activeTab] && (tabsOpen[activeTab] = true);
-	}
 
 	type Data = {
 		tabsOpen: typeof tabsOpen;
