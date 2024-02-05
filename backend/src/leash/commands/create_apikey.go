@@ -13,6 +13,7 @@ import (
 	"github.com/erikgeiser/promptkit/textinput"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/subcommands"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	leash_helpers "github.com/mkrcx/mkrcx/src/leash/helpers"
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
@@ -96,6 +97,7 @@ func (p *NewApiKeyCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interfac
 	}
 
 	apikey := models.APIKey{
+		Key:    uuid.New().String(),
 		UserID: selectedUser.ID,
 	}
 
@@ -148,6 +150,8 @@ func (p *NewApiKeyCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interfac
 	}
 
 	log.Println("Creating API Key...")
+
+	log.Println("API Key:", apikey)
 
 	err = db.Create(&apikey).Error
 	if err != nil {

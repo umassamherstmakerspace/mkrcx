@@ -66,7 +66,7 @@ func (u *User) AfterCreate(tx *gorm.DB) (err error) {
 
 type APIKey struct {
 	Model
-	Key         string `gorm:"column:api_key;primaryKey"`
+	Key         string `gorm:"column:api_key;primaryKey;size:36"`
 	UserID      uint
 	Description string
 	FullAccess  bool
