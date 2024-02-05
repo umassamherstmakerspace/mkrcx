@@ -151,14 +151,14 @@ func (p *NewApiKeyCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interfac
 
 	log.Println("Creating API Key...")
 
-	log.Println("API Key:", apikey)
-
 	err = db.Create(&apikey).Error
 	if err != nil {
 		log.Panicln(err)
 	}
 
 	enforcer.SetPermissionsForAPIKey(apikey, apikey.Permissions)
+
+	log.Println("API Key:", apikey.Key)
 
 	log.Println("API Key created successfully!")
 

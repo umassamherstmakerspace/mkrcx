@@ -137,8 +137,6 @@ func (p *NewServiceUserCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...int
 		user.Permissions = append(user.Permissions, permission)
 	}
 
-	fmt.Println("User:", user)
-
 	// Create User
 	log.Println("Creating service user...")
 	err = db.Create(&user).Error
