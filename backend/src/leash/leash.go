@@ -14,6 +14,9 @@ func main() {
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.CommandsCommand(), "")
 	subcommands.Register(&commands.LaunchCmd{}, "")
+	subcommands.Register(&commands.NewUserCmd{}, "")
+	subcommands.Register(&commands.NewServiceUserCmd{}, "")
+	subcommands.Register(&commands.NewApiKeyCmd{}, "")
 
 	flag.Parse()
 	ctx := context.Background()
