@@ -1,1 +1,1 @@
-# mkr.cx -- The
+# mkr.cx -- The Online System for The UMass Makerspace
