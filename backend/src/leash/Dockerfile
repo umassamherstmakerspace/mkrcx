@@ -1,13 +1,13 @@
-FROM golang:1.20-alpine
+FROM golang:1.21-alpine
 
 WORKDIR /app
 
-COPY ../go.mod ./
-COPY ../go.sum ./
+COPY go.mod ./
+COPY go.sum ./
 
 RUN go mod download
 
-COPY ../src/ ./src
+COPY ./src ./src
 
 RUN go build -o /leash src/leash/leash.go
 
