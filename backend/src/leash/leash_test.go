@@ -556,7 +556,7 @@ func TestLeash(t *testing.T) {
 
 	ready := make(chan bool)
 
-	app.Hooks().OnListen(func() error {
+	app.Hooks().OnListen(func(_ fiber.ListenData) error {
 		ready <- true
 		return nil
 	})
