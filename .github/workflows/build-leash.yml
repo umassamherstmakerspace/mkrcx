@@ -1,12 +1,9 @@
 name: build-leash
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
-      - "*.*.*"
+      - "leash-*.*.*"
 
 env:
   REGISTRY_IMAGE: umassmakerspace/mkrcx-leash
@@ -53,6 +50,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=edge
+            type=match,pattern=^leash-(.*),group=1
+
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -75,6 +76,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       -
         name: Export digest
         run: |

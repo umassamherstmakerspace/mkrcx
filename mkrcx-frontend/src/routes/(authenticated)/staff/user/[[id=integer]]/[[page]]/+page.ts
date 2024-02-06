@@ -34,7 +34,10 @@ export const load: PageLoad = async ({ parent, params }) => {
 		tabs.apikeys = true;
 	}
 
-	const tabsOpen = Object.fromEntries(Object.keys(tabs).map((tab) => [tab, false])) as Record<keyof typeof tabs, boolean>;
+	const tabsOpen = Object.fromEntries(Object.keys(tabs).map((tab) => [tab, false])) as Record<
+		keyof typeof tabs,
+		boolean
+	>;
 	type tabsType = keyof typeof tabs;
 
 	if (params.page) {

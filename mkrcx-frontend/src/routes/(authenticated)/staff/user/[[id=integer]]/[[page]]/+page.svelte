@@ -21,7 +21,8 @@
 	import { page } from '$app/stores';
 
 	export let data: PageData;
-	let { user, target, tabs, tabsOpen } = data;
+	const { user, tabs, tabsOpen } = data;
+	let { target } = data;
 
 	type Data = {
 		tabsOpen: typeof tabsOpen;

@@ -6,7 +6,7 @@
 	import { inputColor, isError, labelColor } from './formCommon';
 
 	export let data: PageData;
-	let { user, target } = data;
+	let { target } = data;
 	const permissionOptions = allPermissions.map((permission) => ({
 		name: permission,
 		value: permission
@@ -98,8 +98,10 @@
 			{/if}
 		</div>
 		<div class="flex flex-col justify-between">
-			<Label color={labelColor(userUpdateError.permissions?.toString())} for="permissions-select" class="mb-2 block"
-				>Permissions</Label
+			<Label
+				color={labelColor(userUpdateError.permissions?.toString())}
+				for="permissions-select"
+				class="mb-2 block">Permissions</Label
 			>
 			<MultiSelect
 				color={inputColor(userUpdateError.permissions?.toString())}
@@ -108,8 +110,7 @@
 				on:input={change}
 				on:change={validate}
 				id="permissions-select"
-			>
-			</MultiSelect>
+			></MultiSelect>
 			{#if isError(userUpdateError.permissions?.toString())}
 				<Helper class="mt-2" color="red">
 					<span class="font-medium">Error:</span>
