@@ -1,9 +1,12 @@
 name: build-leash
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - "main"
+      - main
+    tags:
+      - "*.*.*"
 
 env:
   REGISTRY_IMAGE: umassmakerspace/mkrcx-leash
