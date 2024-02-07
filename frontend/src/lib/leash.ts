@@ -1,4 +1,4 @@
-import Cookies from 'js-cookie';
+import Cookies from '../../node_modules/@types/js-cookie';
 import { Cached } from './types';
 import { isAfter } from 'date-fns';
 import { minidenticon } from 'minidenticons';
