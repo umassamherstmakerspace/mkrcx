@@ -1,3 +1,5 @@
+mod reader;
+
 use pcsc::*;
 
 fn main() {
