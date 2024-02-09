@@ -1,0 +1,36 @@
+version: "3.8"
+name: mkrcx
+
+services:
+  mkrcx-leash:
+    container_name: mkrcx_leash
+    image: ghcr.io/umassamherstmakerspace/mkrcx-leash:${MKRCX_VERSION:-release}
+    env_file:
+      - .env
+    ports:
+      - 8000:8000
+    volumes:
+      - ./secrets:/secrets
+    restart: always
+    depends_on:
+      - db
+
+  mkrcx-frontend:
+    container_name: mkrcx_frontend
+    image: ghcr.io/umassamherstmakerspace/mkrcx-frontend:${MKRCX_VERSION:-release}
+    env_file:
+      - .env
+    ports:
+      - 3000:3000
+    environment:
+      - PUBLIC_LEASH_ENDPOINT: ${LEASH_URL}
+    restart: always
+    depends_on:
+      - mkrcx-leash
+
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: mkrcx
