@@ -1,18 +1,14 @@
-FROM node:20-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-COPY . /app
+FROM node:current-alpine3.18 AS base
 WORKDIR /app
+COPY package.json ./
+COPY package-lock.json ./
+RUN npm install
 
-FROM base AS prod-deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
-FROM base AS build
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-RUN pnpm run build
+COPY . .
 
-FROM base
-COPY --from=prod-deps /app/node_modules /app/node_modules
-COPY --from=build /app/dist /app/dist
-EXPOSE 4173
-CMD [ "pnpm", "preview" ]
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["node", "build"]
