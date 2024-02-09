@@ -1,8 +1,13 @@
-import Cookies from '../../node_modules/@types/js-cookie';
+import Cookies from 'js-cookie';
 import { Cached } from './types';
 import { isAfter } from 'date-fns';
 import { minidenticon } from 'minidenticons';
-import { PUBLIC_LEASH_ENDPOINT as LEASH_ENDPOINT } from '$env/static/public';
+import { env } from '$env/dynamic/public';
+
+const LEASH_ENDPOINT = env.PUBLIC_LEASH_ENDPOINT;
+if (!LEASH_ENDPOINT) {
+	throw new Error('LEASH_ENDPOINT not set');
+}
 
 export const allPermissions = [
 	'leash.users:target_self',

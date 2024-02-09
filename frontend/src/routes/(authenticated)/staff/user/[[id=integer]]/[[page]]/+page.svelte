@@ -20,8 +20,8 @@
 	import ServiceProfileTab from './ServiceProfileTab.svelte';
 
 	export let data: PageData;
-	const { user, tabs, tabsOpen } = data;
-	let { target } = data;
+	const { user, tabs } = data;
+	let { tabsOpen, target } = data;
 
 	type Data = {
 		tabsOpen: typeof tabsOpen;
