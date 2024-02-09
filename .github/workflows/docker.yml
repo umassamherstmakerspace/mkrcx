@@ -43,13 +43,12 @@ jobs:
           - image: mkrcx-leash
             context: backend
             file: backend/src/leash/Dockerfile
-            # platforms: linux/amd64,linux/arm64
-            platforms: linux/arm64
+            platforms: linux/amd64,linux/arm64
 
-          # - image: mkrcx-frontend
-          #   context: frontend
-          #   file: frontend/Dockerfile
-          #   platforms: linux/amd64,linux/arm64
+          - image: mkrcx-frontend
+            context: frontend
+            file: frontend/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
     steps:
       - name: Checkout
