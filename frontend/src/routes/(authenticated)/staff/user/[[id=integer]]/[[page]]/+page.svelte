@@ -14,14 +14,14 @@
 	import { RectangleListSolid, AnnotationSolid, UserCircleSolid } from 'flowbite-svelte-icons';
 	import UserCell from '$lib/components/UserCell.svelte';
 
-	import type { PageData, Snapshot } from '../$types';
+	import type { PageData, Snapshot } from './$types';
 	import Timestamp from '$lib/components/Timestamp.svelte';
 	import UserProfileTab from './UserProfileTab.svelte';
 	import ServiceProfileTab from './ServiceProfileTab.svelte';
-	import { page } from '$app/stores';
 
 	export let data: PageData;
-	let { user, target, tabs, tabsOpen } = data;
+	const { user, tabs } = data;
+	let { tabsOpen, target } = data;
 
 	type Data = {
 		tabsOpen: typeof tabsOpen;

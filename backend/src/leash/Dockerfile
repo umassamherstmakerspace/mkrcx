@@ -2,6 +2,8 @@ FROM golang:1.21-alpine
 
 WORKDIR /app
 
+RUN touch .env
+
 COPY go.mod ./
 COPY go.sum ./
 

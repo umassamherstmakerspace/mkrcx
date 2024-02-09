@@ -2,7 +2,15 @@ import Cookies from 'js-cookie';
 import { Cached } from './types';
 import { isAfter } from 'date-fns';
 import { minidenticon } from 'minidenticons';
-import { PUBLIC_LEASH_ENDPOINT as LEASH_ENDPOINT } from '$env/static/public';
+import { env } from '$env/dynamic/public';
+
+function getLeashEndpoint(): string {
+	const LEASH_ENDPOINT = env.PUBLIC_LEASH_ENDPOINT;
+	if (!LEASH_ENDPOINT) {
+		throw new Error('LEASH_ENDPOINT not set');
+	}
+	return LEASH_ENDPOINT;
+}
 
 export const allPermissions = [
 	'leash.users:target_self',
@@ -97,7 +105,7 @@ async function leashFetch<T extends object>(
 	body?: object,
 	noResponse = false
 ): Promise<T> {
-	const r = await fetch(`${LEASH_ENDPOINT}${endpoint}`, {
+	const r = await fetch(`${getLeashEndpoint()}${endpoint}`, {
 		method: method,
 		headers: {
 			Authorization: `Bearer ${Cookies.get('token')}`,
@@ -1149,7 +1157,7 @@ export async function login(login: string, return_to: string): Promise<void> {
 
 	const state = btoa(return_to);
 
-	window.location.href = `${LEASH_ENDPOINT}/auth/login?return=${login}&state=${state}`;
+	window.location.href = `${getLeashEndpoint()}/auth/login?return=${login}&state=${state}`;
 }
 
 export async function logout(return_to: string): Promise<void> {
@@ -1161,5 +1169,5 @@ export async function logout(return_to: string): Promise<void> {
 
 	Cookies.remove('token');
 
-	window.location.href = `${LEASH_ENDPOINT}/auth/logout?token=${token}&return=${return_to}`;
+	window.location.href = `${getLeashEndpoint()}/auth/logout?token=${token}&return=${return_to}`;
 }

@@ -1,13 +1,5 @@
 <script lang="ts">
-	import {
-		Alert,
-		Button,
-		Helper,
-		Input,
-		Label,
-		NumberInput,
-		Select,
-	} from 'flowbite-svelte';
+	import { Alert, Button, Helper, Input, Label, NumberInput, Select } from 'flowbite-svelte';
 	import type { PageData } from './$types';
 	import type { UserUpdateOptions } from '$lib/leash';
 	import type { ConvertFields } from '$lib/types';
@@ -17,7 +9,7 @@
 	let { user, target } = data;
 
 	let profileError: string = '';
-    let changed = false;
+	let changed = false;
 	const change = () => (changed = true);
 
 	const userUpdate: UserUpdateOptions = {
@@ -44,13 +36,13 @@
 			userUpdate.graduationYear = target.graduationYear;
 		}
 
-        if (user.role === 'admin') {
-            userUpdate.role = target.role;
-            userUpdate.cardID = target.cardId;
-        } else {
-            userUpdate.role = undefined;
-            userUpdate.cardID = undefined;
-        }
+		if (user.role === 'admin') {
+			userUpdate.role = target.role;
+			userUpdate.cardID = target.cardId;
+		} else {
+			userUpdate.role = undefined;
+			userUpdate.cardID = undefined;
+		}
 
 		changed = false;
 
@@ -95,14 +87,19 @@
 			userUpdateError.graduationYear = undefined;
 		}
 
-        if (userUpdate.role === 'admin' || userUpdate.role === 'staff' || userUpdate.role === 'volunteer' || userUpdate.role === 'member') {
-            userUpdateError.role = undefined;
-        } else {
-            userUpdateError.role = 'Invalid role';
-            hasError = true;
-        }
+		if (
+			userUpdate.role === 'admin' ||
+			userUpdate.role === 'staff' ||
+			userUpdate.role === 'volunteer' ||
+			userUpdate.role === 'member'
+		) {
+			userUpdateError.role = undefined;
+		} else {
+			userUpdateError.role = 'Invalid role';
+			hasError = true;
+		}
 
-        userUpdateError.cardID = undefined;
+		userUpdateError.cardID = undefined;
 
 		return hasError;
 	}
@@ -181,63 +178,63 @@
 				</p>
 			{/if}
 		</div>
-        {#if user.role === 'admin'}
-        <div class="flex flex-col justify-between">
-			<Label color={labelColor(userUpdateError.email)} for="cardID-input" class="mb-2 block"
-				>Card ID</Label
-			>
-			<Input
-				color={inputColor(userUpdateError.cardID)}
-				bind:value={userUpdate.cardID}
-				on:input={change}
-				on:change={validate}
-				type="text"
-				id="cardID-input"
-			/>
-			{#if isError(userUpdateError.cardID)}
-				<Helper class="mt-2" color="red">
-					<span class="font-medium">Error:</span>
-					{userUpdateError.cardID}
-				</Helper>
-			{/if}
-		</div>
-        {/if}
-        <div class="flex flex-col justify-between">
+		{#if user.role === 'admin'}
+			<div class="flex flex-col justify-between">
+				<Label color={labelColor(userUpdateError.email)} for="cardID-input" class="mb-2 block"
+					>Card ID</Label
+				>
+				<Input
+					color={inputColor(userUpdateError.cardID)}
+					bind:value={userUpdate.cardID}
+					on:input={change}
+					on:change={validate}
+					type="text"
+					id="cardID-input"
+				/>
+				{#if isError(userUpdateError.cardID)}
+					<Helper class="mt-2" color="red">
+						<span class="font-medium">Error:</span>
+						{userUpdateError.cardID}
+					</Helper>
+				{/if}
+			</div>
+		{/if}
+		<div class="flex flex-col justify-between">
 			<Label color={labelColor(userUpdateError.type)} for="type-selector" class="mb-2 block"
 				>User Role</Label
 			>
-            {#if user.role === 'admin'}
-                <Select
-                    color={inputColor(userUpdateError.role)}
-                    bind:value={userUpdate.role}
-                    on:input={change}
-                    on:change={validate}
-                    id="type-selector"
-                >
-                    <option value="admin">Admin</option>
-                    <option value="staff">Staff</option>
-                    <option value="volunteer">Volunteer</option>
-                    <option value="member">Member</option>
-                </Select>
-                {#if isError(userUpdateError.role)}
-                    <Helper class="mt-2" color="red">
-                        <span class="font-medium">Error:</span>
-                        {userUpdateError.role}
-                    </Helper>
-                {/if}
-            {:else}
-            <Select
-				color={inputColor(userUpdateError.role)}
-				value={target.role}
-				disabled
-				id="type-selector"
-			  >
-                <option value="admin">Admin</option>
-                <option value="staff">Staff</option>
-                <option value="volunteer">Volunteer</option>
-                <option value="member">Member</option>
-            </Select>
-            {/if}
+			{#if user.role === 'admin'}
+				<Select
+					color={inputColor(userUpdateError.role)}
+					bind:value={userUpdate.role}
+					on:input={change}
+					on:change={validate}
+					id="type-selector"
+				>
+					<option value="admin">Admin</option>
+					<option value="staff">Staff</option>
+					<option value="volunteer">Volunteer</option>
+					<option value="member">Member</option>
+				</Select>
+				{#if isError(userUpdateError.role)}
+					<Helper class="mt-2" color="red">
+						<span class="font-medium">Error:</span>
+						{userUpdateError.role}
+					</Helper>
+				{/if}
+			{:else}
+				<Select
+					color={inputColor(userUpdateError.role)}
+					value={target.role}
+					disabled
+					id="type-selector"
+				>
+					<option value="admin">Admin</option>
+					<option value="staff">Staff</option>
+					<option value="volunteer">Volunteer</option>
+					<option value="member">Member</option>
+				</Select>
+			{/if}
 		</div>
 		<div class="flex flex-col justify-between">
 			<Label color={labelColor(userUpdateError.type)} for="type-selector" class="mb-2 block"

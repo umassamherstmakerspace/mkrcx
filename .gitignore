@@ -2,4 +2,5 @@
 keys.json
 .env
 .env.*
+!.env.example
 *.db
