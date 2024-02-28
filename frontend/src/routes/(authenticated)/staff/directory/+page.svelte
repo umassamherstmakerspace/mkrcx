@@ -66,7 +66,12 @@
 		return res.total > requestOffset;
 	}
 
-	$: loadResult = search(query);
+	function newSearch(query: string) {
+		activeRow = null;
+		loadResult = search(query);
+	}
+
+	$: newSearch(query);
 
 	let activeRow: number | null = null;
 
