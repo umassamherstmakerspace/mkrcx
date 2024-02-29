@@ -15,12 +15,13 @@
 	} from 'flowbite-svelte';
 	import { BellSolid, DotsVerticalOutline, EyeSolid } from 'flowbite-svelte-icons';
 	import DropdownTheme from './DropdownTheme.svelte';
-	import { Hold, Notification, User, logout } from '$lib/leash';
+	import { Hold, LeashAPI, Notification, User } from '$lib/leash';
 	import { page } from '$app/stores';
 	import Timestamp from './Timestamp.svelte';
 
 	export let hideSidebar: boolean;
 	export let user: User | null;
+	export let api: LeashAPI;
 
 	function holdSort(a: Hold, b: Hold) {
 		if (a.priority < b.priority) return -1;
@@ -103,7 +104,7 @@
 			<DropdownItem href="/settings">Settings</DropdownItem>
 			<DropdownTheme />
 			<DropdownDivider />
-			<DropdownItem on:click={() => logout($page.url.origin)}>Logout</DropdownItem>
+			<DropdownItem on:click={() => api.logout($page.url.origin)}>Logout</DropdownItem>
 		</Dropdown>
 		<Dropdown
 			triggeredBy="#bell"

@@ -12,15 +12,15 @@ export const load: PageLoad = async ({ parent, params }) => {
 		error(400, 'Invalid user ID provided.');
 	}
 
+	const { user, api } = await parent();
+
 	let target: User;
 	try {
-		target = await User.fromID(userID);
+		target = await api.userFromID(userID);
 	} catch (e) {
 		console.error(e);
 		error(404, 'User not found.');
 	}
-
-	const { user } = await parent();
 
 	const tabs = {
 		profile: true,

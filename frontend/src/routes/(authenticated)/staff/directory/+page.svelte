@@ -19,7 +19,10 @@
 	import { ExclamationCircleOutline } from 'flowbite-svelte-icons';
 	import { inview, type Options as InviewOptions } from 'svelte-inview';
 	import { getUnixTime } from 'date-fns';
-	import type { Snapshot } from './$types';
+	import type { PageData, Snapshot } from './$types';
+
+	export let data: PageData;
+	let { api } = data;
 
 	type Data = {
 		query: string;
@@ -50,7 +53,7 @@
 	async function search(q: string, list: User[] = [], requestOffset = 0): Promise<boolean> {
 		const now = Date.now();
 
-		const res = await User.search(q, {
+		const res = await api.searchUsers(q, {
 			offset: requestOffset,
 			limit: 50,
 			withHolds: true,

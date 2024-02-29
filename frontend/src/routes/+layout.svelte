@@ -105,7 +105,7 @@
 	let hideSidebar = true;
 
 	export let data: LayoutData;
-	let { user } = data;
+	let { user, api } = data;
 </script>
 
 <svelte:head>
@@ -114,7 +114,7 @@
 
 <SideMenu bind:hidden={hideSidebar} {user} />
 <div class="flex h-dvh w-dvw flex-col">
-	<Header bind:hideSidebar {user} />
+	<Header bind:hideSidebar {user} {api} />
 	<div class="h-full max-h-full w-full flex-1 overflow-auto p-4">
 		<slot />
 	</div>
