@@ -13,6 +13,7 @@
     import DayGrid from '@event-calendar/day-grid';
     import List from '@event-calendar/list';
     import '@event-calendar/core/index.css';
+    import '$lib/calendar_theme.scss';
 
     let plugins = [TimeGrid, DayGrid, List];
     let options = {
@@ -38,19 +39,15 @@
         },
         dayMaxEvents: true,
         nowIndicator: true,
-        selectable: true
+        selectable: true,
     };
 </script>
 
-<div class="w-full container flex justify-center bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-100 dark:border-gray-700 divide-gray-100 dark:divide-gray-700">
+<div class="w-full container flex justify-center  text-gray-700 dark:text-gray-200 border-gray-100 dark:border-gray-700 divide-gray-100 dark:divide-gray-700">
     <Calendar {plugins} {options} />
 </div>
 
 <style>
-    :global(.ec) {
-        flex: 1;
-    }
-
     .container {
         aspect-ratio: 16/9;
     }
