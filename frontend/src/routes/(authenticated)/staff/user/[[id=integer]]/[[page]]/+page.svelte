@@ -9,7 +9,13 @@
 		TableBodyRow,
 		TableBodyCell,
 		Badge,
-		Indicator
+		Indicator,
+
+		Button,
+
+		CloseButton
+
+
 	} from 'flowbite-svelte';
 	import { RectangleListSolid, AnnotationSolid, UserCircleSolid } from 'flowbite-svelte-icons';
 	import UserCell from '$lib/components/UserCell.svelte';
@@ -18,9 +24,15 @@
 	import Timestamp from '$lib/components/Timestamp.svelte';
 	import UserProfileTab from './UserProfileTab.svelte';
 	import ServiceProfileTab from './ServiceProfileTab.svelte';
+	import CreateTrainingModal from '$lib/components/modals/CreateTrainingModal.svelte';
+	import { timeout, type ModalOptions } from '$lib/components/modals/modals';
+	import type { DeleteModalOptions } from '$lib/components/modals/DeleteModal.svelte';
+	import DeleteModal from '$lib/components/modals/DeleteModal.svelte';
+	import type { Hold, Training } from '$lib/leash';
+	import CreateHoldModal from '$lib/components/modals/CreateHoldModal.svelte';
 
 	export let data: PageData;
-	const { user, tabs } = data;
+	const { api, user, tabs } = data;
 	let { tabsOpen, target } = data;
 
 	type Data = {
@@ -38,12 +50,100 @@
 		}
 	};
 
-	async function getHolds() {
-		const holds = await target.getAllHolds();
-		return holds.filter((hold) => {
-			if (hold.holdEnd == undefined) return true;
-			return hold.holdEnd.getTime() > Date.now();
+	let allTrainings = getTrainings();
+	let allHolds = getHolds();
+
+	async function getTrainings(): Promise<Training[]> {
+		const trainings = await target.getAllTrainings(true, true);
+		return trainings.sort((a, b) => {
+			if (a.deletedAt && b.deletedAt)
+				return b.deletedAt.getTime() - a.deletedAt.getTime();
+			if (a.deletedAt)
+				return 1;
+			if (b.deletedAt)
+				return -1;
+			else
+				return b.createdAt.getTime() - a.createdAt.getTime();
 		});
+	}
+
+	async function getHolds(): Promise<Hold[]> {
+		const holds = await target.getAllHolds(true, true);
+		return holds.sort((a, b) => {
+			if (a.deletedAt && b.deletedAt)
+				return b.deletedAt.getTime() - a.deletedAt.getTime();
+			if (a.deletedAt)
+				return 1;
+			if (b.deletedAt)
+				return -1;
+			else
+				return b.createdAt.getTime() - a.createdAt.getTime();
+		});
+	}
+
+	let createTrainingModal: ModalOptions = {
+		open: false,
+		onConfirm: async () => {}
+	};
+
+	let createHoldModal: ModalOptions = {
+		open: false,
+		onConfirm: async () => {}
+	};
+
+	let deleteTrainingModal: DeleteModalOptions = {
+		open: false,
+		name: '',
+		onConfirm: async () => {}
+	};
+
+	let deleteHoldModal: DeleteModalOptions = {
+		open: false,
+		name: '',
+		onConfirm: async () => {}
+	};
+
+	function createTraining() {
+		createTrainingModal = {
+			open: true,
+			onConfirm: async () => {
+				api.leashGet
+				allTrainings = getTrainings();
+			}
+		};
+	}
+
+	function createHold() {
+		createHoldModal = {
+			open: true,
+			onConfirm: async () => {allHolds = getHolds()}
+		};
+	}
+
+	function deleteTraining(training: Training) {
+		deleteTrainingModal = {
+			open: true,
+			name: training.trainingType,
+			onConfirm: async () => {
+				deleteTrainingModal.open = false;
+				await training.delete();
+				await timeout(300);
+				allTrainings = getTrainings();
+			}
+		};
+	}
+
+	function deleteHold(hold: Hold) {
+		deleteHoldModal = {
+			open: true,
+			name: hold.holdType,
+			onConfirm: async () => {
+				deleteHoldModal.open = false;
+				await hold.delete();
+				await timeout(300);
+				allHolds = getHolds();
+			}
+		};
 	}
 </script>
 
@@ -68,6 +168,28 @@
 			<RectangleListSolid size="sm" />
 			Trainings
 		</div>
+
+		<CreateTrainingModal
+			bind:open={createTrainingModal.open}
+			user={target}
+			onConfirm={createTrainingModal.onConfirm}
+		/>
+
+		<DeleteModal
+			bind:open={deleteTrainingModal.open}
+			modalType="Training"
+			name={deleteTrainingModal.name}
+			user={target}
+			onConfirm={deleteTrainingModal.onConfirm}
+		/>
+
+		<Button
+			color="primary"
+			class="mb-4 w-full"
+			on:click={createTraining}
+		>
+			New Training
+		</Button>
 		<Table>
 			<TableHead>
 				<TableHeadCell>Active</TableHeadCell>
@@ -76,11 +198,12 @@
 				<TableHeadCell>Added By</TableHeadCell>
 				<TableHeadCell>Date Removed</TableHeadCell>
 				<TableHeadCell>Removed By</TableHeadCell>
+				<TableHeadCell>Remove</TableHeadCell>
 			</TableHead>
 			<TableBody>
-				{#await target.getAllTrainings()}
+				{#await allTrainings}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
+						<TableBodyCell colspan="7" class="p-0">Loading...</TableBodyCell>
 					</TableBodyRow>
 				{:then trainings}
 					{#each trainings as training}
@@ -115,11 +238,18 @@
 									-
 								{/if}
 							</TableBodyCell>
+							<TableBodyCell>
+								{#if training.deletedAt == undefined}
+									<CloseButton on:click={() => deleteTraining(training)} />
+								{:else}
+									-
+								{/if}
+							</TableBodyCell>
 						</TableBodyRow>
 					{/each}
 				{:catch error}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+						<TableBodyCell colspan="7" class="p-0">Error: {error.message}</TableBodyCell>
 					</TableBodyRow>
 				{/await}
 			</TableBody>
@@ -130,6 +260,29 @@
 			<AnnotationSolid size="sm" />
 			Holds
 		</div>
+
+		<CreateHoldModal
+			bind:open={createHoldModal.open}
+			user={target}
+			onConfirm={createHoldModal.onConfirm}
+		/>
+
+		<DeleteModal
+			bind:open={deleteHoldModal.open}
+			modalType="Hold"
+			name={deleteHoldModal.name}
+			user={target}
+			onConfirm={deleteHoldModal.onConfirm}
+		/>
+
+		<Button
+			color="primary"
+			class="mb-4 w-full"
+			on:click={createHold}
+		>
+			New Hold
+		</Button>
+
 		<Table>
 			<TableHead>
 				<TableHeadCell>Active</TableHeadCell>
@@ -141,17 +294,18 @@
 				<TableHeadCell>Added By</TableHeadCell>
 				<TableHeadCell>Date Removed</TableHeadCell>
 				<TableHeadCell>Removed By</TableHeadCell>
+				<TableHeadCell>Remove</TableHeadCell>
 			</TableHead>
 			<TableBody>
-				{#await getHolds()}
+				{#await allHolds}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
+						<TableBodyCell colspan="10" class="p-0">Loading...</TableBodyCell>
 					</TableBodyRow>
 				{:then holds}
 					{#each holds as hold}
 						<TableBodyRow>
 							<TableBodyCell>
-								{#if hold.isActive() || hold.deletedAt}
+								{#if hold.isActive()}
 									<Badge color="green" rounded class="px-2.5 py-0.5">
 										<Indicator color="green" size="xs" class="me-1" />Active
 									</Badge>
@@ -199,11 +353,18 @@
 									-
 								{/if}
 							</TableBodyCell>
+							<TableBodyCell>
+								{#if hold.isActive()}
+									<CloseButton on:click={() => deleteHold(hold)} />
+								{:else}
+									-
+								{/if}
+							</TableBodyCell>
 						</TableBodyRow>
 					{/each}
 				{:catch error}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+						<TableBodyCell colspan="10" class="p-0">Error: {error.message}</TableBodyCell>
 					</TableBodyRow>
 				{/await}
 			</TableBody>
