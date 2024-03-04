@@ -21,6 +21,12 @@
 	}
 
 	let trainingType = '';
+
+	function reset() {
+		trainingType = '';
+	}
+
+	$: if (open) reset();
 </script>
 
 <Modal bind:open size="xs" autoclose={false} class="w-full">

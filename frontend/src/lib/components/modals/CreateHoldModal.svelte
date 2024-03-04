@@ -31,8 +31,18 @@
 	let holdType = '';
 	let reason = '';
 	let priority = 0;
-	let startDate: Date | undefined;
-	let endDate: Date | undefined;
+	let startDate: Date | undefined = undefined;
+	let endDate: Date | undefined = undefined;
+
+	function reset() {
+		holdType = '';
+		reason = '';
+		priority = 0;
+		startDate = undefined;
+		endDate = undefined;
+	}
+
+	$: if (open) reset();
 
     $: if (priority < 0) priority = 0;
 </script>
