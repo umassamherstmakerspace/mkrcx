@@ -14,22 +14,14 @@
     async function getHolds(): Promise<Hold[]> {
 		const holds = await target.getAllHolds(true, true);
 		return holds.sort((a, b) => {
-            const aLevel = a.activeLevel();
-            const bLevel = b.activeLevel();
-
-            if (aLevel < bLevel) {
-                return -1;
-            } else if (aLevel > bLevel) {
-                return 1;
-            } else {
-                if (a.priority < b.priority) {
-                    return -1;
-                } else if (a.priority > b.priority) {
-                    return 1;
-                } else {
-                    return 0;
-                }
-            }
+			if (a.deletedAt && b.deletedAt)
+				return b.deletedAt.getTime() - a.deletedAt.getTime();
+			if (a.deletedAt)
+				return 1;
+			if (b.deletedAt)
+				return -1;
+			else
+				return b.createdAt.getTime() - a.createdAt.getTime();
 		});
 	}
 

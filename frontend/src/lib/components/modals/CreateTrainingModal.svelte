@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { User } from '$lib/leash';
-	import { Button, Input, Label, Modal } from 'flowbite-svelte';
+	import { Alert, Button, Input, Label, Modal } from 'flowbite-svelte';
 
 	export let user: User;
 	export let onConfirm: () => Promise<void> = async () => {};
@@ -11,25 +11,48 @@
 	}
 
 	async function confirm() {
-		closeModal();
+		try {
+			if (!trainingType) {
+				throw new Error('Training Type is required');
+			}
 
-		await user.createTraining({
-			trainingType,
-		});
+			await user.createTraining({
+				trainingType,
+			});
 
-		await onConfirm();
+			closeModal();
+
+			await onConfirm();
+		} catch (e) {
+			if (e instanceof Error) {
+				error = e.message;
+			} else {
+				error = new String(e).toString();
+			}
+			return;
+		}
 	}
 
 	let trainingType = '';
 
+	let error = '';
+
 	function reset() {
 		trainingType = '';
+
+		error = '';
 	}
 
 	$: if (open) reset();
 </script>
 
 <Modal bind:open size="xs" autoclose={false} class="w-full">
+	{#if error}
+		<Alert border color="red" dismissable on:close={() => (error = '')}>
+			<span class="font-medium">Error: </span>
+			{error}
+		</Alert>
+	{/if}
 	<form class="flex flex-col space-y-6" method="dialog" on:submit|preventDefault={confirm}>
 		<h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">
 			Create training for {user.name}

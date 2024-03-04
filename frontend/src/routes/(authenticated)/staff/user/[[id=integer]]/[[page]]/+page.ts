@@ -26,12 +26,15 @@ export const load: PageLoad = async ({ parent, params }) => {
 		profile: true,
 		trainings: true,
 		holds: true,
+		notifications: true,
 		updates: true,
-		apikeys: false
+		apikeys: false,
+		admin: false
 	};
 
-	if (user.role === 'staff') {
+	if (user.role === 'admin') {
 		tabs.apikeys = true;
+		tabs.admin = true;
 	}
 
 	const tabsOpen = Object.fromEntries(Object.keys(tabs).map((tab) => [tab, false])) as Record<

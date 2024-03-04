@@ -1,66 +1,58 @@
-<script lang="ts">
+<!-- <script lang="ts">
 	import Timestamp from "$lib/components/Timestamp.svelte";
 	import UserCell from "$lib/components/UserCell.svelte";
 	import CreateHoldModal from "$lib/components/modals/CreateHoldModal.svelte";
 	import DeleteModal, { type DeleteModalOptions } from "$lib/components/modals/DeleteModal.svelte";
 	import { timeout, type ModalOptions } from "$lib/components/modals/modals";
-	import type { Hold, User } from "$lib/leash";
+	import type { APIKey, User } from "$lib/leash";
 	import { Badge, Button, CloseButton, Indicator, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell } from "flowbite-svelte";
 
     export let target: User;
 
-    let holds = {};
+    let apikeys = {};
 
-    async function getHolds(): Promise<Hold[]> {
-		const holds = await target.getAllHolds(true, true);
-		return holds.sort((a, b) => {
-            const aLevel = a.activeLevel();
-            const bLevel = b.activeLevel();
-
-            if (aLevel < bLevel) {
-                return -1;
-            } else if (aLevel > bLevel) {
-                return 1;
-            } else {
-                if (a.priority < b.priority) {
-                    return -1;
-                } else if (a.priority > b.priority) {
-                    return 1;
-                } else {
-                    return 0;
-                }
-            }
+    async function getAPIKeys(): Promise<APIKey[]> {
+		const apikeys = await target.getAllAPIKeys(true, true);
+		return apikeys.sort((a, b) => {
+			if (a.deletedAt && b.deletedAt)
+				return b.deletedAt.getTime() - a.deletedAt.getTime();
+			if (a.deletedAt)
+				return 1;
+			if (b.deletedAt)
+				return -1;
+			else
+				return b.createdAt.getTime() - a.createdAt.getTime();
 		});
 	}
 
-	let createHoldModal: ModalOptions = {
+	let createAPIKeyModal: ModalOptions = {
 		open: false,
 		onConfirm: async () => {}
 	};
 
-	let deleteHoldModal: DeleteModalOptions = {
+	let deleteAPIKeyModal: DeleteModalOptions = {
 		open: false,
 		name: '',
 		onConfirm: async () => {}
 	};
 
-	function createHold() {
-		createHoldModal = {
+	function createApikey() {
+		createAPIKeyModal = {
 			open: true,
-			onConfirm: async () => {holds = {}}
+			onConfirm: async () => {apikeys = {}}
 		};
 	}
 
 
-	function deleteHold(hold: Hold) {
-		deleteHoldModal = {
+	function deleteApikey(apikey: APIKey) {
+		deleteAPIKeyModal = {
 			open: true,
-			name: hold.holdType,
+			name: apikey.key,
 			onConfirm: async () => {
-				deleteHoldModal.open = false;
-				await hold.delete();
+				deleteAPIKeyModal.open = false;
+				await apikey.delete();
 				await timeout(300);
-				holds = {};
+				apikeys = {};
 			}
 		};
 	}
@@ -175,4 +167,4 @@
                     {/await}
                 {/key}
 			</TableBody>
-		</Table>
+		</Table> -->

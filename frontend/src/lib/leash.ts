@@ -1192,6 +1192,11 @@ export class Hold {
 		this.priority = hold.Priority;
 
 		this.endpointPrefix = endpointPrefix;
+
+		if (this.holdEnd && !this.deletedAt && !this.removedById && isAfter(new Date(), this.holdEnd)) {
+			this.deletedAt = this.holdEnd;
+			this.removedById = this.addedById;
+		}
 	}
 
 	async getUser(): Promise<User> {
@@ -1232,6 +1237,16 @@ export class Hold {
 
 	async delete(): Promise<void> {
 		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
+	}
+
+	activeLevel(): number {
+		if (this.isActive()) {
+			return 0;
+		} else if (this.isPending()) {
+			return 1;
+		} else {
+			return 2;
+		}
 	}
 }
 

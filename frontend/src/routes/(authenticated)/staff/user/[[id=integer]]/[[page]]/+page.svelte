@@ -2,36 +2,16 @@
 	import {
 		Tabs,
 		TabItem,
-		Table,
-		TableHead,
-		TableHeadCell,
-		TableBody,
-		TableBodyRow,
-		TableBodyCell,
-		Badge,
-		Indicator,
-
-		Button,
-
-		CloseButton
-
-
 	} from 'flowbite-svelte';
-	import { RectangleListSolid, AnnotationSolid, UserCircleSolid } from 'flowbite-svelte-icons';
-	import UserCell from '$lib/components/UserCell.svelte';
+	import { RectangleListSolid, AnnotationSolid, UserCircleSolid, LockSolid, TerminalSolid, BellSolid, UserEditSolid } from 'flowbite-svelte-icons';
 
 	import type { PageData, Snapshot } from './$types';
-	import Timestamp from '$lib/components/Timestamp.svelte';
 	import UserProfileTab from './UserProfileTab.svelte';
 	import ServiceProfileTab from './ServiceProfileTab.svelte';
-	import CreateTrainingModal from '$lib/components/modals/CreateTrainingModal.svelte';
-	import { timeout, type ModalOptions } from '$lib/components/modals/modals';
-	import type { DeleteModalOptions } from '$lib/components/modals/DeleteModal.svelte';
-	import DeleteModal from '$lib/components/modals/DeleteModal.svelte';
-	import type { Hold, Training } from '$lib/leash';
-	import CreateHoldModal from '$lib/components/modals/CreateHoldModal.svelte';
 	import TrainingTab from '../TrainingTab.svelte';
 	import HoldTab from '../HoldTab.svelte';
+	import ApikeyTab from '../ApikeyTab.svelte';
+	import AdminTab from '../AdminTab.svelte';
 
 	export let data: PageData;
 	const { user, tabs } = data;
@@ -58,31 +38,77 @@
 </svelte:head>
 
 <Tabs style="underline">
-	<TabItem bind:open={tabsOpen.profile}>
-		<div slot="title" class="flex items-center gap-2">
-			<UserCircleSolid size="sm" />
-			Profile
-		</div>
-		{#if target.role === 'service'}
-			<ServiceProfileTab {data} />
-		{:else}
-			<UserProfileTab {data} />
-		{/if}
-	</TabItem>
-	<TabItem bind:open={tabsOpen.trainings}>
-		<div slot="title" class="flex items-center gap-2">
-			<RectangleListSolid size="sm" />
-			Trainings
-		</div>
+	{#if tabs.profile}
+		<TabItem bind:open={tabsOpen.profile}>
+			<div slot="title" class="flex items-center gap-2">
+				<UserCircleSolid size="sm" />
+				Profile
+			</div>
+			{#if target.role === 'service'}
+				<ServiceProfileTab {data} />
+			{:else}
+				<UserProfileTab {data} />
+			{/if}
+		</TabItem>
+	{/if}
+	{#if tabs.trainings}
+		<TabItem bind:open={tabsOpen.trainings}>
+			<div slot="title" class="flex items-center gap-2">
+				<RectangleListSolid size="sm" />
+				Trainings
+			</div>
 
-		<TrainingTab {target} />
-	</TabItem>
-	<TabItem bind:open={tabsOpen.holds}>
-		<div slot="title" class="flex items-center gap-2">
-			<AnnotationSolid size="sm" />
-			Holds
-		</div>
+			<TrainingTab {target} />
+		</TabItem>
+	{/if}
+	{#if tabs.holds}
+		<TabItem bind:open={tabsOpen.holds}>
+			<div slot="title" class="flex items-center gap-2">
+				<AnnotationSolid size="sm" />
+				Holds
+			</div>
 
-		<HoldTab {target} />
-	</TabItem>
+			<HoldTab {target} />
+		</TabItem>
+	{/if}
+	{#if tabs.notifications}
+		<TabItem bind:open={tabsOpen.notifications}>
+			<div slot="title" class="flex items-center gap-2">
+				<BellSolid size="sm" />
+				Nofications
+			</div>
+
+			<!-- <NoficationTab {target} /> -->
+		</TabItem>
+	{/if}
+	{#if tabs.updates}
+		<TabItem bind:open={tabsOpen.updates}>
+			<div slot="title" class="flex items-center gap-2">
+				<UserEditSolid size="sm" />
+				User Updates
+			</div>
+
+			<!-- <UserUpdateTab {target} /> -->
+		</TabItem>
+	{/if}
+	{#if tabs.apikeys}
+		<TabItem bind:open={tabsOpen.apikeys}>
+			<div slot="title" class="flex items-center gap-2">
+				<LockSolid size="sm" />
+				Api Keys
+			</div>
+
+			<!-- <ApikeyTab {target} /> -->
+		</TabItem>
+	{/if}
+	{#if tabs.admin}
+		<TabItem bind:open={tabsOpen.admin}>
+			<div slot="title" class="flex items-center gap-2">
+				<TerminalSolid size="sm" />
+				Admin Page
+			</div>
+
+			<!-- <AdminTab {target} /> -->
+		</TabItem>
+	{/if}
 </Tabs>
