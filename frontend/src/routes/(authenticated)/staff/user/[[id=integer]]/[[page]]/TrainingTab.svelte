@@ -3,7 +3,7 @@
 	import UserCell from '$lib/components/UserCell.svelte';
 	import CreateTrainingModal from '$lib/components/modals/CreateTrainingModal.svelte';
 	import DeleteModal, { type DeleteModalOptions } from '$lib/components/modals/DeleteModal.svelte';
-	import { timeout, type ModalOptions } from '$lib/components/modals/modals';
+	import type { ModalOptions } from '$lib/components/modals/modals';
 	import type { Training, User } from '$lib/leash';
 	import {
 		Badge,

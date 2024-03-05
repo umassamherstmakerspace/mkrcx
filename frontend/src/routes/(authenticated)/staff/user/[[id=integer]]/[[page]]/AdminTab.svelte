@@ -1,29 +1,17 @@
 <script lang="ts">
 	import type { User } from '$lib/leash';
-	import {
-		Button,
-		Helper,
-		Input,
-		Label,
-		Modal,
-		P,
-	} from 'flowbite-svelte';
+	import { Button, Helper, Input, Label, Modal, P } from 'flowbite-svelte';
 
 	export let target: User;
 
 	let deleteUserModal = {
 		open: false,
 		confirmation: '',
-		error: '',
-	}
+		error: ''
+	};
 </script>
 
-<Modal
-	bind:open={deleteUserModal.open}
-	size="md"
-	autoclose={false}
-	class="w-full"
->
+<Modal bind:open={deleteUserModal.open} size="md" autoclose={false} class="w-full">
 	<div class="flex flex-col space-y-6">
 		<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
 			Delete {target.name}?
@@ -34,10 +22,10 @@
 		</P>
 
 		<div class="flex flex-col justify-between">
-			<Label 
-			for="confirmation-input" 
-			class="text-sm font-medium text-gray-900 dark:text-white"
-			color={deleteUserModal.error ? 'red' : 'gray'}
+			<Label
+				for="confirmation-input"
+				class="text-sm font-medium text-gray-900 dark:text-white"
+				color={deleteUserModal.error ? 'red' : 'gray'}
 			>
 				Confirmation
 			</Label>
@@ -74,16 +62,16 @@
 	</div>
 </Modal>
 
-<div class="flex flex-col items-center justify-center text-center px-16 gap-12">
+<div class="flex flex-col items-center justify-center gap-12 px-16 text-center">
 	<Button
-	class="w-full"
-	color="red"
-	on:click={() => {
-		deleteUserModal.open = true;
-		deleteUserModal.confirmation = '';
-		deleteUserModal.error = '';
-	}}
->
-	Delete {target.name}
-</Button>
+		class="w-full"
+		color="red"
+		on:click={() => {
+			deleteUserModal.open = true;
+			deleteUserModal.confirmation = '';
+			deleteUserModal.error = '';
+		}}
+	>
+		Delete {target.name}
+	</Button>
 </div>

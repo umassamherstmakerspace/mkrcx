@@ -14,7 +14,7 @@
 	import { inview, type Options as InviewOptions } from 'svelte-inview';
 	import type { PageData, Snapshot } from './$types';
 	import DeleteModal, { type DeleteModalOptions } from '$lib/components/modals/DeleteModal.svelte';
-	import { timeout, type ModalOptions } from '$lib/components/modals/modals';
+	import type { ModalOptions } from '$lib/components/modals/modals';
 	import CreateTrainingModal from '$lib/components/modals/CreateTrainingModal.svelte';
 	import CreateHoldModal from '$lib/components/modals/CreateHoldModal.svelte';
 

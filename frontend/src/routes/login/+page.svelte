@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import Cookies from 'js-cookie';

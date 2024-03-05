@@ -10,7 +10,7 @@
 		SidebarItem,
 		SidebarWrapper
 	} from 'flowbite-svelte';
-	import { DrawSquareSolid, HomeSolid, LockSolid, UploadSolid } from 'flowbite-svelte-icons';
+	import { HomeSolid, LockSolid } from 'flowbite-svelte-icons';
 	import { sineIn } from 'svelte/easing';
 
 	export let hidden: boolean;

@@ -18,13 +18,13 @@
 				center: 'title',
 				right: 'dayGridMonth,timeGridWeek,listWeek'
 			},
-            nowIndicator: true,
-            scrollTime: new Date().getHours() + ':00:00',
+			nowIndicator: true,
+			scrollTime: new Date().getHours() + ':00:00'
 		});
 
 		calendar.render();
 
-        return {
+		return {
 			destroy: () => {
 				calendar.destroy();
 			}

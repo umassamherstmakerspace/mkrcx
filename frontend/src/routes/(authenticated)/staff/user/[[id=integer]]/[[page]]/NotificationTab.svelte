@@ -3,7 +3,7 @@
 	import UserCell from '$lib/components/UserCell.svelte';
 	import CreateNotificationModal from '$lib/components/modals/CreateNotificationModal.svelte';
 	import DeleteModal, { type DeleteModalOptions } from '$lib/components/modals/DeleteModal.svelte';
-	import { timeout, type ModalOptions } from '$lib/components/modals/modals';
+	import type { ModalOptions } from '$lib/components/modals/modals';
 	import type { Notification, User } from '$lib/leash';
 	import {
 		Badge,
