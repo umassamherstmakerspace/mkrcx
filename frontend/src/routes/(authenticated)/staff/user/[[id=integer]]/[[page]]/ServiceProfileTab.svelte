@@ -1,16 +1,10 @@
 <script lang="ts">
 	import { Alert, Button, Helper, Input, Label, MultiSelect } from 'flowbite-svelte';
-	import type { PageData } from './$types';
-	import { allPermissions, type ServiceUserUpdateOptions } from '$lib/leash';
+	import { permissionOptions, User, type ServiceUserUpdateOptions } from '$lib/leash';
 	import type { ConvertFields } from '$lib/types';
 	import { inputColor, isError, labelColor } from './formCommon';
 
-	export let data: PageData;
-	let { target } = data;
-	const permissionOptions = allPermissions.map((permission) => ({
-		name: permission,
-		value: permission
-	}));
+	export let target: User;
 
 	let profileError: string = '';
 	let changed = false;

@@ -1,5 +1,5 @@
 <script context="module" lang="ts">
-	export type DeleteModalType = 'Training' | 'Hold';
+	export type DeleteModalType = 'Training' | 'Hold' | 'Notification' | 'API Key';
 
 	export interface DeleteModalOptions extends ModalOptions {
 		name: string;

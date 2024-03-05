@@ -18,6 +18,14 @@
 		const holdEnd = endDate ? getUnixTime(endDate) : undefined;
 
 		try {
+			if (!holdType) {
+				throw new Error('Hold type is required');
+			}
+
+			if (!reason) {
+				throw new Error('Reason is required');
+			}
+
 			if (holdStart && holdEnd && holdStart > holdEnd) {
 				throw new Error('Start date must be before end date');
 			}
@@ -81,8 +89,12 @@
 		<h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">
 			Create hold for {user.name}
 		</h3>
-		<Label class="space-y-2">
-			<span>Hold Type</span>
+		<div class="flex flex-col justify-between">
+			<Label
+				for="holdType-input"
+				class="mb-2 block">Hold Type
+			</Label>
+
 			<Input
 				type="text"
 				name="text"
@@ -90,9 +102,14 @@
 				required
 				bind:value={holdType}
 			/>
-		</Label>
-		<Label class="space-y-2">
-			<span>Reason</span>
+		</div>
+
+		<div class="flex flex-col justify-between">
+			<Label
+				for="reason-input"
+				class="mb-2 block">Reason
+			</Label>
+
 			<Input
 				type="text"
 				name="text"
@@ -100,9 +117,15 @@
 				required
 				bind:value={reason}
 			/>
-		</Label>
-		<Label class="space-y-2">
-			<span>Priority</span>
+		</div>
+
+		<div class="flex flex-col justify-between">
+			<Label
+				for="priority-input"
+				class="mb-2 block
+			">Priority
+			</Label>
+
 			<NumberInput
 				type="number"
 				name="text"
@@ -110,25 +133,32 @@
 				required
 				bind:value={priority}
 			/>
-		</Label>
-		<Label class="space-y-2">
-			<span>Start Date</span>
-			<Input
-				type="datetime-local"
-				name="text"
-				placeholder="Start Date"
-				bind:value={startDate}
-			/>
-		</Label>
-		<Label class="space-y-2">
-			<span>End Date</span>
-			<Input
-				type="datetime-local"
-				name="text"
-				placeholder="End Date"
-				bind:value={endDate}
-			/>
-		</Label>
+		</div>
+
+		<div class="flex flex-col justify-between">
+			<Label
+				class="space-y-2"
+			>
+				<span>Start Date</span>
+				<Input
+					type="datetime-local"
+					name="text"
+					placeholder="Start Date"
+					bind:value={startDate}
+				/>
+			</Label>
+			<Label
+				class="space-y-2"
+			>
+				<span>End Date</span>
+				<Input
+					type="datetime-local"
+					name="text"
+					placeholder="End Date"
+					bind:value={endDate}
+				/>
+			</Label>
+		</div>
 		<Button class="w-full1" type="submit">Create Hold</Button>
 	</form>
 </Modal>

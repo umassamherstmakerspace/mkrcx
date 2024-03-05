@@ -1,11 +1,12 @@
-<!-- <script lang="ts">
+<script lang="ts">
 	import Timestamp from "$lib/components/Timestamp.svelte";
 	import UserCell from "$lib/components/UserCell.svelte";
-	import CreateHoldModal from "$lib/components/modals/CreateHoldModal.svelte";
+	import CreateApikeyModal from "$lib/components/modals/CreateApikeyModal.svelte";
 	import DeleteModal, { type DeleteModalOptions } from "$lib/components/modals/DeleteModal.svelte";
 	import { timeout, type ModalOptions } from "$lib/components/modals/modals";
 	import type { APIKey, User } from "$lib/leash";
-	import { Badge, Button, CloseButton, Indicator, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell } from "flowbite-svelte";
+	import { Badge, Button, CloseButton, Indicator, Modal, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell } from "flowbite-svelte";
+	import { FileSearchOutline, SearchOutline } from "flowbite-svelte-icons";
 
     export let target: User;
 
@@ -56,104 +57,101 @@
 			}
 		};
 	}
+
+	let showKey: APIKey | null = null;
 </script>
 
-<CreateHoldModal
-			bind:open={createHoldModal.open}
+<Modal open={showKey != null} on:close={() => showKey = null} size="md" autoclose={false} class="w-full">
+	{#if showKey}
+		<div class="text-center">
+			<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
+				Permissions for {showKey.key}
+			</h3>
+			<div class="text-left">
+				{#each showKey.permissions as permission}
+					<p class="mb-2">{permission}</p>
+				{/each}
+			</div>
+			<Button color="primary" class="mt-5 w-full" on:click={() => showKey = null}>Close</Button>
+		</div>
+	{/if}
+</Modal>
+
+<CreateApikeyModal
+			bind:open={createAPIKeyModal.open}
 			user={target}
-			onConfirm={createHoldModal.onConfirm}
+			onConfirm={createAPIKeyModal.onConfirm}
 		/>
 
 		<DeleteModal
-			bind:open={deleteHoldModal.open}
-			modalType="Hold"
-			name={deleteHoldModal.name}
+			bind:open={deleteAPIKeyModal.open}
+			modalType="API Key"
+			name={deleteAPIKeyModal.name}
 			user={target}
-			onConfirm={deleteHoldModal.onConfirm}
+			onConfirm={deleteAPIKeyModal.onConfirm}
 		/>
 
 		<Button
 			color="primary"
 			class="mb-4 w-full"
-			on:click={createHold}
+			on:click={createApikey}
 		>
-			New Hold
+			New API Key
 		</Button>
 
 		<Table>
 			<TableHead>
 				<TableHeadCell>Active</TableHeadCell>
-				<TableHeadCell>Hold Type</TableHeadCell>
-				<TableHeadCell>Reason</TableHeadCell>
-				<TableHeadCell>Start Date</TableHeadCell>
-				<TableHeadCell>End Date</TableHeadCell>
+				<TableHeadCell>Key</TableHeadCell>
+				<TableHeadCell>Description</TableHeadCell>
+				<TableHeadCell>Permissions</TableHeadCell>
 				<TableHeadCell>Date Added</TableHeadCell>
-				<TableHeadCell>Added By</TableHeadCell>
 				<TableHeadCell>Date Removed</TableHeadCell>
-				<TableHeadCell>Removed By</TableHeadCell>
 				<TableHeadCell>Remove</TableHeadCell>
 			</TableHead>
 			<TableBody>
-                {#key holds}
-                    {#await getHolds()}
+                {#key apikeys}
+                    {#await getAPIKeys()}
                         <TableBodyRow>
-                            <TableBodyCell colspan="10" class="p-0">Loading...</TableBodyCell>
+                            <TableBodyCell colspan="7" class="p-0">Loading...</TableBodyCell>
                         </TableBodyRow>
-                    {:then holds}
-                        {#each holds as hold}
+                    {:then apikeys}
+                        {#each apikeys as apikey}
                             <TableBodyRow>
                                 <TableBodyCell>
-                                    {#if hold.isActive()}
-                                        <Badge color="green" rounded class="px-2.5 py-0.5">
-                                            <Indicator color="green" size="xs" class="me-1" />Active
-                                        </Badge>
-                                    {:else if hold.isPending()}
-                                        <Badge color="yellow" rounded class="px-2.5 py-0.5">
-                                            <Indicator color="yellow" size="xs" class="me-1" />Pending
-                                        </Badge>
+                                    {#if apikey.deletedAt}
+									<Badge color="red" rounded class="px-2.5 py-0.5">
+										<Indicator color="red" size="xs" class="me-1" />Deleted
+									</Badge>
                                     {:else}
-                                        <Badge color="red" rounded class="px-2.5 py-0.5">
-                                            <Indicator color="red" size="xs" class="me-1" />Deleted
-                                        </Badge>
+									<Badge color="green" rounded class="px-2.5 py-0.5">
+										<Indicator color="green" size="xs" class="me-1" />Active
+									</Badge>
                                     {/if}
                                 </TableBodyCell>
-                                <TableBodyCell>{hold.holdType}</TableBodyCell>
-                                <TableBodyCell>{hold.reason}</TableBodyCell>
+                                <TableBodyCell>{apikey.key}</TableBodyCell>
+                                <TableBodyCell>{apikey.description}</TableBodyCell>
+								<TableBodyCell>
+									<Button
+										class="!p-2"
+										color="none"
+										size="sm"
+										on:click={() => {showKey = apikey;}}
+									>
+									<FileSearchOutline class="w-5 h-5" />
+									</Button>
+								</TableBodyCell>
+                                <TableBodyCell><Timestamp timestamp={apikey.createdAt} /></TableBodyCell>
                                 <TableBodyCell>
-                                    {#if hold.holdStart}
-                                        <Timestamp timestamp={hold.holdStart} />
-                                    {:else}
-                                        -
-                                    {/if}
-                                </TableBodyCell>
-                                <TableBodyCell>
-                                    {#if hold.holdEnd}
-                                        <Timestamp timestamp={hold.holdEnd} />
-                                    {:else}
-                                        -
-                                    {/if}
-                                </TableBodyCell>
-                                <TableBodyCell><Timestamp timestamp={hold.createdAt} /></TableBodyCell>
-                                <TableBodyCell>
-                                    <UserCell user={hold.getAddedBy()} />
-                                </TableBodyCell>
-                                <TableBodyCell>
-                                    {#if hold.deletedAt}
-                                        <Timestamp timestamp={hold.deletedAt} />
+                                    {#if apikey.deletedAt}
+                                        <Timestamp timestamp={apikey.deletedAt} />
                                     {:else}
                                         -
                                     {/if}
                                 </TableBodyCell>
                                 <TableBodyCell>
-                                    {#if hold.deletedAt}
-                                        <UserCell user={hold.getRemovedBy()} />
-                                    {:else}
-                                        -
-                                    {/if}
-                                </TableBodyCell>
-                                <TableBodyCell>
-                                    {#if hold.isActive()}
-                                        <CloseButton on:click={() => deleteHold(hold)} />
+                                    {#if !apikey.deletedAt}
+                                        <CloseButton on:click={() => deleteApikey(apikey)} />
                                     {:else}
                                         -
                                     {/if}
@@ -162,9 +160,9 @@
                         {/each}
                     {:catch error}
                         <TableBodyRow>
-                            <TableBodyCell colspan="10" class="p-0">Error: {error.message}</TableBodyCell>
+                            <TableBodyCell colspan="7" class="p-0">Error: {error.message}</TableBodyCell>
                         </TableBodyRow>
                     {/await}
                 {/key}
 			</TableBody>
-		</Table> -->
+		</Table>

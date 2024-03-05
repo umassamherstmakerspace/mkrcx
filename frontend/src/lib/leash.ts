@@ -90,6 +90,11 @@ export const allPermissions = [
 	'leash.notifications:delete'
 ];
 
+export const permissionOptions = allPermissions.map((permission) => ({
+	name: permission,
+	value: permission
+}));
+
 export enum Role {
 	USER_ROLE_SERVICE = 0,
 	USER_ROLE_MEMBER = 1,

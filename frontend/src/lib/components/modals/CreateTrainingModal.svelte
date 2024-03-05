@@ -57,16 +57,18 @@
 		<h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">
 			Create training for {user.name}
 		</h3>
-		<Label class="space-y-2" for="training-type">
-			<span>Training Type</span>
+		<div class="flex flex-col justify-between">
+			<Label
+				for="trainingType-input"
+				class="mb-2 block">Training Type
+			</Label>
 			<Input
-				type="text"
-				name="training-type"
-				placeholder="Training Type"
-				required
 				bind:value={trainingType}
+				type="text"
+				placeholder="Training Type"
+				id="trainingType-input"
 			/>
-		</Label>
+		</div>
 		<Button class="w-full1" type="submit">Create Training</Button>
 	</form>
 </Modal>

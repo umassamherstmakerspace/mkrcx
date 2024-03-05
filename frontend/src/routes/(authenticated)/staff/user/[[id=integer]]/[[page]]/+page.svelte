@@ -10,11 +10,13 @@
 	import ServiceProfileTab from './ServiceProfileTab.svelte';
 	import TrainingTab from '../TrainingTab.svelte';
 	import HoldTab from '../HoldTab.svelte';
+	// import NoficationTab from '../NoficationTab.svelte';
+	import UserUpdateTab from '../UserUpdateTab.svelte';
 	import ApikeyTab from '../ApikeyTab.svelte';
 	import AdminTab from '../AdminTab.svelte';
 
 	export let data: PageData;
-	const { user, tabs } = data;
+	const { tabs, user } = data;
 	let { tabsOpen, target } = data;
 
 	type Data = {
@@ -45,9 +47,9 @@
 				Profile
 			</div>
 			{#if target.role === 'service'}
-				<ServiceProfileTab {data} />
+				<ServiceProfileTab bind:target />
 			{:else}
-				<UserProfileTab {data} />
+				<UserProfileTab bind:target {user} />
 			{/if}
 		</TabItem>
 	{/if}
@@ -88,7 +90,7 @@
 				User Updates
 			</div>
 
-			<!-- <UserUpdateTab {target} /> -->
+			<UserUpdateTab {target} />
 		</TabItem>
 	{/if}
 	{#if tabs.apikeys}
@@ -98,7 +100,7 @@
 				Api Keys
 			</div>
 
-			<!-- <ApikeyTab {target} /> -->
+			<ApikeyTab {target} />
 		</TabItem>
 	{/if}
 	{#if tabs.admin}
@@ -108,7 +110,7 @@
 				Admin Page
 			</div>
 
-			<!-- <AdminTab {target} /> -->
+			<AdminTab {target} />
 		</TabItem>
 	{/if}
 </Tabs>

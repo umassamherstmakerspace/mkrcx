@@ -5,7 +5,7 @@ import Cookies from 'js-cookie';
 
 export const ssr = false;
 
-export const load: LayoutLoad = async () => {
+export const load: LayoutLoad = async ({ fetch }) => {
 	const token = Cookies.get('token') || '';
 	const leashURL = env.PUBLIC_LEASH_ENDPOINT;
 	if (!leashURL) {
@@ -13,6 +13,7 @@ export const load: LayoutLoad = async () => {
 	}
 
 	const api = new LeashAPI(token, leashURL);
+	api.overrideFetchFunction(fetch);
 	let u;
 
 	try {
