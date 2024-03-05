@@ -5,15 +5,21 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
-  '@event-calendar/day-grid':
-    specifier: ^2.6.1
-    version: 2.6.1
-  '@event-calendar/list':
-    specifier: ^2.6.1
-    version: 2.6.1
-  '@event-calendar/time-grid':
-    specifier: ^2.6.1
-    version: 2.6.1
+  '@fullcalendar/core':
+    specifier: ^6.1.11
+    version: 6.1.11
+  '@fullcalendar/daygrid':
+    specifier: ^6.1.11
+    version: 6.1.11(@fullcalendar/core@6.1.11)
+  '@fullcalendar/icalendar':
+    specifier: ^6.1.11
+    version: 6.1.11(@fullcalendar/core@6.1.11)(ical.js@1.5.0)
+  '@fullcalendar/list':
+    specifier: ^6.1.11
+    version: 6.1.11(@fullcalendar/core@6.1.11)
+  '@fullcalendar/timegrid':
+    specifier: ^6.1.11
+    version: 6.1.11(@fullcalendar/core@6.1.11)
   '@types/js-cookie':
     specifier: ^3.0.6
     version: 3.0.6
@@ -32,6 +38,9 @@ dependencies:
   geojson:
     specifier: ^0.5.0
     version: 0.5.0
+  ical.js:
+    specifier: ^1.5.0
+    version: 1.5.0
   jdenticon:
     specifier: ^3.2.0
     version: 3.2.0
@@ -58,9 +67,6 @@ dependencies:
     version: 0.8.0(svelte@4.2.10)
 
 devDependencies:
-  '@event-calendar/core':
-    specifier: ^2.6.1
-    version: 2.6.1
   '@playwright/test':
     specifier: ^1.41.2
     version: 1.41.2
@@ -416,32 +422,6 @@ packages:
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dev: true
 
-  /@event-calendar/core@2.6.1:
-    resolution: {integrity: sha512-3dxMnmFfjEzeyNFhm0PS04/Js3LqqQC6HzqY6XtypxC2wLFhxrK4NqX4cq8ZKtIrTJu6EFFB3DZ8GamW28Pl7g==}
-    dependencies:
-      svelte: 4.2.10
-
-  /@event-calendar/day-grid@2.6.1:
-    resolution: {integrity: sha512-wYzPRauhJRyCYNfh00vLdYdinE9DhWE5DYSh8drk8z1dVdjrunERRvcaMASi+Q6gwn9/i7U4yTORBnFeSktqrQ==}
-    dependencies:
-      '@event-calendar/core': 2.6.1
-      svelte: 4.2.10
-    dev: false
-
-  /@event-calendar/list@2.6.1:
-    resolution: {integrity: sha512-pf9TJD/myj4wjj+nhjGRESthWsyVdCpXFIsRchosu7UTy5ZVxwCNOa/eFy/2AtXPXu5bgb6RXWYTdNl5q/FZmw==}
-    dependencies:
-      '@event-calendar/core': 2.6.1
-      svelte: 4.2.10
-    dev: false
-
-  /@event-calendar/time-grid@2.6.1:
-    resolution: {integrity: sha512-YSy2sJlpu7ZR7l+/c4DO/LpyZ+1+i357mXwth/i3gBew+bNQvWdMpiaYX05gNR5DokbXx3ZNYcbnXFPLVVvBDw==}
-    dependencies:
-      '@event-calendar/core': 2.6.1
-      svelte: 4.2.10
-    dev: false
-
   /@floating-ui/core@1.6.0:
     resolution: {integrity: sha512-PcF++MykgmTj3CIyOQbKA/hDzOAiqI3mhuoN44WRCopIs1sgoDoU4oty4Jtqaj/y3oDU6fnVSm4QG0a3t5i0+g==}
     dependencies:
@@ -458,6 +438,47 @@ packages:
   /@floating-ui/utils@0.2.1:
     resolution: {integrity: sha512-9TANp6GPoMtYzQdt54kfAyMmz1+osLlXdg2ENroU7zzrtflTLrrC/lgrIfaSe+Wu0b89GKccT7vxXA0MoAIO+Q==}
     dev: true
+
+  /@fullcalendar/core@6.1.11:
+    resolution: {integrity: sha512-TjG7c8sUz+Vkui2FyCNJ+xqyu0nq653Ibe99A66LoW95oBo6tVhhKIaG1Wh0GVKymYiqAQN/OEdYTuj4ay27kA==}
+    dependencies:
+      preact: 10.12.1
+    dev: false
+
+  /@fullcalendar/daygrid@6.1.11(@fullcalendar/core@6.1.11):
+    resolution: {integrity: sha512-hF5jJB7cgUIxWD5MVjj8IU407HISyLu7BWXcEIuTytkfr8oolOXeCazqnnjmRbnFOncoJQVstTtq6SIhaT32Xg==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.11
+    dependencies:
+      '@fullcalendar/core': 6.1.11
+    dev: false
+
+  /@fullcalendar/icalendar@6.1.11(@fullcalendar/core@6.1.11)(ical.js@1.5.0):
+    resolution: {integrity: sha512-a1kFIUs/G1ic9kkblL08n8Vwqw+jkBExhgFjbARVQrvyTwx0/SDmRtt0crqlkUYUOnu5nofj3xXPNupdxgPSwg==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.11
+      ical.js: ^1.4.0
+    dependencies:
+      '@fullcalendar/core': 6.1.11
+      ical.js: 1.5.0
+    dev: false
+
+  /@fullcalendar/list@6.1.11(@fullcalendar/core@6.1.11):
+    resolution: {integrity: sha512-9Qx8uvik9pXD12u50FiHwNzlHv4wkhfsr+r03ycahW7vEeIAKCsIZGTkUfFP+96I5wHihrfLazu1cFQG4MPiuw==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.11
+    dependencies:
+      '@fullcalendar/core': 6.1.11
+    dev: false
+
+  /@fullcalendar/timegrid@6.1.11(@fullcalendar/core@6.1.11):
+    resolution: {integrity: sha512-0seUHK/ferH89IeuCvV4Bib0zWjgK0nsptNdmAc9wDBxD/d9hm5Mdti0URJX6bDoRtsSfRDu5XsRcrzwoc+AUQ==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.11
+    dependencies:
+      '@fullcalendar/core': 6.1.11
+      '@fullcalendar/daygrid': 6.1.11(@fullcalendar/core@6.1.11)
+    dev: false
 
   /@humanwhocodes/config-array@0.11.14:
     resolution: {integrity: sha512-3T8LkOmg45BV5FICb15QQMsyUSWrQ8AygVfC7ZG32zOalnqrilm018ZVCw0eapXux8FtA33q8PSRSstjee3jSg==}
@@ -2104,6 +2125,10 @@ packages:
     engines: {node: '>=16.17.0'}
     dev: true
 
+  /ical.js@1.5.0:
+    resolution: {integrity: sha512-7ZxMkogUkkaCx810yp0ZGKvq1ZpRgJeornPttpoxe6nYZ3NLesZe1wWMXDdwTkj/b5NtXT+Y16Aakph/ao98ZQ==}
+    dev: false
+
   /ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
     dev: false
@@ -2905,6 +2930,10 @@ packages:
 
   /potpack@2.0.0:
     resolution: {integrity: sha512-Q+/tYsFU9r7xoOJ+y/ZTtdVQwTWfzjbiXBDMM/JKUux3+QPP02iUuIoeBQ+Ot6oEDlC+/PGjB/5A3K7KKb7hcw==}
+    dev: false
+
+  /preact@10.12.1:
+    resolution: {integrity: sha512-l8386ixSsBdbreOAkqtrwqHwdvR35ID8c3rKPa8lCWuO86dBi32QWHV4vfsZK1utLLFMvw+Z5Ad4XLkZzchscg==}
     dev: false
 
   /prelude-ls@1.2.1:

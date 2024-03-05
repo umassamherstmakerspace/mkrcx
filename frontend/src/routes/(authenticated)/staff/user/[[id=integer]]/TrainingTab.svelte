@@ -1,49 +1,58 @@
 <script lang="ts">
-	import Timestamp from "$lib/components/Timestamp.svelte";
-	import UserCell from "$lib/components/UserCell.svelte";
-	import CreateTrainingModal from "$lib/components/modals/CreateTrainingModal.svelte";
-	import DeleteModal, { type DeleteModalOptions } from "$lib/components/modals/DeleteModal.svelte";
-	import { timeout, type ModalOptions } from "$lib/components/modals/modals";
-	import type { Training, User } from "$lib/leash";
-	import { Badge, Button, CloseButton, Indicator, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell } from "flowbite-svelte";
+	import Timestamp from '$lib/components/Timestamp.svelte';
+	import UserCell from '$lib/components/UserCell.svelte';
+	import CreateTrainingModal from '$lib/components/modals/CreateTrainingModal.svelte';
+	import DeleteModal, { type DeleteModalOptions } from '$lib/components/modals/DeleteModal.svelte';
+	import { timeout, type ModalOptions } from '$lib/components/modals/modals';
+	import type { Training, User } from '$lib/leash';
+	import {
+		Badge,
+		Button,
+		CloseButton,
+		Indicator,
+		Table,
+		TableBody,
+		TableBodyCell,
+		TableBodyRow,
+		TableHead,
+		TableHeadCell
+	} from 'flowbite-svelte';
 
-    export let target: User;
+	export let target: User;
 
-    let trainings = {};
+	let trainings = {};
 
-    async function getTrainings(): Promise<Training[]> {
+	async function getTrainings(): Promise<Training[]> {
 		const trainings = await target.getAllTrainings(true, true);
 		return trainings.sort((a, b) => {
-			if (a.deletedAt && b.deletedAt)
-				return b.deletedAt.getTime() - a.deletedAt.getTime();
-			if (a.deletedAt)
-				return 1;
-			if (b.deletedAt)
-				return -1;
-			else
-				return b.createdAt.getTime() - a.createdAt.getTime();
+			if (a.deletedAt && b.deletedAt) return b.deletedAt.getTime() - a.deletedAt.getTime();
+			if (a.deletedAt) return 1;
+			if (b.deletedAt) return -1;
+			else return b.createdAt.getTime() - a.createdAt.getTime();
 		});
 	}
 
-    let createTrainingModal: ModalOptions = {
+	let createTrainingModal: ModalOptions = {
 		open: false,
 		onConfirm: async () => {}
 	};
 
-    let deleteTrainingModal: DeleteModalOptions = {
+	let deleteTrainingModal: DeleteModalOptions = {
 		open: false,
 		name: '',
 		onConfirm: async () => {}
 	};
 
-    function createTraining() {
+	function createTraining() {
 		createTrainingModal = {
 			open: true,
-			onConfirm: async () => {trainings = {}}
+			onConfirm: async () => {
+				trainings = {};
+			}
 		};
 	}
 
-    function deleteTraining(training: Training) {
+	function deleteTraining(training: Training) {
 		deleteTrainingModal = {
 			open: true,
 			name: training.trainingType,

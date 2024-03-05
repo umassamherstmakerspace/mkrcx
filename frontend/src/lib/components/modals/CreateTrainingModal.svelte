@@ -17,7 +17,7 @@
 			}
 
 			await user.createTraining({
-				trainingType,
+				trainingType
 			});
 
 			closeModal();
@@ -58,10 +58,7 @@
 			Create training for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label
-				for="trainingType-input"
-				class="mb-2 block">Training Type
-			</Label>
+			<Label for="trainingType-input" class="mb-2 block">Training Type</Label>
 			<Input
 				bind:value={trainingType}
 				type="text"

@@ -1,20 +1,18 @@
 <script lang="ts">
-    import { User } from '$lib/leash';
-    import { getUnixTime } from 'date-fns';
-	import { Alert, Button, Input, Label, Modal, NumberInput } from "flowbite-svelte";
+	import { User } from '$lib/leash';
+	import { getUnixTime } from 'date-fns';
+	import { Alert, Button, Input, Label, Modal, NumberInput } from 'flowbite-svelte';
 
-    export let user: User;
-    export let onConfirm: () => Promise<void> = async () => {};
-    export let open: boolean;
+	export let user: User;
+	export let onConfirm: () => Promise<void> = async () => {};
+	export let open: boolean;
 
 	function closeModal() {
 		open = false;
 	}
 
-    async function confirm() {
-		const holdStart = startDate
-			? getUnixTime(startDate)
-			: undefined;
+	async function confirm() {
+		const holdStart = startDate ? getUnixTime(startDate) : undefined;
 		const holdEnd = endDate ? getUnixTime(endDate) : undefined;
 
 		try {
@@ -49,7 +47,7 @@
 			}
 			return;
 		}
-    }
+	}
 
 	let holdType = '';
 	let reason = '';
@@ -71,7 +69,7 @@
 
 	$: if (open) reset();
 
-    $: if (priority < 0) priority = 0;
+	$: if (priority < 0) priority = 0;
 </script>
 
 <Modal bind:open size="xs" autoclose={false} class="w-full">
@@ -81,49 +79,28 @@
 			{error}
 		</Alert>
 	{/if}
-	<form
-		class="flex flex-col space-y-6"
-		method="dialog"
-		on:submit|preventDefault={confirm}
-	>
+	<form class="flex flex-col space-y-6" method="dialog" on:submit|preventDefault={confirm}>
 		<h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">
 			Create hold for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label
-				for="holdType-input"
-				class="mb-2 block">Hold Type
-			</Label>
+			<Label for="holdType-input" class="mb-2 block">Hold Type</Label>
 
-			<Input
-				type="text"
-				name="text"
-				placeholder="Hold Type"
-				required
-				bind:value={holdType}
-			/>
+			<Input type="text" name="text" placeholder="Hold Type" required bind:value={holdType} />
 		</div>
 
 		<div class="flex flex-col justify-between">
-			<Label
-				for="reason-input"
-				class="mb-2 block">Reason
-			</Label>
+			<Label for="reason-input" class="mb-2 block">Reason</Label>
 
-			<Input
-				type="text"
-				name="text"
-				placeholder="Reason"
-				required
-				bind:value={reason}
-			/>
+			<Input type="text" name="text" placeholder="Reason" required bind:value={reason} />
 		</div>
 
 		<div class="flex flex-col justify-between">
 			<Label
 				for="priority-input"
 				class="mb-2 block
-			">Priority
+			"
+				>Priority
 			</Label>
 
 			<NumberInput
@@ -136,27 +113,13 @@
 		</div>
 
 		<div class="flex flex-col justify-between">
-			<Label
-				class="space-y-2"
-			>
+			<Label class="space-y-2">
 				<span>Start Date</span>
-				<Input
-					type="datetime-local"
-					name="text"
-					placeholder="Start Date"
-					bind:value={startDate}
-				/>
+				<Input type="datetime-local" name="text" placeholder="Start Date" bind:value={startDate} />
 			</Label>
-			<Label
-				class="space-y-2"
-			>
+			<Label class="space-y-2">
 				<span>End Date</span>
-				<Input
-					type="datetime-local"
-					name="text"
-					placeholder="End Date"
-					bind:value={endDate}
-				/>
+				<Input type="datetime-local" name="text" placeholder="End Date" bind:value={endDate} />
 			</Label>
 		</div>
 		<Button class="w-full1" type="submit">Create Hold</Button>

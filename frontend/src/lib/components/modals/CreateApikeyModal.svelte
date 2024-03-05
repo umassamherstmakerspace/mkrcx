@@ -15,7 +15,7 @@
 			await user.createAPIKey({
 				description,
 				fullAccess,
-				permissions,
+				permissions
 			});
 
 			closeModal();
@@ -60,38 +60,19 @@
 			Create api key for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label
-				for="description-input"
-				class="mb-2 block">Description
-			</Label>
+			<Label for="description-input" class="mb-2 block">Description</Label>
 
-			<Input
-				bind:value={description}
-				type="text"
-				id="description-input"
-			/>
+			<Input bind:value={description} type="text" id="description-input" />
 		</div>
 		<div class="flex flex-col justify-between">
-			<Label
-				for="full-access-checkbox"
-				class="mb-2 block">Full Access
-			</Label>
+			<Label for="full-access-checkbox" class="mb-2 block">Full Access</Label>
 
-			<Checkbox
-				bind:checked={fullAccess}
-				id="full-access-checkbox"
-			/>
+			<Checkbox bind:checked={fullAccess} id="full-access-checkbox" />
 		</div>
 		<div class="flex flex-col justify-between">
-			<Label
-				for="permissions-select"
-				class="mb-2 block">Permissions
-			</Label>
+			<Label for="permissions-select" class="mb-2 block">Permissions</Label>
 
-			<MultiSelect
-				bind:value={permissions}
-				items={permissionOptions}
-				id="permissions-select"
+			<MultiSelect bind:value={permissions} items={permissionOptions} id="permissions-select"
 			></MultiSelect>
 		</div>
 		<Button class="w-full1" type="submit">Create API Key</Button>

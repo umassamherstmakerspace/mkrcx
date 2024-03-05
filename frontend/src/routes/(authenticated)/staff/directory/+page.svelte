@@ -110,14 +110,14 @@
 	function createTraining() {
 		createTrainingModal = {
 			open: true,
-			onConfirm: reloadUser,
+			onConfirm: reloadUser
 		};
 	}
 
 	function createHold() {
 		createHoldModal = {
 			open: true,
-			onConfirm: reloadUser,
+			onConfirm: reloadUser
 		};
 	}
 
@@ -150,35 +150,30 @@
 
 {#if activeRow !== null}
 	{@const user = users[activeRow]}
-		<CreateTrainingModal
-			bind:open={createTrainingModal.open}
-			{user}
-			onConfirm={createTrainingModal.onConfirm}
-		/>
+	<CreateTrainingModal
+		bind:open={createTrainingModal.open}
+		{user}
+		onConfirm={createTrainingModal.onConfirm}
+	/>
 
-		<CreateHoldModal
-			bind:open={createHoldModal.open}
-			{user}
-			onConfirm={createHoldModal.onConfirm}
-		/>
+	<CreateHoldModal bind:open={createHoldModal.open} {user} onConfirm={createHoldModal.onConfirm} />
 
-		<DeleteModal
-			bind:open={deleteTrainingModal.open}
-			modalType="Training"
-			name={deleteTrainingModal.name}
-			{user}
-			onConfirm={deleteTrainingModal.onConfirm}
-		/>
+	<DeleteModal
+		bind:open={deleteTrainingModal.open}
+		modalType="Training"
+		name={deleteTrainingModal.name}
+		{user}
+		onConfirm={deleteTrainingModal.onConfirm}
+	/>
 
-		<DeleteModal
-			bind:open={deleteHoldModal.open}
-			modalType="Hold"
-			name={deleteHoldModal.name}
-			{user}
-			onConfirm={deleteHoldModal.onConfirm}
-		/>
+	<DeleteModal
+		bind:open={deleteHoldModal.open}
+		modalType="Hold"
+		name={deleteHoldModal.name}
+		{user}
+		onConfirm={deleteHoldModal.onConfirm}
+	/>
 {/if}
-
 
 <div class="flex w-full flex-col">
 	<TableSearch placeholder="Search by name or email..." hoverable={true} bind:inputValue={query}>

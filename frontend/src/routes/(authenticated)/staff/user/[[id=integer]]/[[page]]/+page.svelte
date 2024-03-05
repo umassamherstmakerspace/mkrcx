@@ -1,9 +1,14 @@
 <script lang="ts">
+	import { Tabs, TabItem } from 'flowbite-svelte';
 	import {
-		Tabs,
-		TabItem,
-	} from 'flowbite-svelte';
-	import { RectangleListSolid, AnnotationSolid, UserCircleSolid, LockSolid, TerminalSolid, BellSolid, UserEditSolid } from 'flowbite-svelte-icons';
+		RectangleListSolid,
+		AnnotationSolid,
+		UserCircleSolid,
+		LockSolid,
+		TerminalSolid,
+		BellSolid,
+		UserEditSolid
+	} from 'flowbite-svelte-icons';
 
 	import type { PageData, Snapshot } from './$types';
 	import UserProfileTab from './UserProfileTab.svelte';

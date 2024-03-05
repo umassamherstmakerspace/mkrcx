@@ -149,18 +149,6 @@
 	}
 </script>
 
-<div class="container">
-	<div class="map flex-1" use:mapAction />
+<div class="flex w-full justify-center">
+	<div class="aspect-video flex-1" use:mapAction />
 </div>
-
-<style>
-	.container {
-		width: 100%;
-		display: flex;
-		justify-content: center;
-	}
-
-	.map {
-		aspect-ratio: 16/9;
-	}
-</style>
