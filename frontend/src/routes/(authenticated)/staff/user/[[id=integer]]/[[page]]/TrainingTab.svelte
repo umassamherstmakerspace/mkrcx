@@ -40,6 +40,7 @@
 	let deleteTrainingModal: DeleteModalOptions = {
 		open: false,
 		name: '',
+		deleteFn: async () => {},
 		onConfirm: async () => {}
 	};
 
@@ -56,10 +57,8 @@
 		deleteTrainingModal = {
 			open: true,
 			name: training.trainingType,
+			deleteFn: training.delete,
 			onConfirm: async () => {
-				deleteTrainingModal.open = false;
-				await training.delete();
-				await timeout(300);
 				trainings = {};
 			}
 		};
@@ -77,6 +76,7 @@
 	modalType="Training"
 	name={deleteTrainingModal.name}
 	user={target}
+	deleteFn={deleteTrainingModal.deleteFn}
 	onConfirm={deleteTrainingModal.onConfirm}
 />
 

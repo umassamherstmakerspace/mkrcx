@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { User, permissionOptions } from '$lib/leash';
-	import { Alert, Button, Checkbox, Input, Label, Modal, MultiSelect } from 'flowbite-svelte';
+	import { User } from '$lib/leash';
+	import { Alert, Button, Input, Label, Modal } from 'flowbite-svelte';
 
 	export let user: User;
 	export let onConfirm: () => Promise<void> = async () => {};
@@ -12,10 +12,11 @@
 
 	async function confirm() {
 		try {
-			await user.createAPIKey({
-				description,
-				fullAccess,
-				permissions
+			await user.createNotification({
+				title,
+				message,
+				link,
+				group
 			});
 
 			closeModal();
@@ -31,16 +32,18 @@
 		}
 	}
 
-	let description = '';
-	let fullAccess = false;
-	let permissions: string[] = [];
+	let title = '';
+	let message = '';
+	let link = '';
+	let group = '';
 
 	let error = '';
 
 	function reset() {
-		description = '';
-		fullAccess = false;
-		permissions = [];
+		title = '';
+		message = '';
+		link = '';
+		group = '';
 
 		error = '';
 	}
@@ -57,24 +60,28 @@
 	{/if}
 	<form class="flex flex-col space-y-6" method="dialog" on:submit|preventDefault={confirm}>
 		<h3 class="mb-4 text-xl font-medium text-gray-900 dark:text-white">
-			Create api key for {user.name}
+			Create notification for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label for="description-input" class="mb-2 block">Description</Label>
+			<Label for="title-input" class="mb-2 block">Title</Label>
 
-			<Input bind:value={description} type="text" id="description-input" />
+			<Input bind:value={title} id="title-input" type="text" />
 		</div>
 		<div class="flex flex-col justify-between">
-			<Label for="full-access-checkbox" class="mb-2 block">Full Access</Label>
+			<Label for="message-input" class="mb-2 block">Message</Label>
 
-			<Checkbox bind:checked={fullAccess} id="full-access-checkbox" />
+			<Input bind:value={message} id="message-input" type="text" />
 		</div>
 		<div class="flex flex-col justify-between">
-			<Label for="permissions-select" class="mb-2 block">Permissions</Label>
+			<Label for="link-input" class="mb-2 block">Link</Label>
 
-			<MultiSelect bind:value={permissions} items={permissionOptions} id="permissions-select"
-			></MultiSelect>
+			<Input bind:value={link} id="link-input" type="text" />
 		</div>
-		<Button class="w-full1" type="submit">Create API Key</Button>
+		<div class="flex flex-col justify-between">
+			<Label for="group-input" class="mb-2 block">Group</Label>
+
+			<Input bind:value={group} id="group-input" type="text" />
+		</div>
+		<Button class="w-full1" type="submit">Create Notification</Button>
 	</form>
 </Modal>

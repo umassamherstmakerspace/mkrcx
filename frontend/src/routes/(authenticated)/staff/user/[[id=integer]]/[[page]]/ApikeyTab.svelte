@@ -41,6 +41,7 @@
 	let deleteAPIKeyModal: DeleteModalOptions = {
 		open: false,
 		name: '',
+		deleteFn: async () => {},
 		onConfirm: async () => {}
 	};
 
@@ -57,10 +58,8 @@
 		deleteAPIKeyModal = {
 			open: true,
 			name: apikey.key,
+			deleteFn: apikey.delete,
 			onConfirm: async () => {
-				deleteAPIKeyModal.open = false;
-				await apikey.delete();
-				await timeout(300);
 				apikeys = {};
 			}
 		};
@@ -102,6 +101,7 @@
 	modalType="API Key"
 	name={deleteAPIKeyModal.name}
 	user={target}
+	deleteFn={deleteAPIKeyModal.deleteFn}
 	onConfirm={deleteAPIKeyModal.onConfirm}
 />
 

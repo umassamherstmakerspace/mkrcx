@@ -52,6 +52,7 @@
 	let deleteHoldModal: DeleteModalOptions = {
 		open: false,
 		name: '',
+		deleteFn: async () => {},
 		onConfirm: async () => {}
 	};
 
@@ -68,10 +69,8 @@
 		deleteHoldModal = {
 			open: true,
 			name: hold.holdType,
+			deleteFn: hold.delete,
 			onConfirm: async () => {
-				deleteHoldModal.open = false;
-				await hold.delete();
-				await timeout(300);
 				holds = {};
 			}
 		};
@@ -89,6 +88,7 @@
 	modalType="Hold"
 	name={deleteHoldModal.name}
 	user={target}
+	deleteFn={deleteHoldModal.deleteFn}
 	onConfirm={deleteHoldModal.onConfirm}
 />
 

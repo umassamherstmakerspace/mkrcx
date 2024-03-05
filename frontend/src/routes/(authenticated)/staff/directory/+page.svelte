@@ -98,12 +98,14 @@
 	let deleteTrainingModal: DeleteModalOptions = {
 		open: false,
 		name: '',
+		deleteFn: async () => {},
 		onConfirm: async () => {}
 	};
 
 	let deleteHoldModal: DeleteModalOptions = {
 		open: false,
 		name: '',
+		deleteFn: async () => {},
 		onConfirm: async () => {}
 	};
 
@@ -125,12 +127,8 @@
 		deleteTrainingModal = {
 			open: true,
 			name: event.detail.trainingType,
-			onConfirm: async () => {
-				deleteTrainingModal.open = false;
-				await event.detail.delete();
-				await timeout(300);
-				await reloadUser();
-			}
+			deleteFn: event.detail.delete,
+			onConfirm: reloadUser
 		};
 	}
 
@@ -138,12 +136,8 @@
 		deleteHoldModal = {
 			open: true,
 			name: event.detail.holdType,
-			onConfirm: async () => {
-				deleteHoldModal.open = false;
-				await event.detail.delete();
-				await timeout(300);
-				await reloadUser();
-			}
+			deleteFn: event.detail.delete,
+			onConfirm: reloadUser
 		};
 	}
 </script>
@@ -163,6 +157,7 @@
 		modalType="Training"
 		name={deleteTrainingModal.name}
 		{user}
+		deleteFn={deleteTrainingModal.deleteFn}
 		onConfirm={deleteTrainingModal.onConfirm}
 	/>
 
@@ -171,6 +166,7 @@
 		modalType="Hold"
 		name={deleteHoldModal.name}
 		{user}
+		deleteFn={deleteHoldModal.deleteFn}
 		onConfirm={deleteHoldModal.onConfirm}
 	/>
 {/if}

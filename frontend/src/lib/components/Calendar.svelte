@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Calendar } from '@fullcalendar/core';
 	import iCalendarPlugin from '@fullcalendar/icalendar';
-
 	import dayGridPlugin from '@fullcalendar/daygrid';
 	import timeGridPlugin from '@fullcalendar/timegrid';
 	import listPlugin from '@fullcalendar/list';

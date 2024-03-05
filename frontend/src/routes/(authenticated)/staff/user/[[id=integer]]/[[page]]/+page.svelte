@@ -13,12 +13,12 @@
 	import type { PageData, Snapshot } from './$types';
 	import UserProfileTab from './UserProfileTab.svelte';
 	import ServiceProfileTab from './ServiceProfileTab.svelte';
-	import TrainingTab from '../TrainingTab.svelte';
-	import HoldTab from '../HoldTab.svelte';
-	// import NoficationTab from '../NoficationTab.svelte';
-	import UserUpdateTab from '../UserUpdateTab.svelte';
-	import ApikeyTab from '../ApikeyTab.svelte';
-	import AdminTab from '../AdminTab.svelte';
+	import TrainingTab from './TrainingTab.svelte';
+	import HoldTab from './HoldTab.svelte';
+	import NotificationTab from './NotificationTab.svelte';
+	import UserUpdateTab from './UserUpdateTab.svelte';
+	import ApikeyTab from './ApikeyTab.svelte';
+	import AdminTab from './AdminTab.svelte';
 
 	export let data: PageData;
 	const { tabs, user } = data;
@@ -85,7 +85,7 @@
 				Nofications
 			</div>
 
-			<!-- <NoficationTab {target} /> -->
+			<NotificationTab {target} />
 		</TabItem>
 	{/if}
 	{#if tabs.updates}
