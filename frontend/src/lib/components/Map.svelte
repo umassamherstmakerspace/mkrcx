@@ -7,10 +7,8 @@
 
 	let center = [-72.53111867309333, 42.39224330004294] as [number, number];
 
-	let map: Map;
-
-	function createMap(container: HTMLElement): Map {
-		let map = new Map({
+	function mapAction(container: HTMLElement) {
+		const map = new Map({
 			container,
 			style: `https://api.maptiler.com/maps/bright/style.json?key=${tileKey}`,
 			center,
@@ -136,11 +134,6 @@
 			});
 		});
 
-		return map;
-	}
-
-	function mapAction(container: HTMLElement) {
-		map = createMap(container);
 		return {
 			destroy: () => {
 				map.remove();

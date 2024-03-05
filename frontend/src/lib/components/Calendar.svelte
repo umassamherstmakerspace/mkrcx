@@ -20,7 +20,14 @@
 				right: 'dayGridMonth,timeGridWeek,listWeek'
 			}
 		});
+
 		calendar.render();
+
+        return {
+			destroy: () => {
+				calendar.destroy();
+			}
+		};
 	}
 </script>
 
