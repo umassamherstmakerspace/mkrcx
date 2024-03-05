@@ -18,7 +18,9 @@
 				left: 'prev,next today',
 				center: 'title',
 				right: 'dayGridMonth,timeGridWeek,listWeek'
-			}
+			},
+            nowIndicator: true,
+            scrollTime: new Date().getHours() + ':00:00',
 		});
 
 		calendar.render();
