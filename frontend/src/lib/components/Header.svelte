@@ -15,8 +15,7 @@
 	} from 'flowbite-svelte';
 	import { BellSolid, DotsVerticalOutline, EyeSolid } from 'flowbite-svelte-icons';
 	import DropdownTheme from './DropdownTheme.svelte';
-	import { Hold, Notification, User, logout } from '$lib/leash';
-	import { page } from '$app/stores';
+	import { Hold, Notification, User } from '$lib/leash';
 	import Timestamp from './Timestamp.svelte';
 
 	export let hideSidebar: boolean;
@@ -103,7 +102,7 @@
 			<DropdownItem href="/settings">Settings</DropdownItem>
 			<DropdownTheme />
 			<DropdownDivider />
-			<DropdownItem on:click={() => logout($page.url.origin)}>Logout</DropdownItem>
+			<DropdownItem href="/logout">Logout</DropdownItem>
 		</Dropdown>
 		<Dropdown
 			triggeredBy="#bell"

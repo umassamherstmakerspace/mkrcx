@@ -643,6 +643,14 @@ func updateUserEndpoint(user_ep fiber.Router) {
 func deleteUserEndpoint(user_ep fiber.Router) {
 	user_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		user := c.Locals("target_user").(models.User)
+		db := leash_auth.GetDB(c)
+
+		db.Delete(&user)
+		db.Delete(&models.UserUpdate{}, "user_id = ?", user.ID)
+		db.Delete(&models.Training{}, "user_id = ?", user.ID)
+		db.Delete(&models.Hold{}, "user_id = ?", user.ID)
+		db.Delete(&models.APIKey{}, "user_id = ?", user.ID)
+		db.Delete(&models.Notification{}, "user_id = ?", user.ID)
 
 		event := UserEvent{
 			c:         c,

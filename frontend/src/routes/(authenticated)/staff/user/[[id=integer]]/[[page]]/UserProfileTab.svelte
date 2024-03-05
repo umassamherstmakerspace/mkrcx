@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { Alert, Button, Helper, Input, Label, NumberInput, Select } from 'flowbite-svelte';
-	import type { PageData } from './$types';
-	import type { UserUpdateOptions } from '$lib/leash';
+	import type { User, UserUpdateOptions } from '$lib/leash';
 	import type { ConvertFields } from '$lib/types';
 	import { inputColor, isError, labelColor } from './formCommon';
 
-	export let data: PageData;
-	let { user, target } = data;
+	export let user: User;
+	export let target: User;
 
 	let profileError: string = '';
 	let changed = false;

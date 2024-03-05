@@ -1,57 +1,39 @@
-<script lang="ts" context="module">
-    interface Event {
-        title: string;
-        start: string;
-        end: string;
-    };
-</script>
-
 <script lang="ts">
-    // @ts-nocheck
-    import Calendar from '@event-calendar/core';
-    import TimeGrid from '@event-calendar/time-grid';
-    import DayGrid from '@event-calendar/day-grid';
-    import List from '@event-calendar/list';
-    import '@event-calendar/core/index.css';
+	import { Calendar } from '@fullcalendar/core';
+	import iCalendarPlugin from '@fullcalendar/icalendar';
+	import dayGridPlugin from '@fullcalendar/daygrid';
+	import timeGridPlugin from '@fullcalendar/timegrid';
+	import listPlugin from '@fullcalendar/list';
 
-    let plugins = [TimeGrid, DayGrid, List];
-    let options = {
-        view: 'timeGridWeek',
-        headerToolbar: {
-            start: 'prev,next today',
-            center: 'title',
-            end: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-        },
-        buttonText: function (texts) {
-            texts.resourceTimeGridWeek = 'resources';
-            return texts;
-        },
-        resources: [
-            {id: 1, title: 'Resource A'},
-            {id: 2, title: 'Resource B'}
-        ],
-        scrollTime: '09:00:00',
-        // events: createEvents(),
-        views: {
-            timeGridWeek: {pointer: true},
-            resourceTimeGridWeek: {pointer: true}
-        },
-        dayMaxEvents: true,
-        nowIndicator: true,
-        selectable: true
-    };
+	function calendarAction(element: HTMLElement) {
+		let calendar = new Calendar(element, {
+			plugins: [dayGridPlugin, timeGridPlugin, listPlugin, iCalendarPlugin],
+			events: {
+				url: '/calendar',
+				format: 'ics'
+			},
+			initialView: 'timeGridWeek',
+			headerToolbar: {
+				left: 'prev,next today',
+				center: 'title',
+				right: 'dayGridMonth,timeGridWeek,listWeek'
+			},
+			nowIndicator: true,
+			scrollTime: new Date().getHours() + ':00:00'
+		});
+
+		calendar.render();
+
+		return {
+			destroy: () => {
+				calendar.destroy();
+			}
+		};
+	}
 </script>
 
-<div class="w-full container flex justify-center bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-100 dark:border-gray-700 divide-gray-100 dark:divide-gray-700">
-    <Calendar {plugins} {options} />
+<div
+	class="flex aspect-video w-full justify-center divide-gray-100 border-gray-100 text-gray-700 dark:divide-gray-700 dark:border-gray-700 dark:text-gray-200"
+>
+	<div id="calendar" class="w-full" use:calendarAction />
 </div>
-
-<style>
-    :global(.ec) {
-        flex: 1;
-    }
-
-    .container {
-        aspect-ratio: 16/9;
-    }
-</style>

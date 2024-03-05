@@ -1,17 +1,16 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { login } from '$lib/leash';
 	import { page } from '$app/stores';
 	import Cookies from 'js-cookie';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-	let { user } = data;
+	const { user, api } = data;
 
 	let previousPage: string = base;
 
-	afterNavigate(async ({ from }) => {
+	afterNavigate(({ from }) => {
 		previousPage = from?.url?.href || previousPage;
 		if (previousPage.includes('/login')) {
 			previousPage = '/';
@@ -40,7 +39,7 @@
 			if (user) {
 				window.location.href = previousPage;
 			} else {
-				await login($page.url.href || '', previousPage);
+				window.location.href = api.login($page.url.href || '', previousPage);
 			}
 		}
 	});

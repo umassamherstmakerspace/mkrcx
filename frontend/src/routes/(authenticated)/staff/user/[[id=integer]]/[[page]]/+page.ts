@@ -12,26 +12,29 @@ export const load: PageLoad = async ({ parent, params }) => {
 		error(400, 'Invalid user ID provided.');
 	}
 
+	const { user, api } = await parent();
+
 	let target: User;
 	try {
-		target = await User.fromID(userID);
+		target = await api.userFromID(userID);
 	} catch (e) {
 		console.error(e);
 		error(404, 'User not found.');
 	}
 
-	const { user } = await parent();
-
 	const tabs = {
 		profile: true,
 		trainings: true,
 		holds: true,
+		notifications: true,
 		updates: true,
-		apikeys: false
+		apikeys: false,
+		admin: false
 	};
 
-	if (user.role === 'staff') {
+	if (user.role === 'admin') {
 		tabs.apikeys = true;
+		tabs.admin = true;
 	}
 
 	const tabsOpen = Object.fromEntries(Object.keys(tabs).map((tab) => [tab, false])) as Record<
