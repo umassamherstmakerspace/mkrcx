@@ -554,24 +554,24 @@ export class LeashAPI {
 		}
 	}
 
-	public async login(login: string, return_to: string): Promise<void> {
+	public login(login: string, return_to: string): string {
 		if (!return_to) {
 			return_to = window.location.href;
 		}
 
 		const state = btoa(return_to);
 
-		window.location.href = `${this.leashURL}/auth/login?return=${login}&state=${state}`;
+		return `${this.leashURL}/auth/login?return=${login}&state=${state}`;
 	}
 
-	public async logout(return_to: string): Promise<void> {
+	public logout(return_to: string): string {
 		if (!return_to) {
 			return_to = window.location.href;
 		}
 
 		Cookies.remove('token');
 
-		window.location.href = `${this.leashURL}/auth/logout?token=${this.token}&return=${return_to}`;
+		return `${this.leashURL}/auth/logout?token=${this.token}&return=${return_to}`;
 	}
 }
 

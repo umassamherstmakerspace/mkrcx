@@ -104,7 +104,7 @@
 			<DropdownItem href="/settings">Settings</DropdownItem>
 			<DropdownTheme />
 			<DropdownDivider />
-			<DropdownItem on:click={() => api.logout($page.url.origin)}>Logout</DropdownItem>
+			<DropdownItem href="/logout">Logout</DropdownItem>
 		</Dropdown>
 		<Dropdown
 			triggeredBy="#bell"

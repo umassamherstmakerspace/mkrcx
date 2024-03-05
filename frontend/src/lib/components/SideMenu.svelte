@@ -45,7 +45,7 @@
 					</svelte:fragment>
 				</SidebarItem>
 				{#if user}
-					<SidebarItem label="File Upload" href="/wormhole">
+					<!-- <SidebarItem label="File Upload" href="/wormhole">
 						<svelte:fragment slot="icon">
 							<UploadSolid class={iconClass} />
 						</svelte:fragment>
@@ -57,7 +57,7 @@
 						<SidebarDropdownItem label="Home" href="/spectrum" />
 						<SidebarDropdownItem label="Printers" href="/spectrum/printers" />
 						<SidebarDropdownItem label="My Prints" href="/spectrum/my-prints" />
-					</SidebarDropdownWrapper>
+					</SidebarDropdownWrapper> -->
 					{#if user.isStaff}
 						<SidebarDropdownWrapper label="Staff Zone">
 							<svelte:fragment slot="icon">
@@ -65,6 +65,7 @@
 							</svelte:fragment>
 							<SidebarDropdownItem label="Home" href="/staff" />
 							<SidebarDropdownItem label="User Directory" href="/staff/directory" />
+							<SidebarDropdownItem label="Makerspace Wifi Portal" href="/staff/wifi" />
 						</SidebarDropdownWrapper>
 					{/if}
 				{/if}
