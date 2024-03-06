@@ -68,7 +68,11 @@
 							</svelte:fragment>
 							<SidebarDropdownItem label="Home" href="/staff" />
 							<SidebarDropdownItem label="User Directory" href="/staff/directory" />
-							<SidebarDropdownItem label="Makerspace Wifi Portal" href="/staff/wifi" target="_blank" />
+							<SidebarDropdownItem
+								label="Makerspace Wifi Portal"
+								href="/staff/wifi"
+								target="_blank"
+							/>
 						</SidebarDropdownWrapper>
 					{/if}
 				{/if}
