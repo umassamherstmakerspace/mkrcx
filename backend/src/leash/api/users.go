@@ -710,8 +710,15 @@ func getPermissionsEndpoint(user_ep fiber.Router) {
 		user := c.Locals("target_user").(models.User)
 		authenticator := leash_auth.GetAuthentication(c)
 
-		user_permissions := authenticator.Enforcer.Enforcer.GetPermissionsForUser("user:" + fmt.Sprint(user.ID))
-		role_permissions := authenticator.Enforcer.Enforcer.GetPermissionsForUser("role:" + user.Role)
+		user_permissions, err := authenticator.Enforcer.Enforcer.GetPermissionsForUser("user:" + fmt.Sprint(user.ID))
+		if err != nil {
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		role_permissions, err := authenticator.Enforcer.Enforcer.GetPermissionsForUser("role:" + user.Role)
+		if err != nil {
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
 
 		permissions := make([]string, len(user_permissions)+len(role_permissions))
 
