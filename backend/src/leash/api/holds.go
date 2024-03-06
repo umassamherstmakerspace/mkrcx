@@ -171,7 +171,15 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 
 		if body.HoldEnd != nil {
 			holdEnd := time.Unix(*body.HoldEnd, 0)
+			if holdEnd.Before(time.Now()) {
+				return fiber.NewError(fiber.StatusBadRequest, "Hold end time cannot be in the past")
+			}
+
 			hold.HoldEnd = &holdEnd
+		}
+
+		if hold.HoldStart != nil && hold.HoldEnd != nil && hold.HoldStart.After(*hold.HoldEnd) {
+			return fiber.NewError(fiber.StatusBadRequest, "Hold start time cannot be after hold end time")
 		}
 
 		db.Save(&hold)
