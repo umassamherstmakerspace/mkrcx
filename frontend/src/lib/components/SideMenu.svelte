@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import { User } from '$lib/leash';
 	import {
 		CloseButton,
@@ -24,6 +25,8 @@
 
 	const iconClass =
 		'h-5 w-5 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white';
+
+	$: activeUrl = $page.url.pathname;
 </script>
 
 <Drawer transitionType="fly" {transitionParams} bind:hidden id="sidebar2">
@@ -36,7 +39,7 @@
 		</h5>
 		<CloseButton on:click={() => (hidden = true)} class="mb-4 dark:text-white" />
 	</div>
-	<Sidebar>
+	<Sidebar {activeUrl}>
 		<SidebarWrapper divClass="overflow-y-auto py-4 px-3 rounded dark:bg-gray-800">
 			<SidebarGroup>
 				<SidebarItem label="Home" href="/">
@@ -65,7 +68,11 @@
 							</svelte:fragment>
 							<SidebarDropdownItem label="Home" href="/staff" />
 							<SidebarDropdownItem label="User Directory" href="/staff/directory" />
-							<SidebarDropdownItem label="Makerspace Wifi Portal" href="/staff/wifi" />
+							<SidebarDropdownItem
+								label="Makerspace Wifi Portal"
+								href="/staff/wifi"
+								target="_blank"
+							/>
 						</SidebarDropdownWrapper>
 					{/if}
 				{/if}

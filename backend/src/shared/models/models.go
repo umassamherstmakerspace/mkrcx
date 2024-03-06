@@ -48,7 +48,12 @@ type User struct {
 // AfterFind GORM hook that loads the permissions for a user from casbin
 func (u *User) AfterFind(tx *gorm.DB) (err error) {
 	u.Permissions = []string{}
-	for _, p := range enforcer.GetPermissionsForUser(fmt.Sprintf("user:%d", u.ID)) {
+	perms, err := enforcer.GetPermissionsForUser(fmt.Sprintf("user:%d", u.ID))
+	if err != nil {
+		return err
+	}
+
+	for _, p := range perms {
 		u.Permissions = append(u.Permissions, p[1])
 	}
 
@@ -77,7 +82,12 @@ type APIKey struct {
 // AfterFind GORM hook that loads the permissions for an api key from casbin
 func (a *APIKey) AfterFind(tx *gorm.DB) (err error) {
 	a.Permissions = []string{}
-	for _, p := range enforcer.GetPermissionsForUser("apikey:" + a.Key) {
+	perms, err := enforcer.GetPermissionsForUser("apikey:" + a.Key)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range perms {
 		a.Permissions = append(a.Permissions, p[1])
 	}
 
@@ -113,6 +123,17 @@ type Hold struct {
 	AddedBy   uint
 	RemovedBy uint `json:",omitempty"`
 	Priority  int
+}
+
+// AfterFind GORM hook that clears expired holds
+func (h *Hold) AfterFind(tx *gorm.DB) (err error) {
+	if h.HoldEnd != nil && h.HoldEnd.Before(time.Now()) {
+		h.RemovedBy = h.AddedBy
+		h.DeletedAt = gorm.DeletedAt{Time: *h.HoldEnd, Valid: true}
+		tx.Save(h)
+	}
+
+	return nil
 }
 
 type UserUpdate struct {
