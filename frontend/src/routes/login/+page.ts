@@ -24,8 +24,6 @@ export const load: PageLoad = async ({ parent, url }) => {
 
 		let ret = atob(state);
 
-        console.log('ret', ret);
-
 		if (ret.includes('/login')) {
 			ret = root;
 		}
