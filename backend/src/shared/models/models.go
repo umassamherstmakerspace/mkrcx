@@ -105,21 +105,22 @@ func (a *APIKey) AfterCreate(tx *gorm.DB) (err error) {
 
 type Training struct {
 	Model
-	ID           uint `gorm:"primarykey"`
-	UserID       uint
-	TrainingType string
-	AddedBy      uint
-	RemovedBy    uint `json:",omitempty"`
+	ID        uint `gorm:"primarykey"`
+	UserID    uint
+	Name      string
+	Level     string
+	AddedBy   uint
+	RemovedBy uint `json:",omitempty"`
 }
 
 type Hold struct {
 	Model
 	ID        uint `gorm:"primarykey"`
 	UserID    uint
-	HoldType  string
+	Name      string
 	Reason    string
-	HoldStart *time.Time
-	HoldEnd   *time.Time
+	Start     *time.Time
+	End       *time.Time
 	AddedBy   uint
 	RemovedBy uint `json:",omitempty"`
 	Priority  int
@@ -127,9 +128,9 @@ type Hold struct {
 
 // AfterFind GORM hook that clears expired holds
 func (h *Hold) AfterFind(tx *gorm.DB) (err error) {
-	if h.HoldEnd != nil && h.HoldEnd.Before(time.Now()) {
+	if h.End != nil && h.End.Before(time.Now()) {
 		h.RemovedBy = h.AddedBy
-		h.DeletedAt = gorm.DeletedAt{Time: *h.HoldEnd, Valid: true}
+		h.DeletedAt = gorm.DeletedAt{Time: *h.End, Valid: true}
 		tx.Save(h)
 	}
 
