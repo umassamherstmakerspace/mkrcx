@@ -14,12 +14,14 @@ export const load: LayoutLoad = async ({ fetch }) => {
 
 	const api = new LeashAPI(token, leashURL);
 	api.overrideFetchFunction(fetch);
-	let u;
+	let u = null;
 
-	try {
-		u = await api.selfUser({ withNotifications: true, withHolds: true });
-	} catch (e) {
-		u = null;
+	if (token) {
+		try {
+			u = await api.selfUser({ withNotifications: true, withHolds: true });
+		} catch (e) {
+			Cookies.remove('token');
+		}
 	}
 
 	return {
