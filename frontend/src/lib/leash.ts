@@ -555,20 +555,12 @@ export class LeashAPI {
 	}
 
 	public login(login: string, return_to: string): string {
-		if (!return_to) {
-			return_to = window.location.href;
-		}
-
 		const state = btoa(return_to);
 
 		return `${this.leashURL}/auth/login?return=${login}&state=${state}`;
 	}
 
 	public logout(return_to: string): string {
-		if (!return_to) {
-			return_to = window.location.href;
-		}
-
 		Cookies.remove('token');
 
 		return `${this.leashURL}/auth/logout?token=${this.token}&return=${return_to}`;
