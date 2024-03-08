@@ -6,7 +6,7 @@ import { Cached } from '$lib/types';
 let calCache: Cached<string>;
 
 async function fetchCalendar(fetch: typeof globalThis.fetch) {
-	const cal = env.CALENDAR_ENDPOINT;
+	const cal = env.STAFF_CALENDAR_ENDPOINT;
 	if (!cal) {
 		error(500, 'No calendar endpoint configured.');
 	}
