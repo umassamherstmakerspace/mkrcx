@@ -23,7 +23,7 @@
 			},
 			nowIndicator: true,
 			scrollTime: new Date().getHours() + ':00:00',
-			eventSourceSuccess: function (content, _) {
+			eventSourceSuccess: function (content) {
 				for (const event of content) {
 					if (event.color === undefined) {
 						colorizeEvent(event);

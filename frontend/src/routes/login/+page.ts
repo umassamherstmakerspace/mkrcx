@@ -31,7 +31,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 		redirect(307, ret);
 	} else {
 		if (user) {
-            redirect(307, previousPage);
+			redirect(307, previousPage);
 		} else {
 			redirect(307, api.login(url.origin + url.pathname, previousPage));
 		}

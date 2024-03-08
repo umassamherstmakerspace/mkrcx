@@ -10,7 +10,8 @@
 		const title = event.title.toLocaleLowerCase();
 		if (title.includes('closed')) {
 			event.backgroundColor = '#820318';
-		} if (title.includes('open')) {
+		}
+		if (title.includes('open')) {
 			event.backgroundColor = '#c78c20';
 		}
 	}
