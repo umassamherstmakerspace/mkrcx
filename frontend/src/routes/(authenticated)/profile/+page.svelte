@@ -184,8 +184,8 @@
 	async function getHolds() {
 		const holds = await user.getAllHolds();
 		return holds.filter((hold) => {
-			if (hold.holdEnd == undefined) return true;
-			return hold.holdEnd.getTime() > Date.now();
+			if (hold.end == undefined) return true;
+			return hold.end.getTime() > Date.now();
 		});
 	}
 </script>
@@ -351,7 +351,7 @@
 				{:then trainings}
 					{#each trainings as training}
 						<TableBodyRow>
-							<TableBodyCell>{training.trainingType}</TableBodyCell>
+							<TableBodyCell>{training.name}</TableBodyCell>
 							<TableBodyCell><Timestamp timestamp={training.createdAt} /></TableBodyCell>
 						</TableBodyRow>
 					{/each}
@@ -383,18 +383,18 @@
 				{:then holds}
 					{#each holds as hold}
 						<TableBodyRow>
-							<TableBodyCell>{hold.holdType}</TableBodyCell>
+							<TableBodyCell>{hold.name}</TableBodyCell>
 							<TableBodyCell>{hold.reason}</TableBodyCell>
 							<TableBodyCell>
-								{#if hold.holdStart}
-									<Timestamp timestamp={hold.holdStart} />
+								{#if hold.start}
+									<Timestamp timestamp={hold.start} />
 								{:else}
 									-
 								{/if}
 							</TableBodyCell>
 							<TableBodyCell>
-								{#if hold.holdEnd}
-									<Timestamp timestamp={hold.holdEnd} />
+								{#if hold.end}
+									<Timestamp timestamp={hold.end} />
 								{:else}
 									-
 								{/if}

@@ -56,7 +56,7 @@
 	function deleteTraining(training: Training) {
 		deleteTrainingModal = {
 			open: true,
-			name: training.trainingType,
+			name: training.name,
 			deleteFn: training.delete,
 			onConfirm: async () => {
 				trainings = {};
@@ -111,7 +111,7 @@
 								</Badge>
 							{/if}
 						</TableBodyCell>
-						<TableBodyCell>{training.trainingType}</TableBodyCell>
+						<TableBodyCell>{training.name}</TableBodyCell>
 						<TableBodyCell><Timestamp timestamp={training.createdAt} /></TableBodyCell>
 						<TableBodyCell>
 							<UserCell user={training.getAddedBy()} />

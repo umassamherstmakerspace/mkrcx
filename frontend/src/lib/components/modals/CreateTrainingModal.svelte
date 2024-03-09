@@ -12,12 +12,12 @@
 
 	async function confirm() {
 		try {
-			if (!trainingType) {
+			if (!name) {
 				throw new Error('Training Type is required');
 			}
 
 			await user.createTraining({
-				trainingType
+				name
 			});
 
 			closeModal();
@@ -33,12 +33,12 @@
 		}
 	}
 
-	let trainingType = '';
+	let name = '';
 
 	let error = '';
 
 	function reset() {
-		trainingType = '';
+		name = '';
 
 		error = '';
 	}
@@ -58,12 +58,12 @@
 			Create training for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label for="trainingType-input" class="mb-2 block">Training Type</Label>
+			<Label for="name-input" class="mb-2 block">Training Type</Label>
 			<Input
-				bind:value={trainingType}
+				bind:value={name}
 				type="text"
 				placeholder="Training Type"
-				id="trainingType-input"
+				id="name-input"
 			/>
 		</div>
 		<Button class="w-full1" type="submit">Create Training</Button>

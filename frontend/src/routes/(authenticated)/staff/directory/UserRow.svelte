@@ -156,7 +156,7 @@
 							{:then trainings}
 								{#each trainings as training}
 									<TableBodyRow>
-										<TableBodyCell>{training.trainingType}</TableBodyCell>
+										<TableBodyCell>{training.name}</TableBodyCell>
 										<TableBodyCell
 											><CloseButton on:click={() => deleteTraining(training)} /></TableBodyCell
 										>
@@ -194,24 +194,24 @@
 							{:then holds}
 								{#each holds as hold}
 									<TableBodyRow>
-										<TableBodyCell>{hold.holdType}</TableBodyCell>
+										<TableBodyCell>{hold.name}</TableBodyCell>
 										<TableBodyCell>{hold.reason}</TableBodyCell>
 										<TableBodyCell>{hold.priority}</TableBodyCell>
 										<TableBodyCell>
-											{#if hold.holdStart}
+											{#if hold.start}
 												<div class="flex flex-col">
-													<Timestamp timestamp={hold.holdStart} formatter="date" />
-													<Timestamp timestamp={hold.holdStart} formatter="time" />
+													<Timestamp timestamp={hold.start} formatter="date" />
+													<Timestamp timestamp={hold.start} formatter="time" />
 												</div>
 											{:else}
 												<span></span>
 											{/if}
 										</TableBodyCell>
 										<TableBodyCell>
-											{#if hold.holdEnd}
+											{#if hold.end}
 												<div class="flex flex-col">
-													<Timestamp timestamp={hold.holdEnd} formatter="date" />
-													<Timestamp timestamp={hold.holdEnd} formatter="time" />
+													<Timestamp timestamp={hold.end} formatter="date" />
+													<Timestamp timestamp={hold.end} formatter="time" />
 												</div>
 											{:else}
 												<span></span>

@@ -12,11 +12,11 @@
 	}
 
 	async function confirm() {
-		const holdStart = startDate ? getUnixTime(startDate) : undefined;
-		const holdEnd = endDate ? getUnixTime(endDate) : undefined;
+		const start = startDate ? getUnixTime(startDate) : undefined;
+		const end = endDate ? getUnixTime(endDate) : undefined;
 
 		try {
-			if (!holdType) {
+			if (!name) {
 				throw new Error('Hold type is required');
 			}
 
@@ -24,16 +24,16 @@
 				throw new Error('Reason is required');
 			}
 
-			if (holdStart && holdEnd && holdStart > holdEnd) {
+			if (start && end && start > end) {
 				throw new Error('Start date must be before end date');
 			}
 
 			await user.createHold({
-				holdType,
+				name,
 				reason,
 				priority,
-				holdStart,
-				holdEnd
+				start,
+				end,
 			});
 
 			closeModal();
@@ -49,7 +49,7 @@
 		}
 	}
 
-	let holdType = '';
+	let name = '';
 	let reason = '';
 	let priority = 0;
 	let startDate: Date | undefined = undefined;
@@ -58,7 +58,7 @@
 	let error = '';
 
 	function reset() {
-		holdType = '';
+		name = '';
 		reason = '';
 		priority = 0;
 		startDate = undefined;
@@ -84,9 +84,9 @@
 			Create hold for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label for="holdType-input" class="mb-2 block">Hold Type</Label>
+			<Label for="name-input" class="mb-2 block">Hold Type</Label>
 
-			<Input type="text" name="text" placeholder="Hold Type" required bind:value={holdType} />
+			<Input type="text" name="text" placeholder="Hold Type" required bind:value={name} />
 		</div>
 
 		<div class="flex flex-col justify-between">

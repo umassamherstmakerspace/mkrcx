@@ -68,7 +68,7 @@
 	function deleteHold(hold: Hold) {
 		deleteHoldModal = {
 			open: true,
-			name: hold.holdType,
+			name: hold.name,
 			deleteFn: hold.delete,
 			onConfirm: async () => {
 				holds = {};
@@ -131,18 +131,18 @@
 								</Badge>
 							{/if}
 						</TableBodyCell>
-						<TableBodyCell>{hold.holdType}</TableBodyCell>
+						<TableBodyCell>{hold.name}</TableBodyCell>
 						<TableBodyCell>{hold.reason}</TableBodyCell>
 						<TableBodyCell>
-							{#if hold.holdStart}
-								<Timestamp timestamp={hold.holdStart} />
+							{#if hold.start}
+								<Timestamp timestamp={hold.start} />
 							{:else}
 								-
 							{/if}
 						</TableBodyCell>
 						<TableBodyCell>
-							{#if hold.holdEnd}
-								<Timestamp timestamp={hold.holdEnd} />
+							{#if hold.end}
+								<Timestamp timestamp={hold.end} />
 							{:else}
 								-
 							{/if}

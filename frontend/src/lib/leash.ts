@@ -146,7 +146,7 @@ interface LeashTraining {
 	DeletedAt?: string;
 
 	UserID: number;
-	TrainingType: string;
+	Name: string;
 	AddedBy: number;
 	RemovedBy?: number;
 }
@@ -158,10 +158,10 @@ interface LeashHold {
 	DeletedAt?: string;
 
 	UserID: number;
-	HoldType: string;
+	Name: string;
 	Reason: string;
-	HoldStart?: string;
-	HoldEnd?: string;
+	Start?: string;
+	End?: string;
 	AddedBy: number;
 	RemovedBy?: number;
 
@@ -243,14 +243,14 @@ export interface APIKeyUpdateOptions {
 }
 
 export interface TrainingCreateOptions {
-	trainingType: string;
+	name: string;
 }
 
 export interface HoldCreateOptions {
-	holdType: string;
+	name: string;
 	reason: string;
-	holdStart?: number;
-	holdEnd?: number;
+	start?: number;
+	end?: number;
 	priority: number;
 }
 
@@ -633,7 +633,7 @@ export class User {
 			this.trainingsCache.setValue(
 				user.Trainings.map(
 					(training) =>
-						new Training(api, training, `${this.endpointPrefix}/trainings/${training.TrainingType}`)
+						new Training(api, training, `${this.endpointPrefix}/trainings/${training.Name}`)
 				)
 			);
 		} else if (options.withTrainings) {
@@ -651,7 +651,7 @@ export class User {
 		if (user.Holds) {
 			this.holdsCache.setValue(
 				user.Holds.map(
-					(hold) => new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.HoldType}`)
+					(hold) => new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.Name}`)
 				)
 			);
 		} else if (options.withHolds) {
@@ -756,7 +756,7 @@ export class User {
 		return {
 			total: res.total,
 			data: res.data.map(
-				(training) => new Training(this.api, training, `${prefix}/${training.TrainingType}`)
+				(training) => new Training(this.api, training, `${prefix}/${training.Name}`)
 			)
 		};
 	}
@@ -773,7 +773,7 @@ export class User {
 		const res = await this.api.leashList<LeashHold, LeashListOptions>(prefix, options, noCache);
 		return {
 			total: res.total,
-			data: res.data.map((hold) => new Hold(this.api, hold, `${prefix}/${hold.HoldType}`))
+			data: res.data.map((hold) => new Hold(this.api, hold, `${prefix}/${hold.Name}`))
 		};
 	}
 
@@ -914,12 +914,12 @@ export class User {
 		);
 	}
 
-	async createTraining({ trainingType }: TrainingCreateOptions): Promise<Training> {
+	async createTraining({ name }: TrainingCreateOptions): Promise<Training> {
 		const training = await this.api.leashFetch<LeashTraining>(
 			`${this.endpointPrefix}/trainings`,
 			'POST',
 			{
-				training_type: trainingType
+				name: name
 			}
 		);
 
@@ -928,43 +928,43 @@ export class User {
 		return new Training(
 			this.api,
 			training,
-			`${this.endpointPrefix}/trainings/${training.TrainingType}`
+			`${this.endpointPrefix}/trainings/${training.Name}`
 		);
 	}
 
-	async getTraining(trainingType: string): Promise<Training> {
+	async getTraining(name: string): Promise<Training> {
 		return new Training(
 			this.api,
-			await this.api.leashGet<LeashTraining>(`${this.endpointPrefix}/trainings/${trainingType}`),
-			`${this.endpointPrefix}/trainings/${trainingType}`
+			await this.api.leashGet<LeashTraining>(`${this.endpointPrefix}/trainings/${name}`),
+			`${this.endpointPrefix}/trainings/${name}`
 		);
 	}
 
 	async createHold({
-		holdType,
+		name,
 		reason,
-		holdStart,
-		holdEnd,
+		start,
+		end,
 		priority
 	}: HoldCreateOptions): Promise<Hold> {
 		const hold = await this.api.leashFetch<LeashHold>(`${this.endpointPrefix}/holds`, 'POST', {
-			hold_type: holdType,
+			name,
 			reason,
-			hold_start: holdStart,
-			hold_end: holdEnd,
+			start,
+			end,
 			priority
 		});
 
 		this.holdsCache.invalidate();
 
-		return new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.HoldType}`);
+		return new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.Name}`);
 	}
 
-	async getHold(holdType: string): Promise<Hold> {
+	async getHold(name: string): Promise<Hold> {
 		return new Hold(
 			this.api,
-			await this.api.leashGet<LeashHold>(`${this.endpointPrefix}/holds/${holdType}`),
-			`${this.endpointPrefix}/holds/${holdType}`
+			await this.api.leashGet<LeashHold>(`${this.endpointPrefix}/holds/${name}`),
+			`${this.endpointPrefix}/holds/${name}`
 		);
 	}
 
@@ -1086,7 +1086,7 @@ export class Training {
 	updatedAt: Date;
 	deletedAt?: Date;
 
-	trainingType: string;
+	name: string;
 
 	private userID: number;
 	private addedById: number;
@@ -1103,7 +1103,7 @@ export class Training {
 			this.deletedAt = new Date(training.DeletedAt);
 		}
 
-		this.trainingType = training.TrainingType;
+		this.name = training.Name;
 		this.userID = training.UserID;
 		this.addedById = training.AddedBy;
 		if (training.RemovedBy) {
@@ -1149,10 +1149,10 @@ export class Hold {
 	updatedAt: Date;
 	deletedAt?: Date;
 
-	holdType: string;
+	name: string;
 	reason: string;
-	holdStart?: Date;
-	holdEnd?: Date;
+	start?: Date;
+	end?: Date;
 
 	priority: number;
 
@@ -1171,13 +1171,13 @@ export class Hold {
 			this.deletedAt = new Date(hold.DeletedAt);
 		}
 
-		this.holdType = hold.HoldType;
+		this.name = hold.Name;
 		this.reason = hold.Reason;
-		if (hold.HoldStart) {
-			this.holdStart = new Date(hold.HoldStart);
+		if (hold.Start) {
+			this.start = new Date(hold.Start);
 		}
-		if (hold.HoldEnd) {
-			this.holdEnd = new Date(hold.HoldEnd);
+		if (hold.End) {
+			this.end = new Date(hold.End);
 		}
 
 		this.userID = hold.UserID;
@@ -1190,8 +1190,8 @@ export class Hold {
 
 		this.endpointPrefix = endpointPrefix;
 
-		if (this.holdEnd && !this.deletedAt && !this.removedById && isAfter(new Date(), this.holdEnd)) {
-			this.deletedAt = this.holdEnd;
+		if (this.end && !this.deletedAt && !this.removedById && isAfter(new Date(), this.end)) {
+			this.deletedAt = this.end;
 			this.removedById = this.addedById;
 		}
 	}
@@ -1213,14 +1213,14 @@ export class Hold {
 	}
 
 	isPending(): boolean {
-		const ended = this.holdEnd ? isAfter(new Date(), this.holdEnd) : false;
-		const started = this.holdStart ? isAfter(new Date(), this.holdStart) : true;
+		const ended = this.end ? isAfter(new Date(), this.end) : false;
+		const started = this.start ? isAfter(new Date(), this.start) : true;
 		return !started && !ended && this.deletedAt === undefined;
 	}
 
 	isActive(): boolean {
-		const ended = this.holdEnd ? isAfter(new Date(), this.holdEnd) : false;
-		const started = this.holdStart ? isAfter(new Date(), this.holdStart) : true;
+		const ended = this.end ? isAfter(new Date(), this.end) : false;
+		const started = this.start ? isAfter(new Date(), this.start) : true;
 		return started && !ended && this.deletedAt === undefined;
 	}
 

@@ -1246,9 +1246,9 @@ func TestLeash(t *testing.T) {
 		test.Endpoint("/api/users/self/trainings", fiber.MethodGet).
 			SetupUser(func(_ string, user models.User) error {
 				training := models.Training{
-					TrainingType: "other",
-					UserID:       user.ID,
-					AddedBy:      user.ID,
+					Name:    "other",
+					UserID:  user.ID,
+					AddedBy: user.ID,
 				}
 
 				return db.Create(&training).Error
@@ -1263,14 +1263,14 @@ func TestLeash(t *testing.T) {
 			})
 
 		newTraining := models.Training{
-			TrainingType: "other",
-			UserID:       responseUser.ID,
-			AddedBy:      responseUser.ID,
+			Name:    "other",
+			UserID:  responseUser.ID,
+			AddedBy: responseUser.ID,
 		}
 
 		test.Endpoint("/api/users/self/trainings", fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"training_type": "other",
+				"name": "other",
 			})).
 			Test("Create Self Training", func(e *EndpointTester) {
 				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.trainings:create"}).
@@ -1322,20 +1322,20 @@ func TestLeash(t *testing.T) {
 			})
 
 		newHold := models.Hold{
-			Reason:    "Test Hold",
-			HoldType:  "other",
-			UserID:    responseUser.ID,
-			AddedBy:   responseUser.ID,
-			Priority:  10,
-			HoldStart: nil,
-			HoldEnd:   nil,
+			Reason:   "Test Hold",
+			Name:     "other",
+			UserID:   responseUser.ID,
+			AddedBy:  responseUser.ID,
+			Priority: 10,
+			Start:    nil,
+			End:      nil,
 		}
 
 		test.Endpoint("/api/users/self/holds", fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"reason":    "Test Hold",
-				"hold_type": "other",
-				"priority":  10,
+				"reason":   "Test Hold",
+				"name":     "other",
+				"priority": 10,
 			})).
 			Test("Create Self Hold", func(e *EndpointTester) {
 				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.holds:create"}).
@@ -1741,9 +1741,9 @@ func TestLeash(t *testing.T) {
 			SetupUser(func(_ string, user models.User) error {
 				createUser("", user)
 				training := models.Training{
-					TrainingType: "other",
-					UserID:       testingUser.ID,
-					AddedBy:      user.ID,
+					Name:    "other",
+					UserID:  testingUser.ID,
+					AddedBy: user.ID,
 				}
 
 				return db.Create(&training).Error
@@ -1759,14 +1759,14 @@ func TestLeash(t *testing.T) {
 			})
 
 		newTraining := models.Training{
-			TrainingType: "other",
-			UserID:       testingUser.ID,
-			AddedBy:      testingUser.ID,
+			Name:    "other",
+			UserID:  testingUser.ID,
+			AddedBy: testingUser.ID,
 		}
 
 		test.Endpoint(fmt.Sprintf("/api/users/%d/trainings", testingUser.ID), fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"training_type": "other",
+				"name": "other",
 			})).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
@@ -1826,20 +1826,20 @@ func TestLeash(t *testing.T) {
 			})
 
 		newHold := models.Hold{
-			Reason:    "Test Hold",
-			HoldType:  "other",
-			UserID:    testingUser.ID,
-			AddedBy:   testingUser.ID,
-			Priority:  10,
-			HoldStart: nil,
-			HoldEnd:   nil,
+			Reason:   "Test Hold",
+			Name:     "other",
+			UserID:   testingUser.ID,
+			AddedBy:  testingUser.ID,
+			Priority: 10,
+			Start:    nil,
+			End:      nil,
 		}
 
 		test.Endpoint(fmt.Sprintf("/api/users/%d/holds", testingUser.ID), fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"reason":    "Test Hold",
-				"hold_type": "other",
-				"priority":  10,
+				"reason":   "Test Hold",
+				"name":     "other",
+				"priority": 10,
 			})).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
