@@ -138,6 +138,25 @@ interface LeashAPIKey {
 	FullAccess: boolean;
 	Permissions: string[];
 }
+export const enum TrainingLevel {
+	IN_PROGRESS = 'in_progress',
+	SUPERVISED = 'supervised',
+	UNSUPERVISED = 'unsupervised',
+	CAN_TRAIN = 'can_train'
+}
+
+export function trainingLevelToString(level: TrainingLevel): string {
+	switch (level) {
+		case TrainingLevel.IN_PROGRESS:
+			return 'In Progress';
+		case TrainingLevel.SUPERVISED:
+			return 'Requires Active Staff Supervision';
+		case TrainingLevel.UNSUPERVISED:
+			return 'Does Not Require Active Staff Supervision';
+		case TrainingLevel.CAN_TRAIN:
+			return 'Can Train Others';
+	}
+}
 
 interface LeashTraining {
 	ID: number;
@@ -147,6 +166,7 @@ interface LeashTraining {
 
 	UserID: number;
 	Name: string;
+	Level: TrainingLevel;
 	AddedBy: number;
 	RemovedBy?: number;
 }
@@ -244,6 +264,7 @@ export interface APIKeyUpdateOptions {
 
 export interface TrainingCreateOptions {
 	name: string;
+	level: TrainingLevel;
 }
 
 export interface HoldCreateOptions {
@@ -914,12 +935,13 @@ export class User {
 		);
 	}
 
-	async createTraining({ name }: TrainingCreateOptions): Promise<Training> {
+	async createTraining({ name, level }: TrainingCreateOptions): Promise<Training> {
 		const training = await this.api.leashFetch<LeashTraining>(
 			`${this.endpointPrefix}/trainings`,
 			'POST',
 			{
-				name: name
+				name,
+				level
 			}
 		);
 
@@ -1087,6 +1109,7 @@ export class Training {
 	deletedAt?: Date;
 
 	name: string;
+	level: TrainingLevel;
 
 	private userID: number;
 	private addedById: number;
@@ -1104,6 +1127,7 @@ export class Training {
 		}
 
 		this.name = training.Name;
+		this.level = training.Level;
 		this.userID = training.UserID;
 		this.addedById = training.AddedBy;
 		if (training.RemovedBy) {
@@ -1111,6 +1135,10 @@ export class Training {
 		}
 
 		this.endpointPrefix = endpointPrefix;
+	}
+
+	levelString(): string {
+		return trainingLevelToString(this.level);
 	}
 
 	async getUser(options: LeashUserOptions = {}): Promise<User> {

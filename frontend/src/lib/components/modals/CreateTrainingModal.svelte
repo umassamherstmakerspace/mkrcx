@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { User } from '$lib/leash';
+	import { TrainingLevel, User, trainingLevelToString } from '$lib/leash';
 	import { Alert, Button, Input, Label, Modal } from 'flowbite-svelte';
 
 	export let user: User;
@@ -17,7 +17,8 @@
 			}
 
 			await user.createTraining({
-				name
+				name,
+				level
 			});
 
 			closeModal();
@@ -34,11 +35,13 @@
 	}
 
 	let name = '';
+	let level = TrainingLevel.IN_PROGRESS;
 
 	let error = '';
 
 	function reset() {
 		name = '';
+		level = TrainingLevel.IN_PROGRESS;
 
 		error = '';
 	}
@@ -58,13 +61,26 @@
 			Create training for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label for="name-input" class="mb-2 block">Training Type</Label>
+			<Label for="name-input" class="mb-2 block">Name</Label>
 			<Input
 				bind:value={name}
 				type="text"
-				placeholder="Training Type"
+				placeholder="Name"
 				id="name-input"
 			/>
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label for="level-input" class="mb-2 block">Level</Label>
+			<select
+				bind:value={level}
+				id="level-input"
+				class="w-full p-2 border border-gray-300 rounded-md"
+			>
+				<option value={TrainingLevel.IN_PROGRESS}>{trainingLevelToString(TrainingLevel.IN_PROGRESS)}</option>
+				<option value={TrainingLevel.SUPERVISED}>{trainingLevelToString(TrainingLevel.SUPERVISED)}</option>
+				<option value={TrainingLevel.UNSUPERVISED}>{trainingLevelToString(TrainingLevel.UNSUPERVISED)}</option>
+				<option value={TrainingLevel.CAN_TRAIN}>{trainingLevelToString(TrainingLevel.CAN_TRAIN)}</option>
+			</select>
 		</div>
 		<Button class="w-full1" type="submit">Create Training</Button>
 	</form>

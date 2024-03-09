@@ -145,18 +145,20 @@
 
 					<Table>
 						<TableHead>
-							<TableHeadCell>Training Type</TableHeadCell>
+							<TableHeadCell>Name</TableHeadCell>
+							<TableHeadCell>Level</TableHeadCell>
 							<TableHeadCell>Remove</TableHeadCell>
 						</TableHead>
 						<TableBody>
 							{#await user.getAllTrainings()}
 								<TableBodyRow>
-									<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
+									<TableBodyCell colspan="3" class="p-0">Loading...</TableBodyCell>
 								</TableBodyRow>
 							{:then trainings}
 								{#each trainings as training}
 									<TableBodyRow>
 										<TableBodyCell>{training.name}</TableBodyCell>
+										<TableBodyCell>{training.levelString()}</TableBodyCell>
 										<TableBodyCell
 											><CloseButton on:click={() => deleteTraining(training)} /></TableBodyCell
 										>
@@ -164,11 +166,11 @@
 								{/each}
 							{:catch error}
 								<TableBodyRow>
-									<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+									<TableBodyCell colspan="3" class="p-0">Error: {error.message}</TableBodyCell>
 								</TableBodyRow>
 							{/await}
 							<TableBodyRow>
-								<TableBodyCell colspan="2" class="p-0">
+								<TableBodyCell colspan="3" class="p-0">
 									<Button color="green" on:click={() => createTraining()} class="w-full"
 										>Add Training</Button
 									>

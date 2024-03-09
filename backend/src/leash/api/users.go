@@ -169,7 +169,7 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		Email          string `json:"email" xml:"email" form:"email" validate:"required,email"`
 		Name           string `json:"name" xml:"name" form:"name" validate:"required"`
 		Role           string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
-		Type           string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
+		Type           string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad employee alumni program other"`
 		GraduationYear int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		Major          string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}
@@ -477,7 +477,7 @@ func updateUserEndpoint(user_ep fiber.Router) {
 		Email          *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
 		CardId         *string `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
 		Role           *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
-		Type           *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
+		Type           *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad employee alumni program other"`
 		GraduationYear *int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 		Major          *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
 	}

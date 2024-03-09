@@ -84,7 +84,8 @@
 <Table>
 	<TableHead>
 		<TableHeadCell>Active</TableHeadCell>
-		<TableHeadCell>Training Type</TableHeadCell>
+		<TableHeadCell>Name</TableHeadCell>
+		<TableHeadCell>Level</TableHeadCell>
 		<TableHeadCell>Date Added</TableHeadCell>
 		<TableHeadCell>Added By</TableHeadCell>
 		<TableHeadCell>Date Removed</TableHeadCell>
@@ -95,7 +96,7 @@
 		{#key trainings}
 			{#await getTrainings()}
 				<TableBodyRow>
-					<TableBodyCell colspan="7" class="p-0">Loading...</TableBodyCell>
+					<TableBodyCell colspan="8" class="p-0">Loading...</TableBodyCell>
 				</TableBodyRow>
 			{:then trainings}
 				{#each trainings as training}
@@ -112,6 +113,7 @@
 							{/if}
 						</TableBodyCell>
 						<TableBodyCell>{training.name}</TableBodyCell>
+						<TableBodyCell>{training.levelString()}</TableBodyCell>
 						<TableBodyCell><Timestamp timestamp={training.createdAt} /></TableBodyCell>
 						<TableBodyCell>
 							<UserCell user={training.getAddedBy()} />
@@ -141,7 +143,7 @@
 				{/each}
 			{:catch error}
 				<TableBodyRow>
-					<TableBodyCell colspan="7" class="p-0">Error: {error.message}</TableBodyCell>
+					<TableBodyCell colspan="8" class="p-0">Error: {error.message}</TableBodyCell>
 				</TableBodyRow>
 			{/await}
 		{/key}
