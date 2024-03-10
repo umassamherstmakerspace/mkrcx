@@ -4,3 +4,4 @@ keys.json
 .env.*
 !.env.example
 *.db
+megalinter-reports/
