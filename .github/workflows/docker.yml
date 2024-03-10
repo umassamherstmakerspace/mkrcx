@@ -53,7 +53,7 @@ jobs:
   build_and_push:
     name: Build and Push
     runs-on: ubuntu-latest
-    depends-on: [test-backend, test-frontend]
+    needs: [test-backend, test-frontend]
     strategy:
       # Prevent a failure in one image from stopping the other builds
       fail-fast: false
