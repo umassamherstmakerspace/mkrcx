@@ -1264,13 +1264,15 @@ func TestLeash(t *testing.T) {
 
 		newTraining := models.Training{
 			Name:    "other",
+			Level:   "can_train",
 			UserID:  responseUser.ID,
 			AddedBy: responseUser.ID,
 		}
 
 		test.Endpoint("/api/users/self/trainings", fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"name": "other",
+				"name":  "other",
+				"level": "can_train",
 			})).
 			Test("Create Self Training", func(e *EndpointTester) {
 				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.trainings:create"}).
@@ -1322,20 +1324,22 @@ func TestLeash(t *testing.T) {
 			})
 
 		newHold := models.Hold{
-			Reason:   "Test Hold",
-			Name:     "other",
-			UserID:   responseUser.ID,
-			AddedBy:  responseUser.ID,
-			Priority: 10,
-			Start:    nil,
-			End:      nil,
+			Reason:         "Test Hold",
+			Name:           "other",
+			UserID:         responseUser.ID,
+			AddedBy:        responseUser.ID,
+			Priority:       10,
+			ResolutionLink: "https://example.com",
+			Start:          nil,
+			End:            nil,
 		}
 
 		test.Endpoint("/api/users/self/holds", fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"reason":   "Test Hold",
-				"name":     "other",
-				"priority": 10,
+				"reason":          "Test Hold",
+				"name":            "other",
+				"priority":        10,
+				"resolution_link": "https://example.com",
 			})).
 			Test("Create Self Hold", func(e *EndpointTester) {
 				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self.holds:create"}).
@@ -1760,13 +1764,15 @@ func TestLeash(t *testing.T) {
 
 		newTraining := models.Training{
 			Name:    "other",
+			Level:   "can_train",
 			UserID:  testingUser.ID,
 			AddedBy: testingUser.ID,
 		}
 
 		test.Endpoint(fmt.Sprintf("/api/users/%d/trainings", testingUser.ID), fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"name": "other",
+				"name":  "other",
+				"level": "can_train",
 			})).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
@@ -1826,20 +1832,22 @@ func TestLeash(t *testing.T) {
 			})
 
 		newHold := models.Hold{
-			Reason:   "Test Hold",
-			Name:     "other",
-			UserID:   testingUser.ID,
-			AddedBy:  testingUser.ID,
-			Priority: 10,
-			Start:    nil,
-			End:      nil,
+			Reason:         "Test Hold",
+			Name:           "other",
+			UserID:         testingUser.ID,
+			AddedBy:        testingUser.ID,
+			Priority:       10,
+			ResolutionLink: "https://example.com",
+			Start:          nil,
+			End:            nil,
 		}
 
 		test.Endpoint(fmt.Sprintf("/api/users/%d/holds", testingUser.ID), fiber.MethodPost).
 			WithBody(encode(map[string]interface{}{
-				"reason":   "Test Hold",
-				"name":     "other",
-				"priority": 10,
+				"reason":          "Test Hold",
+				"name":            "other",
+				"priority":        10,
+				"resolution_link": "https://example.com",
 			})).
 			SetupUser(createUser).
 			CleanupUser(cleanupUser).
