@@ -57,7 +57,7 @@
 		deleteTrainingModal = {
 			open: true,
 			name: training.name,
-			deleteFn: training.delete,
+			deleteFn: () => training.delete(),
 			onConfirm: async () => {
 				trainings = {};
 			}

@@ -182,6 +182,7 @@ interface LeashHold {
 	Reason: string;
 	Start?: string;
 	End?: string;
+	ResolutionLink?: string;
 	AddedBy: number;
 	RemovedBy?: number;
 
@@ -273,6 +274,7 @@ export interface HoldCreateOptions {
 	start?: number;
 	end?: number;
 	priority: number;
+	resolutionLink?: string;
 }
 
 export interface NotificationCreateOptions {
@@ -947,11 +949,7 @@ export class User {
 
 		this.trainingsCache.invalidate();
 
-		return new Training(
-			this.api,
-			training,
-			`${this.endpointPrefix}/trainings/${training.Name}`
-		);
+		return new Training(this.api, training, `${this.endpointPrefix}/trainings/${training.Name}`);
 	}
 
 	async getTraining(name: string): Promise<Training> {
@@ -967,14 +965,16 @@ export class User {
 		reason,
 		start,
 		end,
-		priority
+		priority,
+		resolutionLink
 	}: HoldCreateOptions): Promise<Hold> {
 		const hold = await this.api.leashFetch<LeashHold>(`${this.endpointPrefix}/holds`, 'POST', {
 			name,
 			reason,
 			start,
 			end,
-			priority
+			priority,
+			resolution_link: resolutionLink
 		});
 
 		this.holdsCache.invalidate();
@@ -1182,6 +1182,8 @@ export class Hold {
 	start?: Date;
 	end?: Date;
 
+	resolutionLink?: string;
+
 	priority: number;
 
 	private userID: number;
@@ -1213,6 +1215,8 @@ export class Hold {
 		if (hold.RemovedBy) {
 			this.removedById = hold.RemovedBy;
 		}
+
+		this.resolutionLink = hold.ResolutionLink;
 
 		this.priority = hold.Priority;
 
@@ -1261,6 +1265,8 @@ export class Hold {
 	}
 
 	async delete(): Promise<void> {
+		console.log('deleting');
+		console.log(this.endpointPrefix);
 		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
 	}
 

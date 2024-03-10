@@ -28,12 +28,17 @@
 				throw new Error('Start date must be before end date');
 			}
 
+			if (resolutionLink && !resolutionLink.startsWith('http')) {
+				throw new Error('Resolution link must be a valid URL');
+			}
+
 			await user.createHold({
 				name,
 				reason,
 				priority,
 				start,
 				end,
+				resolutionLink
 			});
 
 			closeModal();
@@ -54,6 +59,7 @@
 	let priority = 0;
 	let startDate: Date | undefined = undefined;
 	let endDate: Date | undefined = undefined;
+	let resolutionLink = '';
 
 	let error = '';
 
@@ -63,6 +69,7 @@
 		priority = 0;
 		startDate = undefined;
 		endDate = undefined;
+		resolutionLink = '';
 
 		error = '';
 	}
@@ -111,16 +118,20 @@
 				bind:value={priority}
 			/>
 		</div>
-
 		<div class="flex flex-col justify-between">
-			<Label class="space-y-2">
-				<span>Start Date</span>
-				<Input type="datetime-local" name="text" placeholder="Start Date" bind:value={startDate} />
-			</Label>
-			<Label class="space-y-2">
-				<span>End Date</span>
-				<Input type="datetime-local" name="text" placeholder="End Date" bind:value={endDate} />
-			</Label>
+			<Label for="resolution-link-input" class="mb-2 block">Resolution Link</Label>
+
+			<Input type="text" name="text" placeholder="Resolution Link" bind:value={resolutionLink} />
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label for="start-date-input" class="mb-2 block">Start Date</Label>
+
+			<Input type="datetime-local" name="text" placeholder="Start Date" bind:value={startDate} />
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label for="end-date-input" class="mb-2 block">End Date</Label>
+
+			<Input type="datetime-local" name="text" placeholder="End Date" bind:value={endDate} />
 		</div>
 		<Button class="w-full1" type="submit">Create Hold</Button>
 	</form>

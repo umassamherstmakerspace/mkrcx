@@ -115,15 +115,16 @@ type Training struct {
 
 type Hold struct {
 	Model
-	ID        uint `gorm:"primarykey"`
-	UserID    uint
-	Name      string
-	Reason    string
-	Start     *time.Time
-	End       *time.Time
-	AddedBy   uint
-	RemovedBy uint `json:",omitempty"`
-	Priority  int
+	ID             uint `gorm:"primarykey"`
+	UserID         uint
+	Name           string
+	Reason         string
+	Start          *time.Time
+	End            *time.Time
+	ResolutionLink string `json:",omitempty"`
+	AddedBy        uint
+	RemovedBy      uint `json:",omitempty"`
+	Priority       int
 }
 
 // AfterFind GORM hook that clears expired holds

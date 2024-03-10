@@ -69,7 +69,7 @@
 		deleteHoldModal = {
 			open: true,
 			name: hold.name,
-			deleteFn: hold.delete,
+			deleteFn: () => hold.delete(),
 			onConfirm: async () => {
 				holds = {};
 			}
@@ -101,6 +101,7 @@
 		<TableHeadCell>Reason</TableHeadCell>
 		<TableHeadCell>Start Date</TableHeadCell>
 		<TableHeadCell>End Date</TableHeadCell>
+		<TableHeadCell>Resolution Link</TableHeadCell>
 		<TableHeadCell>Date Added</TableHeadCell>
 		<TableHeadCell>Added By</TableHeadCell>
 		<TableHeadCell>Date Removed</TableHeadCell>
@@ -111,7 +112,7 @@
 		{#key holds}
 			{#await getHolds()}
 				<TableBodyRow>
-					<TableBodyCell colspan="10" class="p-0">Loading...</TableBodyCell>
+					<TableBodyCell colspan="11" class="p-0">Loading...</TableBodyCell>
 				</TableBodyRow>
 			{:then holds}
 				{#each holds as hold}
@@ -147,6 +148,15 @@
 								-
 							{/if}
 						</TableBodyCell>
+						<TableBodyCell>
+							{#if hold.resolutionLink}
+								<a href={hold.resolutionLink} target="_blank" rel="noopener noreferrer">
+									{hold.resolutionLink}
+								</a>
+							{:else}
+								-
+							{/if}
+						</TableBodyCell>
 						<TableBodyCell><Timestamp timestamp={hold.createdAt} /></TableBodyCell>
 						<TableBodyCell>
 							<UserCell user={hold.getAddedBy()} />
@@ -176,7 +186,7 @@
 				{/each}
 			{:catch error}
 				<TableBodyRow>
-					<TableBodyCell colspan="10" class="p-0">Error: {error.message}</TableBodyCell>
+					<TableBodyCell colspan="11" class="p-0">Error: {error.message}</TableBodyCell>
 				</TableBodyRow>
 			{/await}
 		{/key}

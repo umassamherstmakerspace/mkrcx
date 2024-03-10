@@ -376,11 +376,12 @@
 				<TableHeadCell>Reason</TableHeadCell>
 				<TableHeadCell>Start Date</TableHeadCell>
 				<TableHeadCell>End Date</TableHeadCell>
+				<TableHeadCell>Resolve</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#await getHolds()}
 					<TableBodyRow>
-						<TableBodyCell colspan="4" class="p-0">Loading...</TableBodyCell>
+						<TableBodyCell colspan="5" class="p-0">Loading...</TableBodyCell>
 					</TableBodyRow>
 				{:then holds}
 					{#each holds as hold}
@@ -401,11 +402,19 @@
 									-
 								{/if}
 							</TableBodyCell>
+							<TableBodyCell>
+								{#if hold.resolutionLink}
+									<a href={hold.resolutionLink} target="_blank" rel="noopener noreferrer">Resolve</a
+									>
+								{:else}
+									-
+								{/if}
+							</TableBodyCell>
 						</TableBodyRow>
 					{/each}
 				{:catch error}
 					<TableBodyRow>
-						<TableBodyCell colspan="4" class="p-0">Error: {error.message}</TableBodyCell>
+						<TableBodyCell colspan="5" class="p-0">Error: {error.message}</TableBodyCell>
 					</TableBodyRow>
 				{/await}
 			</TableBody>

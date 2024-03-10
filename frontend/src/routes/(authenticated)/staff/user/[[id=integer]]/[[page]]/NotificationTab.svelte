@@ -57,7 +57,7 @@
 		deleteNotificationModal = {
 			open: true,
 			name: notification.title,
-			deleteFn: notification.delete,
+			deleteFn: () => notification.delete(),
 			onConfirm: async () => {
 				notifications = {};
 			}

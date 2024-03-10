@@ -136,11 +136,12 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 
 	// Create hold endpoint
 	type holdCreateRequest struct {
-		Name     string `json:"name" xml:"name" form:"name" validate:"required"`
-		Reason   string `json:"reason" xml:"reason" form:"reason" validate:"required"`
-		Start    *int64 `json:"start" xml:"start" form:"start" validate:"omitempty,numeric"`
-		End      *int64 `json:"end" xml:"end" form:"end" validate:"omitempty,numeric"`
-		Priority *int   `json:"priority" xml:"priority" form:"priority" validate:"required,numeric"`
+		Name           string `json:"name" xml:"name" form:"name" validate:"required"`
+		Reason         string `json:"reason" xml:"reason" form:"reason" validate:"required"`
+		Start          *int64 `json:"start" xml:"start" form:"start" validate:"omitempty,numeric"`
+		End            *int64 `json:"end" xml:"end" form:"end" validate:"omitempty,numeric"`
+		ResolutionLink string `json:"resolution_link" xml:"resolution_link" form:"resolution_link" validate:"omitempty,url"`
+		Priority       *int   `json:"priority" xml:"priority" form:"priority" validate:"required,numeric"`
 	}
 	hold_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[holdCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -157,11 +158,12 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 		}
 
 		hold := models.Hold{
-			Name:     body.Name,
-			Reason:   body.Reason,
-			UserID:   user.ID,
-			AddedBy:  leash_auth.GetAuthentication(c).User.ID,
-			Priority: *body.Priority,
+			Name:           body.Name,
+			Reason:         body.Reason,
+			UserID:         user.ID,
+			AddedBy:        leash_auth.GetAuthentication(c).User.ID,
+			ResolutionLink: body.ResolutionLink,
+			Priority:       *body.Priority,
 		}
 
 		if body.Start != nil {
