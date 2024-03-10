@@ -47,9 +47,9 @@ jobs:
       - name: Lint Frontend
         working-directory: ./frontend
         run: npm run lint
-      - name: Test Frontend
-        working-directory: ./frontend
-        run: npm test
+      # - name: Test Frontend # No tests yet
+      #   working-directory: ./frontend
+      #   run: npm test
   build_and_push:
     name: Build and Push
     runs-on: ubuntu-latest
