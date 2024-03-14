@@ -843,6 +843,7 @@ func TestLeash(t *testing.T) {
 
 		testingUser := models.User{
 			Name:           "New User",
+			Pronouns:       "they/them",
 			Email:          "new@testing.mkr.cx",
 			Role:           "member",
 			Type:           "other",
@@ -858,10 +859,11 @@ func TestLeash(t *testing.T) {
 				return db.Unscoped().Delete(&models.User{}, &models.User{Email: "new@testing.mkr.cx"}).Error
 			}).
 			WithBody(encode(map[string]interface{}{
-				"name":  "New User",
-				"email": "new@testing.mkr.cx",
-				"role":  "member",
-				"type":  "other",
+				"name":     "New User",
+				"pronouns": "they/them",
+				"email":    "new@testing.mkr.cx",
+				"role":     "member",
+				"type":     "other",
 			})).
 			Test("Create User", func(e *EndpointTester) {
 				e.RequiresPermissions([]string{"leash.users:create"}).
@@ -1552,6 +1554,7 @@ func TestLeash(t *testing.T) {
 	tester.Test("Other User Endpoints", func(test *Tester) {
 		testingUser := models.User{
 			Name:           "New User",
+			Pronouns:       "they/them",
 			Email:          "new@testing.mkr.cx",
 			Role:           "member",
 			Type:           "other",
