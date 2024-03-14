@@ -58,7 +58,7 @@
 		deleteAPIKeyModal = {
 			open: true,
 			name: apikey.key,
-			deleteFn: apikey.delete,
+			deleteFn: () => apikey.delete(),
 			onConfirm: async () => {
 				apikeys = {};
 			}

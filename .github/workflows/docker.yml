@@ -24,7 +24,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21.x'
+          go-version: "1.21.x"
           cache-dependency-path: ./backend/go.sum
       - name: Install dependencies
         working-directory: ./backend
@@ -32,9 +32,28 @@ jobs:
       - name: Test Leash
         working-directory: ./backend
         run: go test src/leash/leash_test.go
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "21"
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm install
+      - name: Lint Frontend
+        working-directory: ./frontend
+        run: npm run lint
+      # - name: Test Frontend # No tests yet
+      #   working-directory: ./frontend
+      #   run: npm test
   build_and_push:
     name: Build and Push
     runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
     strategy:
       # Prevent a failure in one image from stopping the other builds
       fail-fast: false
@@ -43,12 +62,14 @@ jobs:
           - image: mkrcx-leash
             context: backend
             file: backend/src/leash/Dockerfile
-            platforms: linux/amd64,linux/arm64
+            platforms: linux/amd64
+            # platforms: linux/amd64,linux/arm64
 
           - image: mkrcx-frontend
             context: frontend
             file: frontend/Dockerfile
-            platforms: linux/amd64,linux/arm64
+            platforms: linux/amd64
+            # platforms: linux/amd64,linux/arm64
 
     steps:
       - name: Checkout
@@ -82,7 +103,7 @@ jobs:
           registry: ghcr.io
           username: ${{ env.ACT && github.actor || github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Generate docker image tags
         id: metadata
         uses: docker/metadata-action@v5

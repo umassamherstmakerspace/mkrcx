@@ -113,10 +113,17 @@ interface LeashUser {
 	PendingEmail?: string;
 	CardID: number;
 	Name: string;
+	Pronouns: string;
 	Role: string;
 	Type: string;
+
+	// Student-like fields
 	GraduationYear: number;
 	Major: string;
+
+	// Employee-like fields
+	Department: string;
+	JobTitle: string;
 
 	Trainings?: LeashTraining[];
 	Holds?: LeashHold[];
@@ -138,6 +145,25 @@ interface LeashAPIKey {
 	FullAccess: boolean;
 	Permissions: string[];
 }
+export const enum TrainingLevel {
+	IN_PROGRESS = 'in_progress',
+	SUPERVISED = 'supervised',
+	UNSUPERVISED = 'unsupervised',
+	CAN_TRAIN = 'can_train'
+}
+
+export function trainingLevelToString(level: TrainingLevel): string {
+	switch (level) {
+		case TrainingLevel.IN_PROGRESS:
+			return 'In Progress';
+		case TrainingLevel.SUPERVISED:
+			return 'Requires Active Staff Supervision';
+		case TrainingLevel.UNSUPERVISED:
+			return 'Does Not Require Active Staff Supervision';
+		case TrainingLevel.CAN_TRAIN:
+			return 'Can Train Others';
+	}
+}
 
 interface LeashTraining {
 	ID: number;
@@ -146,7 +172,8 @@ interface LeashTraining {
 	DeletedAt?: string;
 
 	UserID: number;
-	TrainingType: string;
+	Name: string;
+	Level: TrainingLevel;
 	AddedBy: number;
 	RemovedBy?: number;
 }
@@ -158,10 +185,11 @@ interface LeashHold {
 	DeletedAt?: string;
 
 	UserID: number;
-	HoldType: string;
+	Name: string;
 	Reason: string;
-	HoldStart?: string;
-	HoldEnd?: string;
+	Start?: string;
+	End?: string;
+	ResolutionLink?: string;
 	AddedBy: number;
 	RemovedBy?: number;
 
@@ -204,20 +232,34 @@ interface LeashTokenRefresh {
 export interface UserCreateOptions {
 	email: string;
 	name: string;
+	pronouns: string;
 	role: string;
 	type: string;
-	graduationYear: number;
-	major: string;
+
+	// Student-like fields
+	graduationYear?: number;
+	major?: string;
+
+	// Employee-like fields
+	department?: string;
+	jobTitle?: string;
 }
 
 export interface UserUpdateOptions {
 	name?: string;
+	pronouns?: string;
 	email?: string;
 	cardID?: number;
 	role?: string;
 	type?: string;
+
+	// Student-like fields
 	graduationYear?: number;
 	major?: string;
+
+	// Employee-like fields
+	department?: string;
+	jobTitle?: string;
 }
 
 export interface ServiceUserCreateOptions {
@@ -243,15 +285,17 @@ export interface APIKeyUpdateOptions {
 }
 
 export interface TrainingCreateOptions {
-	trainingType: string;
+	name: string;
+	level: TrainingLevel;
 }
 
 export interface HoldCreateOptions {
-	holdType: string;
+	name: string;
 	reason: string;
-	holdStart?: number;
-	holdEnd?: number;
+	start?: number;
+	end?: number;
 	priority: number;
+	resolutionLink?: string;
 }
 
 export interface NotificationCreateOptions {
@@ -434,18 +478,24 @@ export class LeashAPI {
 	public async createUser({
 		email,
 		name,
+		pronouns,
 		role,
 		type,
 		graduationYear,
-		major
+		major,
+		department,
+		jobTitle
 	}: UserCreateOptions): Promise<User> {
 		const user = await this.leashFetch<LeashUser>(`/api/users`, 'POST', {
 			email,
 			name,
+			pronouns,
 			role,
 			type,
 			graduation_year: graduationYear,
-			major
+			major,
+			department,
+			job_title: jobTitle
 		});
 
 		return new User(this, user, `/api/users/${user.ID}`);
@@ -579,10 +629,17 @@ export class User {
 	pendingEmail?: string;
 	cardId: number;
 	name: string;
+	pronouns: string;
 	role: string;
 	type: string;
+
+	// Student-like fields
 	graduationYear: number;
 	major: string;
+
+	// Employee-like fields
+	department: string;
+	jobTitle: string;
 
 	trainingsCache: ListAllCache<Training>;
 	holdsCache: ListAllCache<Hold>;
@@ -612,10 +669,17 @@ export class User {
 		this.pendingEmail = user.PendingEmail;
 		this.cardId = user.CardID;
 		this.name = user.Name;
+		this.pronouns = user.Pronouns;
 		this.role = user.Role;
 		this.type = user.Type;
+
+		// Student-like fields
 		this.graduationYear = user.GraduationYear;
 		this.major = user.Major;
+
+		// Employee-like fields
+		this.department = user.Department;
+		this.jobTitle = user.JobTitle;
 
 		this.permissions = user.Permissions;
 
@@ -633,7 +697,7 @@ export class User {
 			this.trainingsCache.setValue(
 				user.Trainings.map(
 					(training) =>
-						new Training(api, training, `${this.endpointPrefix}/trainings/${training.TrainingType}`)
+						new Training(api, training, `${this.endpointPrefix}/trainings/${training.Name}`)
 				)
 			);
 		} else if (options.withTrainings) {
@@ -651,7 +715,7 @@ export class User {
 		if (user.Holds) {
 			this.holdsCache.setValue(
 				user.Holds.map(
-					(hold) => new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.HoldType}`)
+					(hold) => new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.Name}`)
 				)
 			);
 		} else if (options.withHolds) {
@@ -756,7 +820,7 @@ export class User {
 		return {
 			total: res.total,
 			data: res.data.map(
-				(training) => new Training(this.api, training, `${prefix}/${training.TrainingType}`)
+				(training) => new Training(this.api, training, `${prefix}/${training.Name}`)
 			)
 		};
 	}
@@ -773,7 +837,7 @@ export class User {
 		const res = await this.api.leashList<LeashHold, LeashListOptions>(prefix, options, noCache);
 		return {
 			total: res.total,
-			data: res.data.map((hold) => new Hold(this.api, hold, `${prefix}/${hold.HoldType}`))
+			data: res.data.map((hold) => new Hold(this.api, hold, `${prefix}/${hold.Name}`))
 		};
 	}
 
@@ -853,12 +917,15 @@ export class User {
 
 	async update({
 		name,
+		pronouns,
 		email,
 		cardID,
 		role,
 		type,
 		graduationYear,
-		major
+		major,
+		department,
+		jobTitle
 	}: UserUpdateOptions): Promise<User> {
 		if (this.role === 'service') {
 			throw new Error('Service users cannot be updated with this method.');
@@ -866,12 +933,15 @@ export class User {
 
 		const updated = await this.api.leashFetch<LeashUser>(`${this.endpointPrefix}`, 'PATCH', {
 			name,
+			pronouns,
 			email,
 			card_id: cardID,
 			role,
 			type,
 			graduation_year: graduationYear,
-			major
+			major,
+			department,
+			job_title: jobTitle
 		});
 
 		return new User(this.api, updated, this.endpointPrefix);
@@ -914,57 +984,56 @@ export class User {
 		);
 	}
 
-	async createTraining({ trainingType }: TrainingCreateOptions): Promise<Training> {
+	async createTraining({ name, level }: TrainingCreateOptions): Promise<Training> {
 		const training = await this.api.leashFetch<LeashTraining>(
 			`${this.endpointPrefix}/trainings`,
 			'POST',
 			{
-				training_type: trainingType
+				name,
+				level
 			}
 		);
 
 		this.trainingsCache.invalidate();
 
-		return new Training(
-			this.api,
-			training,
-			`${this.endpointPrefix}/trainings/${training.TrainingType}`
-		);
+		return new Training(this.api, training, `${this.endpointPrefix}/trainings/${training.Name}`);
 	}
 
-	async getTraining(trainingType: string): Promise<Training> {
+	async getTraining(name: string): Promise<Training> {
 		return new Training(
 			this.api,
-			await this.api.leashGet<LeashTraining>(`${this.endpointPrefix}/trainings/${trainingType}`),
-			`${this.endpointPrefix}/trainings/${trainingType}`
+			await this.api.leashGet<LeashTraining>(`${this.endpointPrefix}/trainings/${name}`),
+			`${this.endpointPrefix}/trainings/${name}`
 		);
 	}
 
 	async createHold({
-		holdType,
+		name,
 		reason,
-		holdStart,
-		holdEnd,
-		priority
+		start,
+		end,
+		priority,
+		resolutionLink
 	}: HoldCreateOptions): Promise<Hold> {
 		const hold = await this.api.leashFetch<LeashHold>(`${this.endpointPrefix}/holds`, 'POST', {
-			hold_type: holdType,
+			name,
 			reason,
-			hold_start: holdStart,
-			hold_end: holdEnd,
-			priority
+			start,
+			end,
+			priority,
+			resolution_link: resolutionLink
 		});
 
 		this.holdsCache.invalidate();
 
-		return new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.HoldType}`);
+		return new Hold(this.api, hold, `${this.endpointPrefix}/holds/${hold.Name}`);
 	}
 
-	async getHold(holdType: string): Promise<Hold> {
+	async getHold(name: string): Promise<Hold> {
 		return new Hold(
 			this.api,
-			await this.api.leashGet<LeashHold>(`${this.endpointPrefix}/holds/${holdType}`),
-			`${this.endpointPrefix}/holds/${holdType}`
+			await this.api.leashGet<LeashHold>(`${this.endpointPrefix}/holds/${name}`),
+			`${this.endpointPrefix}/holds/${name}`
 		);
 	}
 
@@ -1086,7 +1155,8 @@ export class Training {
 	updatedAt: Date;
 	deletedAt?: Date;
 
-	trainingType: string;
+	name: string;
+	level: TrainingLevel;
 
 	private userID: number;
 	private addedById: number;
@@ -1103,7 +1173,8 @@ export class Training {
 			this.deletedAt = new Date(training.DeletedAt);
 		}
 
-		this.trainingType = training.TrainingType;
+		this.name = training.Name;
+		this.level = training.Level;
 		this.userID = training.UserID;
 		this.addedById = training.AddedBy;
 		if (training.RemovedBy) {
@@ -1111,6 +1182,10 @@ export class Training {
 		}
 
 		this.endpointPrefix = endpointPrefix;
+	}
+
+	levelString(): string {
+		return trainingLevelToString(this.level);
 	}
 
 	async getUser(options: LeashUserOptions = {}): Promise<User> {
@@ -1149,10 +1224,12 @@ export class Hold {
 	updatedAt: Date;
 	deletedAt?: Date;
 
-	holdType: string;
+	name: string;
 	reason: string;
-	holdStart?: Date;
-	holdEnd?: Date;
+	start?: Date;
+	end?: Date;
+
+	resolutionLink?: string;
 
 	priority: number;
 
@@ -1171,13 +1248,13 @@ export class Hold {
 			this.deletedAt = new Date(hold.DeletedAt);
 		}
 
-		this.holdType = hold.HoldType;
+		this.name = hold.Name;
 		this.reason = hold.Reason;
-		if (hold.HoldStart) {
-			this.holdStart = new Date(hold.HoldStart);
+		if (hold.Start) {
+			this.start = new Date(hold.Start);
 		}
-		if (hold.HoldEnd) {
-			this.holdEnd = new Date(hold.HoldEnd);
+		if (hold.End) {
+			this.end = new Date(hold.End);
 		}
 
 		this.userID = hold.UserID;
@@ -1186,12 +1263,14 @@ export class Hold {
 			this.removedById = hold.RemovedBy;
 		}
 
+		this.resolutionLink = hold.ResolutionLink;
+
 		this.priority = hold.Priority;
 
 		this.endpointPrefix = endpointPrefix;
 
-		if (this.holdEnd && !this.deletedAt && !this.removedById && isAfter(new Date(), this.holdEnd)) {
-			this.deletedAt = this.holdEnd;
+		if (this.end && !this.deletedAt && !this.removedById && isAfter(new Date(), this.end)) {
+			this.deletedAt = this.end;
 			this.removedById = this.addedById;
 		}
 	}
@@ -1213,14 +1292,14 @@ export class Hold {
 	}
 
 	isPending(): boolean {
-		const ended = this.holdEnd ? isAfter(new Date(), this.holdEnd) : false;
-		const started = this.holdStart ? isAfter(new Date(), this.holdStart) : true;
+		const ended = this.end ? isAfter(new Date(), this.end) : false;
+		const started = this.start ? isAfter(new Date(), this.start) : true;
 		return !started && !ended && this.deletedAt === undefined;
 	}
 
 	isActive(): boolean {
-		const ended = this.holdEnd ? isAfter(new Date(), this.holdEnd) : false;
-		const started = this.holdStart ? isAfter(new Date(), this.holdStart) : true;
+		const ended = this.end ? isAfter(new Date(), this.end) : false;
+		const started = this.start ? isAfter(new Date(), this.start) : true;
 		return started && !ended && this.deletedAt === undefined;
 	}
 
@@ -1233,6 +1312,8 @@ export class Hold {
 	}
 
 	async delete(): Promise<void> {
+		console.log('deleting');
+		console.log(this.endpointPrefix);
 		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
 	}
 

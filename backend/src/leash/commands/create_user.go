@@ -77,6 +77,20 @@ func (p *NewUserCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 
 	user.Name = name
 
+	pronounsInput := textinput.New("Pronouns:")
+	pronounsInput.Validate = func(value string) error {
+		return nil
+	}
+
+	pronouns, err := pronounsInput.RunPrompt()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+
+		return subcommands.ExitFailure
+	}
+
+	user.Pronouns = pronouns
+
 	emailInput := textinput.New("Email:")
 	emailInput.Validate = func(value string) error {
 		val := struct {
@@ -134,8 +148,8 @@ func (p *NewUserCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 		{"undergrad", "Undergraduate Student"},
 		{"grad", "Graduate Student"},
 		{"alumni", "Alumni"},
-		{"faculty", "Faculty"},
-		{"staff", "Staff"},
+		{"program", "Other Program"},
+		{"employee", "Employee"},
 		{"other", "Other"},
 	}
 
@@ -151,46 +165,78 @@ func (p *NewUserCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{
 
 	user.Type = typ.Value
 
-	graduationYearInput := textinput.New("Graduation Year:")
-	graduationYearInput.Validate = func(value string) error {
-		val := struct {
-			Value string `validate:"omitempty,numeric,min=0,max=9999"`
-		}{value}
-		errs := validate.Struct(val)
-		if errs != nil {
-			return fmt.Errorf("invalid graduation year: %v", errs)
+	switch typ.Value {
+	case "undergrad", "grad", "alumni", "program":
+		graduationYearInput := textinput.New("Graduation Year:")
+		graduationYearInput.Validate = func(value string) error {
+			val := struct {
+				Value string `validate:"omitempty,numeric,min=0,max=9999"`
+			}{value}
+			errs := validate.Struct(val)
+			if errs != nil {
+				return fmt.Errorf("invalid graduation year: %v", errs)
+			}
+
+			return nil
 		}
 
-		return nil
+		graduationYear, err := graduationYearInput.RunPrompt()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+
+			return subcommands.ExitFailure
+		}
+
+		user.GraduationYear, err = strconv.Atoi(graduationYear)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+
+			return subcommands.ExitFailure
+		}
+
+		majorInput := textinput.New("Major:")
+		majorInput.Validate = func(value string) error {
+			return nil
+		}
+
+		major, err := majorInput.RunPrompt()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+
+			return subcommands.ExitFailure
+		}
+
+		user.Major = major
+
+	case "employee":
+		departmentInput := textinput.New("Department:")
+		departmentInput.Validate = func(value string) error {
+			return nil
+		}
+
+		department, err := departmentInput.RunPrompt()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+
+			return subcommands.ExitFailure
+		}
+
+		user.Department = department
+
+		jobTitleInput := textinput.New("Job Title:")
+		jobTitleInput.Validate = func(value string) error {
+			return nil
+		}
+
+		jobTitle, err := jobTitleInput.RunPrompt()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+
+			return subcommands.ExitFailure
+		}
+
+		user.JobTitle = jobTitle
 	}
-
-	graduationYear, err := graduationYearInput.RunPrompt()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-
-		return subcommands.ExitFailure
-	}
-
-	user.GraduationYear, err = strconv.Atoi(graduationYear)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-
-		return subcommands.ExitFailure
-	}
-
-	majorInput := textinput.New("Major:")
-	majorInput.Validate = func(value string) error {
-		return nil
-	}
-
-	major, err := majorInput.RunPrompt()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-
-		return subcommands.ExitFailure
-	}
-
-	user.Major = major
 
 	// Create User
 	log.Println("Creating user...")

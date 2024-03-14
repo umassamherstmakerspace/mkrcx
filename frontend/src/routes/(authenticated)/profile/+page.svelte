@@ -87,14 +87,23 @@
 
 	function loadUser() {
 		userUpdate.name = user.name;
+		userUpdate.pronouns = user.pronouns;
 		userUpdate.email = user.email;
 		if (user.pendingEmail) {
 			userUpdate.email = user.pendingEmail;
 		}
 		userUpdate.type = user.type;
-		if (user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni') {
+		if (
+			user.type == 'undergrad' ||
+			user.type == 'grad' ||
+			user.type == 'alumni' ||
+			user.type == 'program'
+		) {
 			userUpdate.major = user.major;
 			userUpdate.graduationYear = user.graduationYear;
+		} else if (user.type == 'employee') {
+			userUpdate.department = user.department;
+			userUpdate.jobTitle = user.jobTitle;
 		}
 
 		changed = false;
@@ -106,7 +115,11 @@
 
 	loadUser();
 
-	const studentLike = user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni';
+	const studentLike =
+		user.type == 'undergrad' ||
+		user.type == 'grad' ||
+		user.type == 'alumni' ||
+		user.type == 'program';
 
 	const isError = (value: string | undefined) => {
 		return value != undefined;
@@ -133,6 +146,13 @@
 			userUpdateError.name = undefined;
 		}
 
+		if (!userUpdate.pronouns) {
+			userUpdateError.pronouns = 'Pronouns cannot be empty';
+			hasError = true;
+		} else {
+			userUpdateError.pronouns = undefined;
+		}
+
 		if (!userUpdate.email) {
 			userUpdateError.email = 'Email cannot be empty';
 			hasError = true;
@@ -156,6 +176,20 @@
 				hasError = true;
 			} else {
 				userUpdateError.graduationYear = undefined;
+			}
+		} else if (userUpdate.type == 'employee') {
+			if (!userUpdate.department) {
+				userUpdateError.department = 'Department cannot be empty';
+				hasError = true;
+			} else {
+				userUpdateError.department = undefined;
+			}
+
+			if (!userUpdate.jobTitle) {
+				userUpdateError.jobTitle = 'Job title cannot be empty';
+				hasError = true;
+			} else {
+				userUpdateError.jobTitle = undefined;
 			}
 		}
 
@@ -184,8 +218,8 @@
 	async function getHolds() {
 		const holds = await user.getAllHolds();
 		return holds.filter((hold) => {
-			if (hold.holdEnd == undefined) return true;
-			return hold.holdEnd.getTime() > Date.now();
+			if (hold.end == undefined) return true;
+			return hold.end.getTime() > Date.now();
 		});
 	}
 </script>
@@ -224,6 +258,27 @@
 						<Helper class="mt-2" color="red">
 							<span class="font-medium">Error:</span>
 							{userUpdateError.name}
+						</Helper>
+					{/if}
+				</div>
+				<div class="flex flex-col justify-between">
+					<Label
+						color={labelColor(userUpdateError.pronouns)}
+						for="pronouns-input"
+						class="mb-2 block">Pronouns</Label
+					>
+					<Input
+						color={inputColor(userUpdateError.pronouns)}
+						bind:value={userUpdate.pronouns}
+						on:input={change}
+						on:change={validate}
+						type="text"
+						id="pronouns-input"
+					/>
+					{#if isError(userUpdateError.pronouns)}
+						<Helper class="mt-2" color="red">
+							<span class="font-medium">Error:</span>
+							{userUpdateError.pronouns}
 						</Helper>
 					{/if}
 				</div>
@@ -270,10 +325,9 @@
 							<option value="undergrad">Undergraduate Student</option>
 							<option value="grad">Graduate Student</option>
 							<option value="alumni">Alumni</option>
-						{:else if userUpdate.type == 'faculty'}
-							<option value="faculty">Faculty</option>
-						{:else if userUpdate.type == 'staff'}
-							<option value="staff">Staff</option>
+							<option value="program">Other Program</option>
+						{:else if userUpdate.type == 'employee'}
+							<option value="employee">Employee</option>
 						{:else if userUpdate.type == 'other'}
 							<option value="other">Other</option>
 						{/if}
@@ -288,7 +342,7 @@
 				{#if studentLike}
 					<div class="flex flex-col justify-between">
 						<Label color={labelColor(userUpdateError.major)} for="major-input" class="mb-2 block"
-							>Major</Label
+							>Major / Program Name</Label
 						>
 						<Input
 							color={inputColor(userUpdateError.major)}
@@ -326,6 +380,49 @@
 							</Helper>
 						{/if}
 					</div>
+				{:else if user.type == 'employee'}
+					<div class="flex flex-col justify-between">
+						<Label
+							color={labelColor(userUpdateError.department)}
+							for="department-input"
+							class="mb-2 block">Department</Label
+						>
+						<Input
+							color={inputColor(userUpdateError.department)}
+							bind:value={userUpdate.department}
+							on:input={change}
+							on:change={validate}
+							type="text"
+							id="department-input"
+						/>
+						{#if isError(userUpdateError.department)}
+							<Helper class="mt-2" color="red">
+								<span class="font-medium">Error:</span>
+								{userUpdateError.department}
+							</Helper>
+						{/if}
+					</div>
+					<div class="flex flex-col justify-between">
+						<Label
+							color={labelColor(userUpdateError.jobTitle)}
+							for="job-title-input"
+							class="mb-2 block">Job Title</Label
+						>
+						<Input
+							color={inputColor(userUpdateError.jobTitle)}
+							bind:value={userUpdate.jobTitle}
+							on:input={change}
+							on:change={validate}
+							type="text"
+							id="job-title-input"
+						/>
+						{#if isError(userUpdateError.jobTitle)}
+							<Helper class="mt-2" color="red">
+								<span class="font-medium">Error:</span>
+								{userUpdateError.jobTitle}
+							</Helper>
+						{/if}
+					</div>
 				{/if}
 				<div class="flex justify-end">
 					<Button color="yellow" disabled={!changed} class="w-1/4" type="submit">Save</Button>
@@ -340,24 +437,26 @@
 		</div>
 		<Table>
 			<TableHead>
-				<TableHeadCell>Training Type</TableHeadCell>
+				<TableHeadCell>Name</TableHeadCell>
+				<TableHeadCell>Level</TableHeadCell>
 				<TableHeadCell>Date Added</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#await user.getAllTrainings()}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
+						<TableBodyCell colspan="3" class="p-0">Loading...</TableBodyCell>
 					</TableBodyRow>
 				{:then trainings}
 					{#each trainings as training}
 						<TableBodyRow>
-							<TableBodyCell>{training.trainingType}</TableBodyCell>
+							<TableBodyCell>{training.name}</TableBodyCell>
+							<TableBodyCell>{training.levelString()}</TableBodyCell>
 							<TableBodyCell><Timestamp timestamp={training.createdAt} /></TableBodyCell>
 						</TableBodyRow>
 					{/each}
 				{:catch error}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+						<TableBodyCell colspan="3" class="p-0">Error: {error.message}</TableBodyCell>
 					</TableBodyRow>
 				{/await}
 			</TableBody>
@@ -374,27 +473,36 @@
 				<TableHeadCell>Reason</TableHeadCell>
 				<TableHeadCell>Start Date</TableHeadCell>
 				<TableHeadCell>End Date</TableHeadCell>
+				<TableHeadCell>Resolve</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#await getHolds()}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
+						<TableBodyCell colspan="5" class="p-0">Loading...</TableBodyCell>
 					</TableBodyRow>
 				{:then holds}
 					{#each holds as hold}
 						<TableBodyRow>
-							<TableBodyCell>{hold.holdType}</TableBodyCell>
+							<TableBodyCell>{hold.name}</TableBodyCell>
 							<TableBodyCell>{hold.reason}</TableBodyCell>
 							<TableBodyCell>
-								{#if hold.holdStart}
-									<Timestamp timestamp={hold.holdStart} />
+								{#if hold.start}
+									<Timestamp timestamp={hold.start} />
 								{:else}
 									-
 								{/if}
 							</TableBodyCell>
 							<TableBodyCell>
-								{#if hold.holdEnd}
-									<Timestamp timestamp={hold.holdEnd} />
+								{#if hold.end}
+									<Timestamp timestamp={hold.end} />
+								{:else}
+									-
+								{/if}
+							</TableBodyCell>
+							<TableBodyCell>
+								{#if hold.resolutionLink}
+									<a href={hold.resolutionLink} target="_blank" rel="noopener noreferrer">Resolve</a
+									>
 								{:else}
 									-
 								{/if}
@@ -403,7 +511,7 @@
 					{/each}
 				{:catch error}
 					<TableBodyRow>
-						<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+						<TableBodyCell colspan="5" class="p-0">Error: {error.message}</TableBodyCell>
 					</TableBodyRow>
 				{/await}
 			</TableBody>

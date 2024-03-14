@@ -98,6 +98,10 @@
 								<TableBodyCell>{user.name}</TableBodyCell>
 							</TableBodyRow>
 							<TableBodyRow>
+								<TableBodyCell>Pronouns</TableBodyCell>
+								<TableBodyCell>{user.pronouns}</TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
 								<TableBodyCell>Email</TableBodyCell>
 								<TableBodyCell>{user.email}</TableBodyCell>
 							</TableBodyRow>
@@ -106,7 +110,7 @@
 								{#if user.pendingEmail}
 									<TableBodyCell>{user.pendingEmail}</TableBodyCell>
 								{:else}
-									<TableBodyCell></TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -118,11 +122,11 @@
 								<TableBodyCell>{user.type}</TableBodyCell>
 							</TableBodyRow>
 							<TableBodyRow>
-								<TableBodyCell>Major</TableBodyCell>
+								<TableBodyCell>Major / Program Name</TableBodyCell>
 								{#if user.major}
 									<TableBodyCell>{user.major}</TableBodyCell>
 								{:else}
-									<TableBodyCell></TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -130,7 +134,23 @@
 								{#if user.graduationYear > 0}
 									<TableBodyCell>{user.graduationYear}</TableBodyCell>
 								{:else}
-									<TableBodyCell></TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
+								{/if}
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Department</TableBodyCell>
+								{#if user.department}
+									<TableBodyCell>{user.department}</TableBodyCell>
+								{:else}
+									<TableBodyCell>-</TableBodyCell>
+								{/if}
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Job Title</TableBodyCell>
+								{#if user.jobTitle}
+									<TableBodyCell>{user.jobTitle}</TableBodyCell>
+								{:else}
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -145,18 +165,20 @@
 
 					<Table>
 						<TableHead>
-							<TableHeadCell>Training Type</TableHeadCell>
+							<TableHeadCell>Name</TableHeadCell>
+							<TableHeadCell>Level</TableHeadCell>
 							<TableHeadCell>Remove</TableHeadCell>
 						</TableHead>
 						<TableBody>
 							{#await user.getAllTrainings()}
 								<TableBodyRow>
-									<TableBodyCell colspan="2" class="p-0">Loading...</TableBodyCell>
+									<TableBodyCell colspan="3" class="p-0">Loading...</TableBodyCell>
 								</TableBodyRow>
 							{:then trainings}
 								{#each trainings as training}
 									<TableBodyRow>
-										<TableBodyCell>{training.trainingType}</TableBodyCell>
+										<TableBodyCell>{training.name}</TableBodyCell>
+										<TableBodyCell>{training.levelString()}</TableBodyCell>
 										<TableBodyCell
 											><CloseButton on:click={() => deleteTraining(training)} /></TableBodyCell
 										>
@@ -164,11 +186,11 @@
 								{/each}
 							{:catch error}
 								<TableBodyRow>
-									<TableBodyCell colspan="2" class="p-0">Error: {error.message}</TableBodyCell>
+									<TableBodyCell colspan="3" class="p-0">Error: {error.message}</TableBodyCell>
 								</TableBodyRow>
 							{/await}
 							<TableBodyRow>
-								<TableBodyCell colspan="2" class="p-0">
+								<TableBodyCell colspan="3" class="p-0">
 									<Button color="green" on:click={() => createTraining()} class="w-full"
 										>Add Training</Button
 									>
@@ -194,24 +216,24 @@
 							{:then holds}
 								{#each holds as hold}
 									<TableBodyRow>
-										<TableBodyCell>{hold.holdType}</TableBodyCell>
+										<TableBodyCell>{hold.name}</TableBodyCell>
 										<TableBodyCell>{hold.reason}</TableBodyCell>
 										<TableBodyCell>{hold.priority}</TableBodyCell>
 										<TableBodyCell>
-											{#if hold.holdStart}
+											{#if hold.start}
 												<div class="flex flex-col">
-													<Timestamp timestamp={hold.holdStart} formatter="date" />
-													<Timestamp timestamp={hold.holdStart} formatter="time" />
+													<Timestamp timestamp={hold.start} formatter="date" />
+													<Timestamp timestamp={hold.start} formatter="time" />
 												</div>
 											{:else}
 												<span></span>
 											{/if}
 										</TableBodyCell>
 										<TableBodyCell>
-											{#if hold.holdEnd}
+											{#if hold.end}
 												<div class="flex flex-col">
-													<Timestamp timestamp={hold.holdEnd} formatter="date" />
-													<Timestamp timestamp={hold.holdEnd} formatter="time" />
+													<Timestamp timestamp={hold.end} formatter="date" />
+													<Timestamp timestamp={hold.end} formatter="time" />
 												</div>
 											{:else}
 												<span></span>

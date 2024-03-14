@@ -149,8 +149,15 @@
 {#if user}
 	{#await holds then holds}
 		{#if holds.length > 0}
-			<Alert border class="text-center" color={holdColor(holds[0])}>
-				{holds[0].reason}
+			{@const hold = holds[0]}
+			<Alert border class="text-center" color={holdColor(hold)}>
+				{#if hold.resolutionLink}
+					<a href={hold.resolutionLink} target="_blank" rel="noopener noreferrer">
+						<span class="underline">{hold.reason}</span>
+					</a>
+				{:else}
+					{hold.reason}
+				{/if}
 			</Alert>
 		{:else if user.pendingEmail}
 			<Alert border class="text-center" color="yellow">

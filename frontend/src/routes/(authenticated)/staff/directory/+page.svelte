@@ -126,8 +126,8 @@
 	function deleteTraining(event: CustomEvent<Training>) {
 		deleteTrainingModal = {
 			open: true,
-			name: event.detail.trainingType,
-			deleteFn: event.detail.delete,
+			name: event.detail.name,
+			deleteFn: () => event.detail.delete(),
 			onConfirm: reloadUser
 		};
 	}
@@ -135,8 +135,8 @@
 	function deleteHold(event: CustomEvent<Hold>) {
 		deleteHoldModal = {
 			open: true,
-			name: event.detail.holdType,
-			deleteFn: event.detail.delete,
+			name: event.detail.name,
+			deleteFn: () => event.detail.delete(),
 			onConfirm: reloadUser
 		};
 	}

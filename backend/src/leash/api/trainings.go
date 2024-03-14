@@ -21,14 +21,14 @@ func userTrainingMiddleware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read this user's trainings")
 	}
 
-	training_type, err := url.QueryUnescape(c.Params("training_type"))
+	training_name, err := url.QueryUnescape(c.Params("training_name"))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid training type")
 	}
 
 	var training = models.Training{
-		UserID:       user.ID,
-		TrainingType: training_type,
+		UserID: user.ID,
+		Name:   training_name,
 	}
 
 	if res := db.Limit(1).Where(&training).Find(&training); res.Error != nil || res.RowsAffected == 0 {
@@ -138,7 +138,8 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 
 	// Create training endpoint
 	type trainingCreateRequest struct {
-		TrainingType string `json:"training_type" xml:"training_type" form:"training_type" validate:"required"`
+		Name  string `json:"name" xml:"name" form:"name" validate:"required"`
+		Level string `json:"level" xml:"level" form:"level" validate:"required,oneof=in_progress supervised unsupervised can_train"`
 	}
 	training_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[trainingCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -148,16 +149,17 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 
 		// Check if training already exists for user
 		var existingTraining = models.Training{
-			UserID:       user.ID,
-			TrainingType: req.TrainingType,
+			UserID: user.ID,
+			Name:   req.Name,
 		}
 		if res := db.Limit(1).Where(&existingTraining).Find(&existingTraining); res.Error == nil && res.RowsAffected != 0 {
 			return fiber.NewError(fiber.StatusConflict, "User already has this training")
 		}
 
 		training := models.Training{
-			TrainingType: req.TrainingType,
-			AddedBy:      authenticator.User.ID,
+			Name:    req.Name,
+			Level:   req.Level,
+			AddedBy: authenticator.User.ID,
 		}
 
 		db.Model(&user).Association("Trainings").Append(&training)
@@ -165,7 +167,7 @@ func addUserTrainingEndpoints(user_ep fiber.Router) {
 		return c.JSON(training)
 	})
 
-	user_training_ep := training_ep.Group("/:training_type", userTrainingMiddleware)
+	user_training_ep := training_ep.Group("/:training_name", userTrainingMiddleware)
 
 	addCommonTrainingEndpoints(user_training_ep)
 }

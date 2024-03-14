@@ -12,11 +12,11 @@
 	}
 
 	async function confirm() {
-		const holdStart = startDate ? getUnixTime(startDate) : undefined;
-		const holdEnd = endDate ? getUnixTime(endDate) : undefined;
+		const start = startDate ? getUnixTime(startDate) : undefined;
+		const end = endDate ? getUnixTime(endDate) : undefined;
 
 		try {
-			if (!holdType) {
+			if (!name) {
 				throw new Error('Hold type is required');
 			}
 
@@ -24,16 +24,21 @@
 				throw new Error('Reason is required');
 			}
 
-			if (holdStart && holdEnd && holdStart > holdEnd) {
+			if (start && end && start > end) {
 				throw new Error('Start date must be before end date');
 			}
 
+			if (resolutionLink && !resolutionLink.startsWith('http')) {
+				throw new Error('Resolution link must be a valid URL');
+			}
+
 			await user.createHold({
-				holdType,
+				name,
 				reason,
 				priority,
-				holdStart,
-				holdEnd
+				start,
+				end,
+				resolutionLink
 			});
 
 			closeModal();
@@ -49,20 +54,22 @@
 		}
 	}
 
-	let holdType = '';
+	let name = '';
 	let reason = '';
 	let priority = 0;
 	let startDate: Date | undefined = undefined;
 	let endDate: Date | undefined = undefined;
+	let resolutionLink = '';
 
 	let error = '';
 
 	function reset() {
-		holdType = '';
+		name = '';
 		reason = '';
 		priority = 0;
 		startDate = undefined;
 		endDate = undefined;
+		resolutionLink = '';
 
 		error = '';
 	}
@@ -84,9 +91,9 @@
 			Create hold for {user.name}
 		</h3>
 		<div class="flex flex-col justify-between">
-			<Label for="holdType-input" class="mb-2 block">Hold Type</Label>
+			<Label for="name-input" class="mb-2 block">Hold Type</Label>
 
-			<Input type="text" name="text" placeholder="Hold Type" required bind:value={holdType} />
+			<Input type="text" name="text" placeholder="Hold Type" required bind:value={name} />
 		</div>
 
 		<div class="flex flex-col justify-between">
@@ -111,16 +118,20 @@
 				bind:value={priority}
 			/>
 		</div>
-
 		<div class="flex flex-col justify-between">
-			<Label class="space-y-2">
-				<span>Start Date</span>
-				<Input type="datetime-local" name="text" placeholder="Start Date" bind:value={startDate} />
-			</Label>
-			<Label class="space-y-2">
-				<span>End Date</span>
-				<Input type="datetime-local" name="text" placeholder="End Date" bind:value={endDate} />
-			</Label>
+			<Label for="resolution-link-input" class="mb-2 block">Resolution Link</Label>
+
+			<Input type="text" name="text" placeholder="Resolution Link" bind:value={resolutionLink} />
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label for="start-date-input" class="mb-2 block">Start Date</Label>
+
+			<Input type="datetime-local" name="text" placeholder="Start Date" bind:value={startDate} />
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label for="end-date-input" class="mb-2 block">End Date</Label>
+
+			<Input type="datetime-local" name="text" placeholder="End Date" bind:value={endDate} />
 		</div>
 		<Button class="w-full1" type="submit">Create Hold</Button>
 	</form>

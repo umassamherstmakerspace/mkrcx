@@ -166,12 +166,19 @@ func onlyServiceMiddleware(c *fiber.Ctx) error {
 func createBaseEndpoints(users_ep fiber.Router) {
 	// Create a new user endpoint
 	type userCreateRequest struct {
-		Email          string `json:"email" xml:"email" form:"email" validate:"required,email"`
-		Name           string `json:"name" xml:"name" form:"name" validate:"required"`
-		Role           string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
-		Type           string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad faculty staff alumni other"`
-		GraduationYear int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Major          string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Email    string `json:"email" xml:"email" form:"email" validate:"required,email"`
+		Name     string `json:"name" xml:"name" form:"name" validate:"required"`
+		Pronouns string `json:"pronouns" xml:"pronouns" form:"pronouns" validate:"required"`
+		Role     string `json:"role" xml:"role" form:"role" validate:"required,oneof=member volunteer staff admin"`
+		Type     string `json:"type" xml:"type" form:"type" validate:"required,oneof=undergrad grad employee alumni program other"`
+
+		// Sutudent-like fields
+		GraduationYear int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,required_if=Type program,numeric"`
+		Major          string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,required_if=Type program"`
+
+		// Employee-like fields
+		Department string `json:"department" xml:"department" form:"department" validate:"required_if=Type employee"`
+		JobTitle   string `json:"job_title" xml:"job_title" form:"job_title" validate:"required_if=Type employee"`
 	}
 	users_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[userCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -187,10 +194,13 @@ func createBaseEndpoints(users_ep fiber.Router) {
 		user := models.User{
 			Email:          req.Email,
 			Name:           req.Name,
+			Pronouns:       req.Pronouns,
 			Role:           req.Role,
 			Type:           req.Type,
 			GraduationYear: req.GraduationYear,
 			Major:          req.Major,
+			Department:     req.Department,
+			JobTitle:       req.JobTitle,
 		}
 
 		db.Create(&user)
@@ -473,13 +483,20 @@ func getUserEndpoint(user_ep fiber.Router) {
 func updateUserEndpoint(user_ep fiber.Router) {
 	// Update the current user endpoint
 	type userUpdateRequest struct {
-		Name           *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
-		Email          *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
-		CardId         *string `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
-		Role           *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
-		Type           *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad faculty staff alumni other"`
-		GraduationYear *int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
-		Major          *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni"`
+		Name     *string `json:"name" xml:"name" form:"name" validate:"omitempty"`
+		Pronouns *string `json:"pronouns" xml:"pronouns" form:"pronouns" validate:"omitempty"`
+		Email    *string `json:"email" xml:"email" form:"email" validate:"omitempty,email"`
+		CardId   *string `json:"card_id" xml:"card_id" form:"card_id" validate:"omitempty"`
+		Role     *string `json:"role" xml:"role" form:"role" validate:"omitempty,oneof=member volunteer staff admin"`
+		Type     *string `json:"type" xml:"type" form:"type" validate:"omitempty,oneof=undergrad grad employee alumni program other"`
+
+		// Sutudent-like fields
+		GraduationYear *int    `json:"graduation_year" xml:"graduation_year" form:"graduation_year" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,required_if=Type program"`
+		Major          *string `json:"major" xml:"major" form:"major" validate:"required_if=Type undergrad,required_if=Type grad,required_if=Type alumni,required_if=Type program"`
+
+		// Employee-like fields
+		Department *string `json:"department" xml:"department" form:"department" validate:"required_if=Type employee"`
+		JobTitle   *string `json:"job_title" xml:"job_title" form:"job_title" validate:"required_if=Type employee"`
 	}
 	user_ep.Patch("/", leash_auth.PrefixAuthorizationMiddleware("update"), noServiceMiddleware, models.GetBodyMiddleware[userUpdateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -521,6 +538,10 @@ func updateUserEndpoint(user_ep fiber.Router) {
 		// Update fields
 		if modified(user.Name, req.Name, "name") {
 			user.Name = *req.Name
+		}
+
+		if modified(user.Pronouns, req.Pronouns, "pronouns") {
+			user.Pronouns = *req.Pronouns
 		}
 
 		// Check if the email has been changed
@@ -572,6 +593,14 @@ func updateUserEndpoint(user_ep fiber.Router) {
 
 		if modified(user.Major, req.Major, "major") {
 			user.Major = *req.Major
+		}
+
+		if modified(user.Department, req.Department, "department") {
+			user.Department = *req.Department
+		}
+
+		if modified(user.JobTitle, req.JobTitle, "job_title") {
+			user.JobTitle = *req.JobTitle
 		}
 
 		if req.CardId != nil {

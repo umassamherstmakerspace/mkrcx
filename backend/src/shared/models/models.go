@@ -26,15 +26,22 @@ type Model struct {
 
 type User struct {
 	Model
-	ID             uint    `gorm:"primarykey"`
-	Email          string  `gorm:"unique"`
-	PendingEmail   *string `gorm:"unique" json:",omitempty"`
-	CardID         *string `gorm:"unique"`
-	Name           string
-	Role           string
-	Type           string
+	ID           uint    `gorm:"primarykey"`
+	Email        string  `gorm:"unique"`
+	PendingEmail *string `gorm:"unique" json:",omitempty"`
+	CardID       *string `gorm:"unique"`
+	Name         string
+	Pronouns     string
+	Role         string
+	Type         string
+
+	// Student-like fields
 	GraduationYear int
 	Major          string
+
+	// Employee-like fields
+	Department string
+	JobTitle   string
 
 	Trainings     []Training     `json:",omitempty"`
 	Holds         []Hold         `json:",omitempty"`
@@ -105,31 +112,33 @@ func (a *APIKey) AfterCreate(tx *gorm.DB) (err error) {
 
 type Training struct {
 	Model
-	ID           uint `gorm:"primarykey"`
-	UserID       uint
-	TrainingType string
-	AddedBy      uint
-	RemovedBy    uint `json:",omitempty"`
+	ID        uint `gorm:"primarykey"`
+	UserID    uint
+	Name      string
+	Level     string
+	AddedBy   uint
+	RemovedBy uint `json:",omitempty"`
 }
 
 type Hold struct {
 	Model
-	ID        uint `gorm:"primarykey"`
-	UserID    uint
-	HoldType  string
-	Reason    string
-	HoldStart *time.Time
-	HoldEnd   *time.Time
-	AddedBy   uint
-	RemovedBy uint `json:",omitempty"`
-	Priority  int
+	ID             uint `gorm:"primarykey"`
+	UserID         uint
+	Name           string
+	Reason         string
+	Start          *time.Time
+	End            *time.Time
+	ResolutionLink string `json:",omitempty"`
+	AddedBy        uint
+	RemovedBy      uint `json:",omitempty"`
+	Priority       int
 }
 
 // AfterFind GORM hook that clears expired holds
 func (h *Hold) AfterFind(tx *gorm.DB) (err error) {
-	if h.HoldEnd != nil && h.HoldEnd.Before(time.Now()) {
+	if h.End != nil && h.End.Before(time.Now()) {
 		h.RemovedBy = h.AddedBy
-		h.DeletedAt = gorm.DeletedAt{Time: *h.HoldEnd, Valid: true}
+		h.DeletedAt = gorm.DeletedAt{Time: *h.End, Valid: true}
 		tx.Save(h)
 	}
 

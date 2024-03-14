@@ -22,14 +22,14 @@ func userHoldMiddleware(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to read this user's holds")
 	}
 
-	hold_type, err := url.QueryUnescape(c.Params("hold_type"))
+	hold_name, err := url.QueryUnescape(c.Params("hold_name"))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid hold type")
 	}
 
 	var hold = models.Hold{
-		UserID:   user.ID,
-		HoldType: hold_type,
+		UserID: user.ID,
+		Name:   hold_name,
 	}
 	if res := db.Limit(1).Where(&hold).Find(&hold); res.Error != nil || res.RowsAffected == 0 {
 		return fiber.NewError(fiber.StatusNotFound, "Hold not found")
@@ -136,11 +136,12 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 
 	// Create hold endpoint
 	type holdCreateRequest struct {
-		HoldType  string `json:"hold_type" xml:"hold_type" form:"hold_type" validate:"required"`
-		Reason    string `json:"reason" xml:"reason" form:"reason" validate:"required"`
-		HoldStart *int64 `json:"hold_start" xml:"hold_start" form:"hold_start" validate:"omitempty,numeric"`
-		HoldEnd   *int64 `json:"hold_end" xml:"hold_end" form:"hold_end" validate:"omitempty,numeric"`
-		Priority  *int   `json:"priority" xml:"priority" form:"priority" validate:"required,numeric"`
+		Name           string `json:"name" xml:"name" form:"name" validate:"required"`
+		Reason         string `json:"reason" xml:"reason" form:"reason" validate:"required"`
+		Start          *int64 `json:"start" xml:"start" form:"start" validate:"omitempty,numeric"`
+		End            *int64 `json:"end" xml:"end" form:"end" validate:"omitempty,numeric"`
+		ResolutionLink string `json:"resolution_link" xml:"resolution_link" form:"resolution_link" validate:"omitempty,url"`
+		Priority       *int   `json:"priority" xml:"priority" form:"priority" validate:"required,numeric"`
 	}
 	hold_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("create"), models.GetBodyMiddleware[holdCreateRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
@@ -149,36 +150,37 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 
 		// Check if the user already has a hold of this type
 		var existingHold = models.Hold{
-			UserID:   user.ID,
-			HoldType: body.HoldType,
+			UserID: user.ID,
+			Name:   body.Name,
 		}
 		if res := db.Limit(1).Where(&existingHold).Find(&existingHold); res.Error == nil && res.RowsAffected != 0 {
 			return fiber.NewError(fiber.StatusConflict, "User already has a hold of this type")
 		}
 
 		hold := models.Hold{
-			HoldType: body.HoldType,
-			Reason:   body.Reason,
-			UserID:   user.ID,
-			AddedBy:  leash_auth.GetAuthentication(c).User.ID,
-			Priority: *body.Priority,
+			Name:           body.Name,
+			Reason:         body.Reason,
+			UserID:         user.ID,
+			AddedBy:        leash_auth.GetAuthentication(c).User.ID,
+			ResolutionLink: body.ResolutionLink,
+			Priority:       *body.Priority,
 		}
 
-		if body.HoldStart != nil {
-			holdStart := time.Unix(*body.HoldStart, 0)
-			hold.HoldStart = &holdStart
+		if body.Start != nil {
+			start := time.Unix(*body.Start, 0)
+			hold.Start = &start
 		}
 
-		if body.HoldEnd != nil {
-			holdEnd := time.Unix(*body.HoldEnd, 0)
-			if holdEnd.Before(time.Now()) {
+		if body.End != nil {
+			end := time.Unix(*body.End, 0)
+			if end.Before(time.Now()) {
 				return fiber.NewError(fiber.StatusBadRequest, "Hold end time cannot be in the past")
 			}
 
-			hold.HoldEnd = &holdEnd
+			hold.End = &end
 		}
 
-		if hold.HoldStart != nil && hold.HoldEnd != nil && hold.HoldStart.After(*hold.HoldEnd) {
+		if hold.Start != nil && hold.End != nil && hold.Start.After(*hold.End) {
 			return fiber.NewError(fiber.StatusBadRequest, "Hold start time cannot be after hold end time")
 		}
 
@@ -187,7 +189,7 @@ func addUserHoldsEndpoints(user_ep fiber.Router) {
 		return c.JSON(hold)
 	})
 
-	user_hold_ep := hold_ep.Group("/:hold_type", userHoldMiddleware)
+	user_hold_ep := hold_ep.Group("/:hold_name", userHoldMiddleware)
 
 	addCommonHoldEndpoints(user_hold_ep)
 }
