@@ -26,15 +26,22 @@ type Model struct {
 
 type User struct {
 	Model
-	ID             uint    `gorm:"primarykey"`
-	Email          string  `gorm:"unique"`
-	PendingEmail   *string `gorm:"unique" json:",omitempty"`
-	CardID         *string `gorm:"unique"`
-	Name           string
-	Role           string
-	Type           string
-	GraduationYear int
-	Major          string
+	ID           uint    `gorm:"primarykey"`
+	Email        string  `gorm:"unique"`
+	PendingEmail *string `gorm:"unique" json:",omitempty"`
+	CardID       *string `gorm:"unique"`
+	Name         string
+	Pronouns     string
+	Role         string
+	Type         string
+
+	// Student-like fields
+	GraduationYear int    `json:",omitempty"`
+	Major          string `json:",omitempty"`
+
+	// Employee-like fields
+	Department string `json:",omitempty"`
+	JobTitle   string `json:",omitempty"`
 
 	Trainings     []Training     `json:",omitempty"`
 	Holds         []Hold         `json:",omitempty"`
