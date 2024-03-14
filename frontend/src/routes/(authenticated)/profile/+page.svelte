@@ -93,7 +93,12 @@
 			userUpdate.email = user.pendingEmail;
 		}
 		userUpdate.type = user.type;
-		if (user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni' || user.type == 'program') {
+		if (
+			user.type == 'undergrad' ||
+			user.type == 'grad' ||
+			user.type == 'alumni' ||
+			user.type == 'program'
+		) {
 			userUpdate.major = user.major;
 			userUpdate.graduationYear = user.graduationYear;
 		} else if (user.type == 'employee') {
@@ -110,7 +115,11 @@
 
 	loadUser();
 
-	const studentLike = user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni' || user.type == 'program';
+	const studentLike =
+		user.type == 'undergrad' ||
+		user.type == 'grad' ||
+		user.type == 'alumni' ||
+		user.type == 'program';
 
 	const isError = (value: string | undefined) => {
 		return value != undefined;
@@ -253,8 +262,10 @@
 					{/if}
 				</div>
 				<div class="flex flex-col justify-between">
-					<Label color={labelColor(userUpdateError.pronouns)} for="pronouns-input" class="mb-2 block"
-						>Pronouns</Label
+					<Label
+						color={labelColor(userUpdateError.pronouns)}
+						for="pronouns-input"
+						class="mb-2 block">Pronouns</Label
 					>
 					<Input
 						color={inputColor(userUpdateError.pronouns)}
@@ -369,7 +380,7 @@
 							</Helper>
 						{/if}
 					</div>
-				{:else if user.type=='employee'}
+				{:else if user.type == 'employee'}
 					<div class="flex flex-col justify-between">
 						<Label
 							color={labelColor(userUpdateError.department)}

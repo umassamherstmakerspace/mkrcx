@@ -110,7 +110,7 @@
 								{#if user.pendingEmail}
 									<TableBodyCell>{user.pendingEmail}</TableBodyCell>
 								{:else}
-									<TableBodyCell> - </TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -126,7 +126,7 @@
 								{#if user.major}
 									<TableBodyCell>{user.major}</TableBodyCell>
 								{:else}
-									<TableBodyCell> - </TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -134,7 +134,7 @@
 								{#if user.graduationYear > 0}
 									<TableBodyCell>{user.graduationYear}</TableBodyCell>
 								{:else}
-									<TableBodyCell> - </TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -142,7 +142,7 @@
 								{#if user.department}
 									<TableBodyCell>{user.department}</TableBodyCell>
 								{:else}
-									<TableBodyCell> - </TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -150,7 +150,7 @@
 								{#if user.jobTitle}
 									<TableBodyCell>{user.jobTitle}</TableBodyCell>
 								{:else}
-									<TableBodyCell> - </TableBodyCell>
+									<TableBodyCell>-</TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>

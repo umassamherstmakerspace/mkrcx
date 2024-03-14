@@ -31,7 +31,12 @@
 			userUpdate.email = target.pendingEmail;
 		}
 		userUpdate.type = target.type;
-		if (target.type == 'undergrad' || target.type == 'grad' || target.type == 'alumni' || target.type == 'program') {
+		if (
+			target.type == 'undergrad' ||
+			target.type == 'grad' ||
+			target.type == 'alumni' ||
+			target.type == 'program'
+		) {
 			userUpdate.major = target.major;
 			userUpdate.graduationYear = target.graduationYear;
 		} else if (target.type == 'employee') {
@@ -89,7 +94,7 @@
 		if (
 			userUpdate.graduationYear &&
 			(userUpdate.graduationYear < 1900 ||
-			userUpdate.graduationYear > new Date().getFullYear() + 10)
+				userUpdate.graduationYear > new Date().getFullYear() + 10)
 		) {
 			userUpdateError.graduationYear = 'Invalid graduation year';
 			hasError = true;
@@ -337,8 +342,7 @@
 			<Label
 				color={labelColor(userUpdateError.department)}
 				for="department-input"
-				class="mb-2 block"
-				>Department</Label
+				class="mb-2 block">Department</Label
 			>
 			<Input
 				color={inputColor(userUpdateError.department)}
@@ -356,10 +360,7 @@
 			{/if}
 		</div>
 		<div class="flex flex-col justify-between">
-			<Label
-				color={labelColor(userUpdateError.jobTitle)}
-				for="job-title-input"
-				class="mb-2 block"
+			<Label color={labelColor(userUpdateError.jobTitle)} for="job-title-input" class="mb-2 block"
 				>Job Title</Label
 			>
 			<Input
