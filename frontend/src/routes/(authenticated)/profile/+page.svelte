@@ -87,14 +87,18 @@
 
 	function loadUser() {
 		userUpdate.name = user.name;
+		userUpdate.pronouns = user.pronouns;
 		userUpdate.email = user.email;
 		if (user.pendingEmail) {
 			userUpdate.email = user.pendingEmail;
 		}
 		userUpdate.type = user.type;
-		if (user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni') {
+		if (user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni' || user.type == 'program') {
 			userUpdate.major = user.major;
 			userUpdate.graduationYear = user.graduationYear;
+		} else if (user.type == 'employee') {
+			userUpdate.department = user.department;
+			userUpdate.jobTitle = user.jobTitle;
 		}
 
 		changed = false;

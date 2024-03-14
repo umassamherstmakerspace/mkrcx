@@ -25,14 +25,18 @@
 
 	function loadUser() {
 		userUpdate.name = target.name;
+		userUpdate.pronouns = target.pronouns;
 		userUpdate.email = target.email;
 		if (target.pendingEmail) {
 			userUpdate.email = target.pendingEmail;
 		}
 		userUpdate.type = target.type;
-		if (target.type == 'undergrad' || target.type == 'grad' || target.type == 'alumni') {
+		if (target.type == 'undergrad' || target.type == 'grad' || target.type == 'alumni' || target.type == 'program') {
 			userUpdate.major = target.major;
 			userUpdate.graduationYear = target.graduationYear;
+		} else if (target.type == 'employee') {
+			userUpdate.department = target.department;
+			userUpdate.jobTitle = target.jobTitle;
 		}
 
 		if (user.role === 'admin') {
@@ -278,8 +282,8 @@
 				<option value="undergrad">Undergraduate Student</option>
 				<option value="grad">Graduate Student</option>
 				<option value="alumni">Alumni</option>
-				<option value="faculty">Faculty</option>
-				<option value="staff">Staff</option>
+				<option value="program">Program</option>
+				<option value="employee">Employee</option>
 				<option value="other">Other</option>
 			</Select>
 			{#if isError(userUpdateError.type)}
