@@ -113,10 +113,17 @@ interface LeashUser {
 	PendingEmail?: string;
 	CardID: number;
 	Name: string;
+	Pronouns: string;
 	Role: string;
 	Type: string;
+
+	// Student-like fields
 	GraduationYear: number;
 	Major: string;
+
+	// Employee-like fields
+	Department: string;
+	JobTitle: string;
 
 	Trainings?: LeashTraining[];
 	Holds?: LeashHold[];
@@ -225,20 +232,34 @@ interface LeashTokenRefresh {
 export interface UserCreateOptions {
 	email: string;
 	name: string;
+	pronouns: string;
 	role: string;
 	type: string;
-	graduationYear: number;
-	major: string;
+
+	// Student-like fields
+	graduationYear?: number;
+	major?: string;
+
+	// Employee-like fields
+	department?: string;
+	jobTitle?: string;
 }
 
 export interface UserUpdateOptions {
 	name?: string;
+	pronouns?: string;
 	email?: string;
 	cardID?: number;
 	role?: string;
 	type?: string;
+
+	// Student-like fields
 	graduationYear?: number;
 	major?: string;
+
+	// Employee-like fields
+	department?: string;
+	jobTitle?: string;
 }
 
 export interface ServiceUserCreateOptions {
@@ -457,18 +478,24 @@ export class LeashAPI {
 	public async createUser({
 		email,
 		name,
+		pronouns,
 		role,
 		type,
 		graduationYear,
-		major
+		major,
+		department,
+		jobTitle
 	}: UserCreateOptions): Promise<User> {
 		const user = await this.leashFetch<LeashUser>(`/api/users`, 'POST', {
 			email,
 			name,
+			pronouns,
 			role,
 			type,
 			graduation_year: graduationYear,
-			major
+			major,
+			department,
+			job_title: jobTitle
 		});
 
 		return new User(this, user, `/api/users/${user.ID}`);
@@ -602,10 +629,17 @@ export class User {
 	pendingEmail?: string;
 	cardId: number;
 	name: string;
+	pronouns: string;
 	role: string;
 	type: string;
+
+	// Student-like fields
 	graduationYear: number;
 	major: string;
+
+	// Employee-like fields
+	department: string;
+	jobTitle: string;
 
 	trainingsCache: ListAllCache<Training>;
 	holdsCache: ListAllCache<Hold>;
@@ -635,10 +669,17 @@ export class User {
 		this.pendingEmail = user.PendingEmail;
 		this.cardId = user.CardID;
 		this.name = user.Name;
+		this.pronouns = user.Pronouns;
 		this.role = user.Role;
 		this.type = user.Type;
+
+		// Student-like fields
 		this.graduationYear = user.GraduationYear;
 		this.major = user.Major;
+
+		// Employee-like fields
+		this.department = user.Department;
+		this.jobTitle = user.JobTitle;
 
 		this.permissions = user.Permissions;
 
@@ -876,12 +917,15 @@ export class User {
 
 	async update({
 		name,
+		pronouns,
 		email,
 		cardID,
 		role,
 		type,
 		graduationYear,
-		major
+		major,
+		department,
+		jobTitle
 	}: UserUpdateOptions): Promise<User> {
 		if (this.role === 'service') {
 			throw new Error('Service users cannot be updated with this method.');
@@ -889,12 +933,15 @@ export class User {
 
 		const updated = await this.api.leashFetch<LeashUser>(`${this.endpointPrefix}`, 'PATCH', {
 			name,
+			pronouns,
 			email,
 			card_id: cardID,
 			role,
 			type,
 			graduation_year: graduationYear,
-			major
+			major,
+			department,
+			job_title: jobTitle
 		});
 
 		return new User(this.api, updated, this.endpointPrefix);

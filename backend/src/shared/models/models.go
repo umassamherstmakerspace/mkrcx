@@ -36,12 +36,12 @@ type User struct {
 	Type         string
 
 	// Student-like fields
-	GraduationYear int    `json:",omitempty"`
-	Major          string `json:",omitempty"`
+	GraduationYear int
+	Major          string
 
 	// Employee-like fields
-	Department string `json:",omitempty"`
-	JobTitle   string `json:",omitempty"`
+	Department string
+	JobTitle   string
 
 	Trainings     []Training     `json:",omitempty"`
 	Holds         []Hold         `json:",omitempty"`
