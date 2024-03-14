@@ -102,8 +102,8 @@
 			userUpdateError.graduationYear = undefined;
 		}
 
-		userUpdate.department = undefined;
-		userUpdate.jobTitle = undefined;
+		userUpdateError.department = undefined;
+		userUpdateError.jobTitle = undefined;
 
 		if (
 			userUpdate.role === 'admin' ||

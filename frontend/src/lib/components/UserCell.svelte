@@ -38,8 +38,15 @@
 {:else if user instanceof User}
 	<div class="flex items-center">
 		<Avatar id="avatar-menu" src={user.iconURL} rounded {dot} />
-		<div class="ms-3">
-			<div class="font-semibold">{user.name}</div>
+		<div class="ms-3 flex flex-col">
+			<div class="font-semibold">
+				{user.name}
+				{#if user.pronouns}
+					<span class="text-gray-500 dark:text-gray-400">
+						({user.pronouns})
+					</span>
+				{/if}
+			</div>
 			<div class="text-gray-500 dark:text-gray-400">{user.email}</div>
 		</div>
 	</div>
