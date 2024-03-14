@@ -98,6 +98,10 @@
 								<TableBodyCell>{user.name}</TableBodyCell>
 							</TableBodyRow>
 							<TableBodyRow>
+								<TableBodyCell>Pronouns</TableBodyCell>
+								<TableBodyCell>{user.pronouns}</TableBodyCell>
+							</TableBodyRow>
+							<TableBodyRow>
 								<TableBodyCell>Email</TableBodyCell>
 								<TableBodyCell>{user.email}</TableBodyCell>
 							</TableBodyRow>
@@ -106,7 +110,7 @@
 								{#if user.pendingEmail}
 									<TableBodyCell>{user.pendingEmail}</TableBodyCell>
 								{:else}
-									<TableBodyCell></TableBodyCell>
+									<TableBodyCell> - </TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -118,11 +122,11 @@
 								<TableBodyCell>{user.type}</TableBodyCell>
 							</TableBodyRow>
 							<TableBodyRow>
-								<TableBodyCell>Major</TableBodyCell>
+								<TableBodyCell>Major / Program Name</TableBodyCell>
 								{#if user.major}
 									<TableBodyCell>{user.major}</TableBodyCell>
 								{:else}
-									<TableBodyCell></TableBodyCell>
+									<TableBodyCell> - </TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>
@@ -130,7 +134,23 @@
 								{#if user.graduationYear > 0}
 									<TableBodyCell>{user.graduationYear}</TableBodyCell>
 								{:else}
-									<TableBodyCell></TableBodyCell>
+									<TableBodyCell> - </TableBodyCell>
+								{/if}
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Department</TableBodyCell>
+								{#if user.department}
+									<TableBodyCell>{user.department}</TableBodyCell>
+								{:else}
+									<TableBodyCell> - </TableBodyCell>
+								{/if}
+							</TableBodyRow>
+							<TableBodyRow>
+								<TableBodyCell>Job Title</TableBodyCell>
+								{#if user.jobTitle}
+									<TableBodyCell>{user.jobTitle}</TableBodyCell>
+								{:else}
+									<TableBodyCell> - </TableBodyCell>
 								{/if}
 							</TableBodyRow>
 							<TableBodyRow>

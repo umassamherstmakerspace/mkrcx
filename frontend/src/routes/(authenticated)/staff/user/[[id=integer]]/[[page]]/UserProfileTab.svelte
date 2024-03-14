@@ -63,6 +63,13 @@
 			userUpdateError.name = undefined;
 		}
 
+		if (!userUpdate.pronouns) {
+			userUpdateError.pronouns = 'Pronouns cannot be empty';
+			hasError = true;
+		} else {
+			userUpdateError.pronouns = undefined;
+		}
+
 		if (!userUpdate.email) {
 			userUpdateError.email = 'Email cannot be empty';
 			hasError = true;
@@ -76,15 +83,18 @@
 		userUpdateError.major = undefined;
 
 		if (
-			!userUpdate.graduationYear ||
-			userUpdate.graduationYear < 1900 ||
-			userUpdate.graduationYear > new Date().getFullYear() + 10
+			userUpdate.graduationYear &&
+			(userUpdate.graduationYear < 1900 ||
+			userUpdate.graduationYear > new Date().getFullYear() + 10)
 		) {
 			userUpdateError.graduationYear = 'Invalid graduation year';
 			hasError = true;
 		} else {
 			userUpdateError.graduationYear = undefined;
 		}
+
+		userUpdate.department = undefined;
+		userUpdate.jobTitle = undefined;
 
 		if (
 			userUpdate.role === 'admin' ||
@@ -147,6 +157,25 @@
 				<Helper class="mt-2" color="red">
 					<span class="font-medium">Error:</span>
 					{userUpdateError.name}
+				</Helper>
+			{/if}
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label color={labelColor(userUpdateError.pronouns)} for="pronouns-input" class="mb-2 block"
+				>Pronouns</Label
+			>
+			<Input
+				color={inputColor(userUpdateError.pronouns)}
+				bind:value={userUpdate.pronouns}
+				on:input={change}
+				on:change={validate}
+				type="text"
+				id="pronouns-input"
+			/>
+			{#if isError(userUpdateError.pronouns)}
+				<Helper class="mt-2" color="red">
+					<span class="font-medium">Error:</span>
+					{userUpdateError.pronouns}
 				</Helper>
 			{/if}
 		</div>
@@ -297,6 +326,50 @@
 				<Helper class="mt-2" color="red">
 					<span class="font-medium">Error:</span>
 					{userUpdateError.graduationYear}
+				</Helper>
+			{/if}
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label
+				color={labelColor(userUpdateError.department)}
+				for="department-input"
+				class="mb-2 block"
+				>Department</Label
+			>
+			<Input
+				color={inputColor(userUpdateError.department)}
+				bind:value={userUpdate.department}
+				on:input={change}
+				on:change={validate}
+				type="text"
+				id="department-input"
+			/>
+			{#if isError(userUpdateError.department)}
+				<Helper class="mt-2" color="red">
+					<span class="font-medium">Error:</span>
+					{userUpdateError.department}
+				</Helper>
+			{/if}
+		</div>
+		<div class="flex flex-col justify-between">
+			<Label
+				color={labelColor(userUpdateError.jobTitle)}
+				for="job-title-input"
+				class="mb-2 block"
+				>Job Title</Label
+			>
+			<Input
+				color={inputColor(userUpdateError.jobTitle)}
+				bind:value={userUpdate.jobTitle}
+				on:input={change}
+				on:change={validate}
+				type="text"
+				id="job-title-input"
+			/>
+			{#if isError(userUpdateError.jobTitle)}
+				<Helper class="mt-2" color="red">
+					<span class="font-medium">Error:</span>
+					{userUpdateError.jobTitle}
 				</Helper>
 			{/if}
 		</div>

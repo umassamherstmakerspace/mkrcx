@@ -106,7 +106,7 @@
 
 	loadUser();
 
-	const studentLike = user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni';
+	const studentLike = user.type == 'undergrad' || user.type == 'grad' || user.type == 'alumni' || user.type == 'program';
 
 	const isError = (value: string | undefined) => {
 		return value != undefined;
@@ -133,6 +133,13 @@
 			userUpdateError.name = undefined;
 		}
 
+		if (!userUpdate.pronouns) {
+			userUpdateError.pronouns = 'Pronouns cannot be empty';
+			hasError = true;
+		} else {
+			userUpdateError.pronouns = undefined;
+		}
+
 		if (!userUpdate.email) {
 			userUpdateError.email = 'Email cannot be empty';
 			hasError = true;
@@ -156,6 +163,20 @@
 				hasError = true;
 			} else {
 				userUpdateError.graduationYear = undefined;
+			}
+		} else if (userUpdate.type == 'employee') {
+			if (!userUpdate.department) {
+				userUpdateError.department = 'Department cannot be empty';
+				hasError = true;
+			} else {
+				userUpdateError.department = undefined;
+			}
+
+			if (!userUpdate.jobTitle) {
+				userUpdateError.jobTitle = 'Job title cannot be empty';
+				hasError = true;
+			} else {
+				userUpdateError.jobTitle = undefined;
 			}
 		}
 
@@ -228,6 +249,25 @@
 					{/if}
 				</div>
 				<div class="flex flex-col justify-between">
+					<Label color={labelColor(userUpdateError.pronouns)} for="pronouns-input" class="mb-2 block"
+						>Pronouns</Label
+					>
+					<Input
+						color={inputColor(userUpdateError.pronouns)}
+						bind:value={userUpdate.pronouns}
+						on:input={change}
+						on:change={validate}
+						type="text"
+						id="pronouns-input"
+					/>
+					{#if isError(userUpdateError.pronouns)}
+						<Helper class="mt-2" color="red">
+							<span class="font-medium">Error:</span>
+							{userUpdateError.pronouns}
+						</Helper>
+					{/if}
+				</div>
+				<div class="flex flex-col justify-between">
 					<Label color={labelColor(userUpdateError.email)} for="email-input" class="mb-2 block"
 						>Email</Label
 					>
@@ -270,10 +310,9 @@
 							<option value="undergrad">Undergraduate Student</option>
 							<option value="grad">Graduate Student</option>
 							<option value="alumni">Alumni</option>
-						{:else if userUpdate.type == 'faculty'}
-							<option value="faculty">Faculty</option>
-						{:else if userUpdate.type == 'staff'}
-							<option value="staff">Staff</option>
+							<option value="program">Other Program</option>
+						{:else if userUpdate.type == 'employee'}
+							<option value="employee">Employee</option>
 						{:else if userUpdate.type == 'other'}
 							<option value="other">Other</option>
 						{/if}
@@ -288,7 +327,7 @@
 				{#if studentLike}
 					<div class="flex flex-col justify-between">
 						<Label color={labelColor(userUpdateError.major)} for="major-input" class="mb-2 block"
-							>Major</Label
+							>Major / Program Name</Label
 						>
 						<Input
 							color={inputColor(userUpdateError.major)}
@@ -323,6 +362,49 @@
 							<Helper class="mt-2" color="red">
 								<span class="font-medium">Error:</span>
 								{userUpdateError.graduationYear}
+							</Helper>
+						{/if}
+					</div>
+				{:else if user.type=='employee'}
+					<div class="flex flex-col justify-between">
+						<Label
+							color={labelColor(userUpdateError.department)}
+							for="department-input"
+							class="mb-2 block">Department</Label
+						>
+						<Input
+							color={inputColor(userUpdateError.department)}
+							bind:value={userUpdate.department}
+							on:input={change}
+							on:change={validate}
+							type="text"
+							id="department-input"
+						/>
+						{#if isError(userUpdateError.department)}
+							<Helper class="mt-2" color="red">
+								<span class="font-medium">Error:</span>
+								{userUpdateError.department}
+							</Helper>
+						{/if}
+					</div>
+					<div class="flex flex-col justify-between">
+						<Label
+							color={labelColor(userUpdateError.jobTitle)}
+							for="job-title-input"
+							class="mb-2 block">Job Title</Label
+						>
+						<Input
+							color={inputColor(userUpdateError.jobTitle)}
+							bind:value={userUpdate.jobTitle}
+							on:input={change}
+							on:change={validate}
+							type="text"
+							id="job-title-input"
+						/>
+						{#if isError(userUpdateError.jobTitle)}
+							<Helper class="mt-2" color="red">
+								<span class="font-medium">Error:</span>
+								{userUpdateError.jobTitle}
 							</Helper>
 						{/if}
 					</div>
