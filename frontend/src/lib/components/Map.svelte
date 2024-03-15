@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Map, NavigationControl, Popup, GeolocateControl } from 'maplibre-gl';
+	// import { Map, NavigationControl, Popup, GeolocateControl } from 'maplibre-gl';
+
+	import maplibre from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { env } from '$env/dynamic/public';
 
@@ -8,7 +10,7 @@
 	let center = [-72.53111867309333, 42.39224330004294] as [number, number];
 
 	function mapAction(container: HTMLElement) {
-		const map = new Map({
+		const map = new maplibre.Map({
 			container,
 			style: `https://api.maptiler.com/maps/bright/style.json?key=${tileKey}`,
 			center,
@@ -18,9 +20,9 @@
 			maxZoom: 18
 		});
 
-		map.addControl(new NavigationControl());
+		map.addControl(new maplibre.NavigationControl());
 		map.addControl(
-			new GeolocateControl({
+			new maplibre.GeolocateControl({
 				positionOptions: {
 					enableHighAccuracy: true
 				},
@@ -67,7 +69,7 @@
 			});
 
 			// Create a popup, but don't add it to the map yet.
-			const popup = new Popup({
+			const popup = new maplibre.Popup({
 				closeButton: false,
 				closeOnClick: false
 			});

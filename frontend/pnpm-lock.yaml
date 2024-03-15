@@ -23,9 +23,6 @@ dependencies:
   '@types/color-hash':
     specifier: ^1.0.5
     version: 1.0.5
-  '@types/js-cookie':
-    specifier: ^3.0.6
-    version: 3.0.6
   '@types/leaflet':
     specifier: ^1.9.8
     version: 1.9.8
@@ -53,9 +50,6 @@ dependencies:
   jdenticon:
     specifier: ^3.2.0
     version: 3.2.0
-  js-cookie:
-    specifier: ^3.0.5
-    version: 3.0.5
   leaflet:
     specifier: ^1.9.4
     version: 1.9.4
@@ -65,6 +59,9 @@ dependencies:
   minidenticons:
     specifier: ^4.2.0
     version: 4.2.0
+  mode-watcher:
+    specifier: ^0.3.0
+    version: 0.3.0(svelte@4.2.10)
   qrcode:
     specifier: ^1.5.3
     version: 1.5.3
@@ -145,6 +142,9 @@ devDependencies:
   svelte-check:
     specifier: ^3.6.4
     version: 3.6.4(postcss-load-config@5.0.3)(postcss@8.4.35)(sass@1.71.1)(svelte@4.2.10)
+  svelte-web-storage:
+    specifier: ^0.0.7
+    version: 0.0.7(svelte@4.2.10)
   tailwindcss:
     specifier: ^3.4.1
     version: 3.4.1
@@ -927,10 +927,6 @@ packages:
 
   /@types/geojson@7946.0.14:
     resolution: {integrity: sha512-WCfD5Ht3ZesJUsONdhvm84dmzWOiOzOAqOncN0++w0lBw1o8OuDNJF2McvvCef/yBqb/HYRahp1BYtODFQ8bRg==}
-    dev: false
-
-  /@types/js-cookie@3.0.6:
-    resolution: {integrity: sha512-wkw9yd1kEXOPnvEeEV1Go1MmxtBJL0RR79aOTAApecWFVu7w0NNXNqhcWgvw2YgZDYadliXkl14pa3WXw5jlCQ==}
     dev: false
 
   /@types/json-schema@7.0.15:
@@ -2315,11 +2311,6 @@ packages:
     hasBin: true
     dev: true
 
-  /js-cookie@3.0.5:
-    resolution: {integrity: sha512-cEiJEAEoIbWfCZYKWhVwFuvPX1gETRYPw6LlaTKoxD3s2AkXzkCjnp6h0V77ozyqj0jakteJ4YqDJT830+lVGw==}
-    engines: {node: '>=14'}
-    dev: false
-
   /js-yaml@4.1.0:
     resolution: {integrity: sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==}
     hasBin: true
@@ -2573,6 +2564,14 @@ packages:
       pkg-types: 1.0.3
       ufo: 1.4.0
     dev: true
+
+  /mode-watcher@0.3.0(svelte@4.2.10):
+    resolution: {integrity: sha512-k8jjuTx94HaaRKWO6JDf8wL761hFatrTIHJKl+E+3JWcnv+GnMBH062zcLsy0lbCI3n7RZxxHaWi66auFnUO4g==}
+    peerDependencies:
+      svelte: ^4.0.0
+    dependencies:
+      svelte: 4.2.10
+    dev: false
 
   /mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -3525,6 +3524,15 @@ packages:
       strip-indent: 3.0.0
       svelte: 4.2.10
       typescript: 5.3.3
+    dev: true
+
+  /svelte-web-storage@0.0.7(svelte@4.2.10):
+    resolution: {integrity: sha512-DuItS4zbj//m7UdUQz6dihEWtw4kFFYhtSTJK9iRbmT5nqJqDh94F0WrjClcHpKlHQzWhcWH0y8b/P2BLabRXA==}
+    peerDependencies:
+      svelte: ^4.0.0
+    dependencies:
+      esm-env: 1.0.0
+      svelte: 4.2.10
     dev: true
 
   /svelte@4.2.10:

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getDateLocale, getDateTimeFormat, getTheme } from '$lib/stores';
+	import { getDateLocale, getDateTimeFormat } from '$lib/stores';
 	import { format } from 'date-fns';
+	import { userPrefersMode } from 'mode-watcher';
 
 	import { Label, Select, P } from 'flowbite-svelte';
 
-	const theme = getTheme();
 	const dateLocale = getDateLocale();
 	const dateTimeFormat = getDateTimeFormat();
 </script>
@@ -12,7 +12,7 @@
 <li class="flex flex-col space-y-10">
 	<div class="flex flex-col justify-between">
 		<Label for="theme-selector" class="mb-2 block">Theme</Label>
-		<Select bind:value={$theme} id="theme-selector">
+		<Select bind:value={$userPrefersMode} id="theme-selector">
 			<option value="dark">Dark</option>
 			<option value="light">Light</option>
 			<option value="system">System</option>
