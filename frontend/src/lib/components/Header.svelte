@@ -17,7 +17,7 @@
 	import DropdownTheme from './DropdownTheme.svelte';
 	import { Hold, Notification, User } from '$lib/leash';
 	import Timestamp from './Timestamp.svelte';
-	import { browser } from '$app/environment'; 
+	import { browser } from '$app/environment';
 
 	export let hideSidebar: boolean;
 	export let user: User | null;

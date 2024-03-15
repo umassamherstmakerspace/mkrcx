@@ -5,7 +5,7 @@ export const load: LayoutLoad = async ({ data, fetch }) => {
 	const { token, leashURL } = data;
 
 	const api = new LeashAPI(token || '', leashURL);
-    api.overrideFetchFunction(fetch);
+	api.overrideFetchFunction(fetch);
 
 	const user =
 		token === undefined ? null : await api.selfUser({ withNotifications: true, withHolds: true });
