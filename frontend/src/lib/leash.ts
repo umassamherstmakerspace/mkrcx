@@ -1,4 +1,3 @@
-import Cookies from 'js-cookie';
 import { Cached } from './types';
 import { isAfter } from 'date-fns';
 import { minidenticon } from 'minidenticons';
@@ -582,17 +581,8 @@ export class LeashAPI {
 		);
 	}
 
-	public async refreshTokens(): Promise<boolean> {
-		try {
-			const refresh = await this.leashFetch<LeashTokenRefresh>(`/auth/refresh`, 'GET');
-			Cookies.set('token', refresh.token, {
-				expires: new Date(refresh.expires_at),
-				sameSite: 'strict'
-			});
-			return true;
-		} catch (e) {
-			return false;
-		}
+	public async refreshTokens(): Promise<LeashTokenRefresh> {
+		return this.leashFetch<LeashTokenRefresh>(`/auth/refresh`, 'GET');
 	}
 
 	public async validateToken(): Promise<boolean> {
@@ -611,8 +601,6 @@ export class LeashAPI {
 	}
 
 	public logout(return_to: string): string {
-		Cookies.remove('token');
-
 		return `${this.leashURL}/auth/logout?token=${this.token}&return=${return_to}`;
 	}
 }

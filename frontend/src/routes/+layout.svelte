@@ -3,28 +3,14 @@
 	import SideMenu from '$lib/components/SideMenu.svelte';
 	import '../app.pcss';
 	import type { LayoutData } from './$types';
-	import Cookies from 'js-cookie';
-	import { derived, writable, type Readable, type Writable } from 'svelte/store';
+	import { web_storage } from 'svelte-web-storage';
+	import { derived, type Readable, type Writable } from 'svelte/store';
 	import { setContext } from 'svelte';
+	import { ModeWatcher } from 'mode-watcher';
 
-	type Themes = 'light' | 'dark' | 'system';
 	type DateTimeFormats = 'ISO' | 'US' | 'EU';
 
-	const theme: Writable<Themes> = writable('system');
-	const isDark: Readable<boolean> = derived(theme, ($theme) => {
-		switch ($theme) {
-			case 'light':
-				return false;
-			case 'dark':
-				return true;
-			case 'system':
-				return window.matchMedia('(prefers-color-scheme: dark)').matches;
-			default:
-				return false;
-		}
-	});
-
-	const dateLocale: Writable<DateTimeFormats> = writable('ISO');
+	const dateLocale: Writable<DateTimeFormats> = web_storage('date_local', 'ISO');
 
 	const dateFormat: Readable<string> = derived(dateLocale, ($dateLocale) => {
 		switch ($dateLocale) {
@@ -68,39 +54,11 @@
 		}
 	);
 
-	theme.set((Cookies.get('theme') as Themes) || 'system');
-
-	theme.subscribe((value) => {
-		Cookies.set('theme', value, {
-			expires: 365,
-			sameSite: 'strict'
-		});
-	});
-
-	dateLocale.set((Cookies.get('dateLocal') as DateTimeFormats) || 'ISO');
-
-	dateLocale.subscribe((value) => {
-		Cookies.set('dateLocal', value, {
-			expires: 365,
-			sameSite: 'strict'
-		});
-	});
-
-	setContext('theme', theme);
-	setContext('isDark', isDark);
 	setContext('dateLocale', dateLocale);
 	setContext('dateFormat', dateFormat);
 	setContext('timeFormat', timeFormat);
 	setContext('dateTimeJoiner', dateTimeJoiner);
 	setContext('dateTimeFormat', dateTimeFormat);
-
-	isDark.subscribe((value) => {
-		if (value) {
-			document.documentElement.classList.add('dark');
-		} else {
-			document.documentElement.classList.remove('dark');
-		}
-	});
 
 	let hideSidebar = true;
 
@@ -119,3 +77,5 @@
 		<slot />
 	</div>
 </div>
+
+<ModeWatcher />

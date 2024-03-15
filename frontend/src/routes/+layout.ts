@@ -1,31 +1,16 @@
-import type { LayoutLoad } from './$types';
 import { LeashAPI } from '$lib/leash';
-import { env } from '$env/dynamic/public';
-import Cookies from 'js-cookie';
+import type { LayoutLoad } from './$types';
 
-export const ssr = false;
+export const load: LayoutLoad = async ({ data }) => {
+	const { token, leashURL } = data;
 
-export const load: LayoutLoad = async ({ fetch }) => {
-	const token = Cookies.get('token') || '';
-	const leashURL = env.PUBLIC_LEASH_ENDPOINT;
-	if (!leashURL) {
-		throw new Error('LEASH_ENDPOINT not set');
-	}
+	const api = new LeashAPI(token || '', leashURL);
 
-	const api = new LeashAPI(token, leashURL);
-	api.overrideFetchFunction(fetch);
-	let u = null;
-
-	if (token) {
-		try {
-			u = await api.selfUser({ withNotifications: true, withHolds: true });
-		} catch (e) {
-			Cookies.remove('token');
-		}
-	}
+	const user =
+		token === undefined ? null : await api.selfUser({ withNotifications: true, withHolds: true });
 
 	return {
 		api,
-		user: u
+		user
 	};
 };

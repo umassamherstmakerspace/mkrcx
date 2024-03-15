@@ -1,10 +1,10 @@
 import { base } from '$app/paths';
 import { redirect } from '@sveltejs/kit';
-import type { PageLoad } from './$types';
-import Cookies from 'js-cookie';
+import type { PageServerLoad } from './$types';
+import { LeashAPI } from '$lib/leash';
 
-export const load: PageLoad = async ({ parent, url }) => {
-	const { user, api } = await parent();
+export const load: PageServerLoad = async ({ parent, fetch, url, cookies }) => {
+	const { token, leashURL } = await parent();
 
 	const root = url.origin + base;
 	let previousPage = url.searchParams.get('return_to') || root;
@@ -12,14 +12,14 @@ export const load: PageLoad = async ({ parent, url }) => {
 		previousPage = root;
 	}
 
-	const token = url.searchParams.get('token');
+	const loginToken = url.searchParams.get('token');
 	const state = url.searchParams.get('state');
 	const expires_at = url.searchParams.get('expires_at');
 
-	if (token && state && expires_at) {
-		Cookies.set('token', token, {
+	if (loginToken && state && expires_at) {
+		cookies.set('token', loginToken, {
 			expires: new Date(expires_at),
-			sameSite: 'strict'
+			path: '/'
 		});
 
 		let ret = atob(state);
@@ -30,10 +30,12 @@ export const load: PageLoad = async ({ parent, url }) => {
 
 		redirect(307, ret);
 	} else {
-		if (user) {
-			redirect(307, previousPage);
-		} else {
+		if (token === undefined) {
+			const api = new LeashAPI('', leashURL);
+			api.overrideFetchFunction(fetch);
 			redirect(307, api.login(url.origin + url.pathname, previousPage));
+		} else {
+			redirect(307, previousPage);
 		}
 	}
 };
