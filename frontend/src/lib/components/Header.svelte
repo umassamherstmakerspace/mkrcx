@@ -17,6 +17,7 @@
 	import DropdownTheme from './DropdownTheme.svelte';
 	import { Hold, Notification, User } from '$lib/leash';
 	import Timestamp from './Timestamp.svelte';
+	import { browser } from '$app/environment'; 
 
 	export let hideSidebar: boolean;
 	export let user: User | null;
@@ -82,7 +83,7 @@
 					{/if}
 				{/await}
 			</div>
-			<Avatar id="avatar-menu" src={user.iconURL} rounded />
+			<Avatar id="avatar-menu" src={browser ? user.iconURL : undefined} rounded />
 		{:else}
 			<ToolbarButton>
 				<DotsVerticalOutline id="dots-menu" class="dark:text-white" />
