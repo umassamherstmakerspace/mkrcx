@@ -175,11 +175,18 @@ func SignInAuthentication(user models.User, c *fiber.Ctx) Authentication {
 	}
 }
 
-type ctxAuthKey struct{}
+const (
+	CtxAuthKey         = string("leashCtxAuthKey")
+	CtxDBKey           = string("leashCtxDB")
+	CtxKeysKey         = string("leashCtxKeys")
+	CtxHMACSecret      = string("leashCtxHMACSecret")
+	CtxExternalAuthKey = string("leashCtxExternalAuth")
+	CtxEnforcerKey     = string("leashCtxEnforcer")
+)
 
 // GetAuthentication returns the Authentication struct for the current context
 func GetAuthentication(c *fiber.Ctx) Authentication {
-	return c.Locals(ctxAuthKey{}).(Authentication)
+	return c.Locals(CtxAuthKey).(Authentication)
 }
 
 // AuthenticationMiddleware is the middleware that handles authentication
@@ -272,7 +279,7 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 		}
 	}
 
-	c.Locals(ctxAuthKey{}, authentication)
+	c.Locals(CtxAuthKey, authentication)
 	return c.Next()
 }
 
@@ -353,44 +360,38 @@ func InitializeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
 	return enforcer, nil
 }
 
-type ctxDBKey struct{}
-type ctxKeysKey struct{}
-type ctxHMACSecret struct{}
-type ctxExternalAuthKey struct{}
-type ctxEnforcerKey struct{}
-
 // LocalsMiddleware is the middleware that sets the locals for common objects
 func LocalsMiddleware(db *gorm.DB, keys *Keys, hmacSecret []byte, externalAuth ExternalAuthenticator, enforcer *casbin.Enforcer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		c.Locals(ctxDBKey{}, db)
-		c.Locals(ctxKeysKey{}, keys)
-		c.Locals(ctxHMACSecret{}, hmacSecret)
-		c.Locals(ctxExternalAuthKey{}, externalAuth)
-		c.Locals(ctxEnforcerKey{}, enforcer)
+		c.Locals(CtxDBKey, db)
+		c.Locals(CtxKeysKey, keys)
+		c.Locals(CtxHMACSecret, hmacSecret)
+		c.Locals(CtxExternalAuthKey, externalAuth)
+		c.Locals(CtxEnforcerKey, enforcer)
 		return c.Next()
 	}
 }
 
 // GetDB returns the database from the current context
 func GetDB(c *fiber.Ctx) *gorm.DB {
-	return c.Locals(ctxDBKey{}).(*gorm.DB)
+	return c.Locals(CtxDBKey).(*gorm.DB)
 }
 
 // GetKeys returns the keys from the current context
 func GetKeys(c *fiber.Ctx) *Keys {
-	return c.Locals(ctxKeysKey{}).(*Keys)
+	return c.Locals(CtxKeysKey).(*Keys)
 }
 
 func GetHMAC(c *fiber.Ctx) hash.Hash {
-	return hmac.New(md5.New, c.Locals(ctxHMACSecret{}).([]byte))
+	return hmac.New(md5.New, c.Locals(CtxHMACSecret).([]byte))
 }
 
 // GetGoogle returns the google oauth2 config from the current context
 func GetExternalAuth(c *fiber.Ctx) ExternalAuthenticator {
-	return c.Locals(ctxExternalAuthKey{}).(ExternalAuthenticator)
+	return c.Locals(CtxExternalAuthKey).(ExternalAuthenticator)
 }
 
 // GetEnforcer returns the casbin enforcer from the current context
 func GetEnforcer(c *fiber.Ctx) *casbin.Enforcer {
-	return c.Locals(ctxEnforcerKey{}).(*casbin.Enforcer)
+	return c.Locals(CtxEnforcerKey).(*casbin.Enforcer)
 }
