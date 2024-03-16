@@ -187,13 +187,8 @@ func AuthenticationMiddleware(c *fiber.Ctx) error {
 	db := GetDB(c)
 	keys := GetKeys(c)
 
-	// Make sure DB is alive
-	sql, err := db.DB()
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Database connection error")
-	}
-
-	err = sql.Ping()
+	// Select 1=1 to check if the database is alive
+	err := db.Exec("SELECT 1=1").Error
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Database connection error")
