@@ -2,17 +2,14 @@ import { isAfter, addMilliseconds } from 'date-fns';
 import { Mutex } from 'async-mutex';
 
 export class Cached<T> {
-	private mutex: Mutex
+	private mutex: Mutex;
 	private getter: () => Promise<T>;
 	private value: Promise<T> | null = null;
 	private expiresAt: Date | null = null;
 
 	private defaultTTL: number = 1000 * 30; // 30 seconds
 
-	constructor(
-		getter: () => Promise<T>,
-		defaultTTL?: number
-	) {
+	constructor(getter: () => Promise<T>, defaultTTL?: number) {
 		this.mutex = new Mutex();
 
 		this.getter = getter;
@@ -31,15 +28,14 @@ export class Cached<T> {
 			await this.invalidate();
 		}
 
-
 		const release = await this.mutex.acquire();
 		if (!this.value) {
 			this.value = this.getter().then((value) => {
-                this.expiresAt = addMilliseconds(new Date(), this.defaultTTL);
-                return value;
-            });
+				this.expiresAt = addMilliseconds(new Date(), this.defaultTTL);
+				return value;
+			});
 		}
-		
+
 		release();
 		return this.value;
 	}

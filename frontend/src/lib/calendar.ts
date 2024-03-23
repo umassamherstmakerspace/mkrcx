@@ -219,16 +219,16 @@ export class Event {
 	constructor(event: ICS.VEVENT.Published) {
 		this.title = event.SUMMARY.value;
 		this.description = event.DESCRIPTION?.value;
-		
-        this.start = event.DTSTART.value;
-        if (!this.start.isUTC) {
-            this.start = {
-                date: floatingTZAdjust(this.start),
-                isDateOnly: this.start.isDateOnly,
-                timezoneIdentifier: this.start.timezoneIdentifier,
-                isUTC: this.start.isUTC
-            } as DateTime;
-        }
+
+		this.start = event.DTSTART.value;
+		if (!this.start.isUTC) {
+			this.start = {
+				date: floatingTZAdjust(this.start),
+				isDateOnly: this.start.isDateOnly,
+				timezoneIdentifier: this.start.timezoneIdentifier,
+				isUTC: this.start.isUTC
+			} as DateTime;
+		}
 
 		if (event.DTEND) {
 			this.end = {
