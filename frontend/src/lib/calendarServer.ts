@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { Cached } from '$lib/types';
+import { Cached } from '$lib/cache';
 import { CalendarSet } from '$lib/calendar';
 import { type EventInput } from '@fullcalendar/core';
 
