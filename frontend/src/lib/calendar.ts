@@ -303,8 +303,6 @@ export class Event {
 				isUTC: id.isUTC
 			} as DateTime;
 		}
-
-        console.log(this)
 	}
 
 	public between(start: Date, end: Date): EventInstance[] {
