@@ -11,10 +11,10 @@ import (
 	"gorm.io/gorm"
 )
 
-var enforcer *casbin.Enforcer
+var enforcer *casbin.SyncedEnforcer
 
 // SetupEnforcer sets up the enforcer for the model AfterFind hooks
-func SetupEnforcer(e *casbin.Enforcer) {
+func SetupEnforcer(e *casbin.SyncedEnforcer) {
 	enforcer = e
 }
 
@@ -172,6 +172,22 @@ type Session struct {
 	SessionID string `gorm:"column:api_key;primaryKey"`
 	UserID    uint
 	ExpiresAt time.Time
+}
+
+type Feed struct {
+	Model
+	ID    uint `gorm:"primarykey"`
+	Name  string
+	Items []FeedItem
+}
+
+type FeedItem struct {
+	Model
+	ID      uint `gorm:"primarykey"`
+	FeedID  uint
+	UserID  uint
+	Message string
+	Level   string
 }
 
 var validate = validator.New()

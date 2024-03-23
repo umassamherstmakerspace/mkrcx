@@ -12,7 +12,7 @@ import (
 )
 
 // SetupCasbin sets up the casbin RBAC for Leash
-func SetupCasbin(enforcer *casbin.Enforcer) {
+func SetupCasbin(enforcer *casbin.SyncedEnforcer) {
 	// Roles
 	member := "leash:member"
 	volunteer := "leash:volunteer"
@@ -202,7 +202,7 @@ func MigrateSchema(db *gorm.DB) error {
 	return nil
 }
 
-func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, hmacSecret []byte, externalAuth leash_auth.ExternalAuthenticator, enforcer *casbin.Enforcer) {
+func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, hmacSecret []byte, externalAuth leash_auth.ExternalAuthenticator, enforcer *casbin.SyncedEnforcer) {
 	// Allow all origins in development
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",

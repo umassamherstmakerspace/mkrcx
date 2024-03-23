@@ -484,7 +484,7 @@ func (test *Tester) Endpoint(endpoint string, method string) *EndpointBuilder {
 	}
 }
 
-func setupTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) *Tester {
+func setupTester(t *testing.T, db *gorm.DB, enforcer *casbin.SyncedEnforcer) *Tester {
 
 	enforcerWrapper := leash_auth.EnforcerWrapper{
 		Enforcer: enforcer,

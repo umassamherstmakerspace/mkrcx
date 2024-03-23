@@ -105,7 +105,7 @@ func (a Authentication) Authorize(permission string) error {
 }
 
 type EnforcerWrapper struct {
-	Enforcer *casbin.Enforcer
+	Enforcer *casbin.SyncedEnforcer
 }
 
 // HasPermissionForAPIKey returns true if the api key supplied is authorized to perform the given action
@@ -322,7 +322,7 @@ func PrefixAuthorizationMiddleware(action string) fiber.Handler {
 }
 
 // InitializeCasbin initializes the casbin enforcer
-func InitializeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
+func InitializeCasbin(db *gorm.DB) (*casbin.SyncedEnforcer, error) {
 	// Initialize the adapter from the DB
 	adapter, err := gormadapter.NewAdapterByDB(db)
 	if err != nil {
@@ -352,7 +352,7 @@ func InitializeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
 	}
 
 	// Create the enforcer from the model and adapter
-	enforcer, err := casbin.NewEnforcer(model, adapter)
+	enforcer, err := casbin.NewSyncedEnforcer(model, adapter)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +361,7 @@ func InitializeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
 }
 
 // LocalsMiddleware is the middleware that sets the locals for common objects
-func LocalsMiddleware(db *gorm.DB, keys *Keys, hmacSecret []byte, externalAuth ExternalAuthenticator, enforcer *casbin.Enforcer) fiber.Handler {
+func LocalsMiddleware(db *gorm.DB, keys *Keys, hmacSecret []byte, externalAuth ExternalAuthenticator, enforcer *casbin.SyncedEnforcer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals(CtxDBKey, db)
 		c.Locals(CtxKeysKey, keys)
@@ -392,6 +392,6 @@ func GetExternalAuth(c *fiber.Ctx) ExternalAuthenticator {
 }
 
 // GetEnforcer returns the casbin enforcer from the current context
-func GetEnforcer(c *fiber.Ctx) *casbin.Enforcer {
-	return c.Locals(CtxEnforcerKey).(*casbin.Enforcer)
+func GetEnforcer(c *fiber.Ctx) *casbin.SyncedEnforcer {
+	return c.Locals(CtxEnforcerKey).(*casbin.SyncedEnforcer)
 }
