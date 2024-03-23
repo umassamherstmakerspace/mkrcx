@@ -1,31 +1,50 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
-import { Cached } from '$lib/types';
+import { CalendarServer } from '$lib/calendarServer';
+import type { EventInput } from '@fullcalendar/core/index.js';
 
-let calCache: Cached<string>;
+let calendar: CalendarServer;
 
-async function fetchCalendar(fetch: typeof globalThis.fetch) {
-	const cal = env.CALENDAR_ENDPOINT;
-	if (!cal) {
-		error(500, 'No calendar endpoint configured.');
+const colorize = (event: EventInput) => {
+	if (event.title === undefined) return event;
+
+	const title = event.title.toLocaleLowerCase();
+
+	if (title.includes('closed')) {
+		return {
+			...event,
+			color: '#820318'
+		};
+	} else if (title.includes('open')) {
+		return {
+			...event,
+			color: '#c78c20'
+		};
 	}
 
-	const req = await fetch(cal);
-	if (!req.ok) {
-		error(500, 'Failed to fetch calendar.');
+	return event;
+};
+
+export const GET: RequestHandler = async ({ fetch, url }) => {
+	if (!calendar) {
+		const cal = env.CALENDAR_ENDPOINT;
+		if (!cal) {
+			error(500, 'No calendar endpoint configured.');
+		}
+
+		calendar = new CalendarServer(cal, fetch, colorize);
 	}
 
-	return await req.text();
-}
+	const start = url.searchParams.get('start');
+	if (!start) error(400, 'No start date provided');
 
-export const GET: RequestHandler = async ({ fetch }) => {
-	if (!calCache) {
-		calCache = new Cached(() => fetchCalendar(fetch), 1000 * 60 * 5); // 5 minutes
-	}
+	const end = url.searchParams.get('end');
+	if (!end) error(400, 'No end date provided');
 
-	const data = await calCache.get();
-	return new Response(data, {
+	const data = await calendar.getEventsBetween(new Date(start || ''), new Date(end || ''));
+
+	return new Response(JSON.stringify(data), {
 		headers: {
 			'Content-Type': 'text/calendar'
 		}

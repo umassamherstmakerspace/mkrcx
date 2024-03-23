@@ -38,7 +38,6 @@
 		"sass": "^1.71.1",
 		"svelte": "^4.2.10",
 		"svelte-check": "^3.6.4",
-		"svelte-web-storage": "^0.0.7",
 		"tailwindcss": "^3.4.1",
 		"tslib": "^2.6.2",
 		"typescript": "^5.3.3",
@@ -47,12 +46,15 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@filecage/ical": "^0.3.1",
 		"@fullcalendar/core": "^6.1.11",
 		"@fullcalendar/daygrid": "^6.1.11",
 		"@fullcalendar/icalendar": "^6.1.11",
 		"@fullcalendar/list": "^6.1.11",
 		"@fullcalendar/timegrid": "^6.1.11",
+		"@marko19907/string-to-color": "^1.0.0",
 		"@types/color-hash": "^1.0.5",
+		"@types/js-cookie": "^3.0.6",
 		"@types/leaflet": "^1.9.8",
 		"@types/qrcode": "^1.5.5",
 		"color-hash": "^2.0.2",
@@ -62,12 +64,16 @@
 		"geojson": "^0.5.0",
 		"ical.js": "^1.5.0",
 		"jdenticon": "^3.2.0",
+		"js-cookie": "^3.0.5",
 		"leaflet": "^1.9.4",
 		"maplibre-gl": "^4.0.2",
 		"minidenticons": "^4.2.0",
 		"mode-watcher": "^0.3.0",
 		"qrcode": "^1.5.3",
+		"rrule": "^2.8.1",
 		"svelte-inview": "^4.0.2",
-		"svelte-maplibre": "^0.8.0"
+		"svelte-maplibre": "^0.8.0",
+		"svelte-web-storage": "^0.0.7",
+		"tcal": "0.1.0-beta.1"
 	}
 }
