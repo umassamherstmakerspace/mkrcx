@@ -1,19 +1,16 @@
 <script lang="ts">
-	import { Calendar, type EventInput } from '@fullcalendar/core';
-	import iCalendarPlugin from '@fullcalendar/icalendar';
+	import { Calendar } from '@fullcalendar/core';
 	import dayGridPlugin from '@fullcalendar/daygrid';
 	import timeGridPlugin from '@fullcalendar/timegrid';
 	import listPlugin from '@fullcalendar/list';
 
 	export let url: string;
-	export let colorizeEvent: (event: EventInput) => void = () => {};
 
 	function calendarAction(element: HTMLElement) {
 		let calendar = new Calendar(element, {
-			plugins: [dayGridPlugin, timeGridPlugin, listPlugin, iCalendarPlugin],
+			plugins: [dayGridPlugin, timeGridPlugin, listPlugin],
 			events: {
-				url,
-				format: 'ics'
+				url
 			},
 			initialView: 'timeGridWeek',
 			headerToolbar: {
@@ -22,14 +19,7 @@
 				right: 'dayGridMonth,timeGridWeek,listWeek'
 			},
 			nowIndicator: true,
-			scrollTime: new Date().getHours() + ':00:00',
-			eventSourceSuccess: function (content) {
-				for (const event of content) {
-					if (event.color === undefined) {
-						colorizeEvent(event);
-					}
-				}
-			}
+			scrollTime: new Date().getHours() + ':00:00'
 		});
 
 		calendar.render();
