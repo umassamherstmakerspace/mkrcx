@@ -5,11 +5,6 @@ import { addDays, isWithinInterval, subDays } from 'date-fns';
 import RRULE from 'rrule';
 import tcal from 'tcal';
 
-export function floatingTimestamp(date: Date): string {
-	const str = date.toISOString();
-	return str.substring(0, str.length - 1);
-}
-
 export type EventJSON = {
 	title: string;
 	description?: string;
@@ -94,7 +89,12 @@ export class Timezone {
 	}
 }
 
-export function getDateTimeTimestamp(date: DateTime, timezoneMap: TimezoneMap): string {
+function floatingTimestamp(date: Date): string {
+	const str = date.toISOString();
+	return str.substring(0, str.length - 1);
+}
+
+function getDateTimeTimestamp(date: DateTime, timezoneMap: TimezoneMap): string {
 	if (date.isUTC) {
 		return date.date.toISOString();
 	} else {
@@ -109,6 +109,14 @@ export function getDateTimeTimestamp(date: DateTime, timezoneMap: TimezoneMap): 
 			return tz.getUTCTime(date.date).toISOString();
 		}
 	}
+}
+
+function floatingTZAdjust(date: DateTime): Date {
+	if (date.isUTC) {
+		return date.date;
+	}
+
+	return new Date(date.date.getTime() - date.date.getTimezoneOffset() * 60 * 1000);
 }
 
 export type TimezoneMap = Map<string, Timezone>;
@@ -134,10 +142,6 @@ export class EventInstance {
 	public recurrenceId?: DateTime;
 
 	constructor(event: Event, start: Date) {
-		if (event.start.timezoneIdentifier !== undefined) {
-			start = new Date(start.getTime() - event.start.date.getTimezoneOffset() * 60 * 1000);
-		}
-
 		this.title = event.title;
 		this.description = event.description || '';
 		this.start = {
@@ -215,7 +219,16 @@ export class Event {
 	constructor(event: ICS.VEVENT.Published) {
 		this.title = event.SUMMARY.value;
 		this.description = event.DESCRIPTION?.value;
+
 		this.start = event.DTSTART.value;
+		if (!this.start.isUTC) {
+			this.start = {
+				date: floatingTZAdjust(this.start),
+				isDateOnly: this.start.isDateOnly,
+				timezoneIdentifier: this.start.timezoneIdentifier,
+				isUTC: this.start.isUTC
+			} as DateTime;
+		}
 
 		if (event.DTEND) {
 			this.end = {
@@ -272,9 +285,7 @@ export class Event {
 		if (event.EXDATE) {
 			event.EXDATE.forEach((exdates) => {
 				exdates.value.forEach((exdate) => {
-					if (exdate) {
-						rrules.exdate(new Date(exdate.date));
-					}
+					rrules.exdate(floatingTZAdjust(exdate));
 				});
 			});
 		}
@@ -286,7 +297,7 @@ export class Event {
 		if (event['RECURRENCE-ID']) {
 			const id = event['RECURRENCE-ID'].value;
 			this.recurrenceId = {
-				date: new Date(id.date.getTime() - id.date.getTimezoneOffset() * 60 * 1000),
+				date: floatingTZAdjust(id),
 				isDateOnly: id.isDateOnly,
 				timezoneIdentifier: id.timezoneIdentifier,
 				isUTC: id.isUTC

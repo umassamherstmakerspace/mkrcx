@@ -38,6 +38,9 @@ dependencies:
   '@types/qrcode':
     specifier: ^1.5.5
     version: 1.5.5
+  async-mutex:
+    specifier: ^0.5.0
+    version: 0.5.0
   color-hash:
     specifier: ^2.0.2
     version: 2.0.2
@@ -1302,6 +1305,12 @@ packages:
   /assign-symbols@1.0.0:
     resolution: {integrity: sha512-Q+JC7Whu8HhmTdBph/Tq59IoRtoy6KAm5zzPv00WdujX82lbAL8K7WVjne7vdCsAmbF4AYaDOPyO3k0kl8qIrw==}
     engines: {node: '>=0.10.0'}
+    dev: false
+
+  /async-mutex@0.5.0:
+    resolution: {integrity: sha512-1A94B18jkJ3DYq284ohPxoXbfTA5HsQ7/Mf4DEhcyLx3Bz27Rh59iScbB6EPiP+B+joue6YCxcMXSbFC1tZKwA==}
+    dependencies:
+      tslib: 2.6.2
     dev: false
 
   /autoprefixer@10.4.17(postcss@8.4.35):

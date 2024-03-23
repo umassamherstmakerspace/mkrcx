@@ -1,4 +1,4 @@
-import { Cached } from './types';
+import { Cached } from './cache';
 import { isAfter } from 'date-fns';
 import { minidenticon } from 'minidenticons';
 
@@ -1300,8 +1300,6 @@ export class Hold {
 	}
 
 	async delete(): Promise<void> {
-		console.log('deleting');
-		console.log(this.endpointPrefix);
 		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
 	}
 
