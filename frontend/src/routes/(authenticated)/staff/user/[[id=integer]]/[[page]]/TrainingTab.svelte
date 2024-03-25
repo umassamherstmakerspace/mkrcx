@@ -24,7 +24,6 @@
 
 	let trainings = {};
 	export let showDeleted = false;
-	
 
 	async function getTrainings(showDeleted: boolean): Promise<Training[]> {
 		const trainings = await target.getAllTrainings(showDeleted, true);
