@@ -8,8 +8,10 @@
 	import {
 		Badge,
 		Button,
+		Checkbox,
 		CloseButton,
 		Indicator,
+		Label,
 		Table,
 		TableBody,
 		TableBodyCell,
@@ -21,9 +23,10 @@
 	export let target: User;
 
 	let holds = {};
+	export let showDeleted = false;
 
-	async function getHolds(): Promise<Hold[]> {
-		const holds = await target.getAllHolds(true, true);
+	async function getHolds(showDeleted: boolean): Promise<Hold[]> {
+		const holds = await target.getAllHolds(showDeleted, true);
 		return holds.sort((a, b) => {
 			const aLevel = a.activeLevel();
 			const bLevel = b.activeLevel();
@@ -92,7 +95,15 @@
 	onConfirm={deleteHoldModal.onConfirm}
 />
 
-<Button color="primary" class="mb-4 w-full" on:click={createHold}>New Hold</Button>
+<div class="flex flex-col space-y-4 pb-4 md:flex-row md:items-center md:justify-between md:gap-4">
+	<Button color="primary" class="mb-4 flex-grow md:mb-0 md:w-1/3" on:click={createHold}>
+		Create Hold
+	</Button>
+	<Label class="mt-4 flex flex-grow items-center font-bold md:w-2/3 md:justify-end">
+		<Checkbox bind:checked={showDeleted} />
+		<span class="mr-2">Show Deleted</span>
+	</Label>
+</div>
 
 <Table>
 	<TableHead>
@@ -110,7 +121,7 @@
 	</TableHead>
 	<TableBody>
 		{#key holds}
-			{#await getHolds()}
+			{#await getHolds(showDeleted)}
 				<TableBodyRow>
 					<TableBodyCell colspan="11" class="p-0">Loading...</TableBodyCell>
 				</TableBodyRow>

@@ -7,8 +7,10 @@
 	import {
 		Badge,
 		Button,
+		Checkbox,
 		CloseButton,
 		Indicator,
+		Label,
 		Modal,
 		Table,
 		TableBody,
@@ -22,9 +24,10 @@
 	export let target: User;
 
 	let apikeys = {};
+	export let showDeleted = false;
 
-	async function getAPIKeys(): Promise<APIKey[]> {
-		const apikeys = await target.getAllAPIKeys(true, true);
+	async function getAPIKeys(showDeleted: boolean): Promise<APIKey[]> {
+		const apikeys = await target.getAllAPIKeys(showDeleted, true);
 		return apikeys.sort((a, b) => {
 			if (a.deletedAt && b.deletedAt) return b.deletedAt.getTime() - a.deletedAt.getTime();
 			if (a.deletedAt) return 1;
@@ -105,7 +108,15 @@
 	onConfirm={deleteAPIKeyModal.onConfirm}
 />
 
-<Button color="primary" class="mb-4 w-full" on:click={createApikey}>New API Key</Button>
+<div class="flex flex-col space-y-4 pb-4 md:flex-row md:items-center md:justify-between md:gap-4">
+	<Button color="primary" class="mb-4 flex-grow md:mb-0 md:w-1/3" on:click={createApikey}>
+		Create API Key
+	</Button>
+	<Label class="mt-4 flex flex-grow items-center font-bold md:w-2/3 md:justify-end">
+		<Checkbox bind:checked={showDeleted} />
+		<span class="mr-2">Show Deleted</span>
+	</Label>
+</div>
 
 <Table>
 	<TableHead>
@@ -119,7 +130,7 @@
 	</TableHead>
 	<TableBody>
 		{#key apikeys}
-			{#await getAPIKeys()}
+			{#await getAPIKeys(showDeleted)}
 				<TableBodyRow>
 					<TableBodyCell colspan="7" class="p-0">Loading...</TableBodyCell>
 				</TableBodyRow>

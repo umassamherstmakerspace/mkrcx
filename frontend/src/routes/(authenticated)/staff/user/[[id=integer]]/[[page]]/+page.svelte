@@ -24,18 +24,35 @@
 	const { tabs, user } = data;
 	let { tabsOpen, target } = data;
 
+	let trainingShowDeleted = false;
+	let holdsShowDeleted = false;
+	let notificationsShowDeleted = false;
+	let apikeysShowDeleted = false;
+
 	type Data = {
 		tabsOpen: typeof tabsOpen;
+		trainingShowDeleted: boolean;
+		holdsShowDeleted: boolean;
+		notificationsShowDeleted: boolean;
+		apikeysShowDeleted: boolean;
 	};
 
 	export const snapshot: Snapshot<Data> = {
 		capture: () => {
 			return {
-				tabsOpen: tabsOpen
+				tabsOpen: tabsOpen,
+				trainingShowDeleted: trainingShowDeleted,
+				holdsShowDeleted: holdsShowDeleted,
+				notificationsShowDeleted: notificationsShowDeleted,
+				apikeysShowDeleted: apikeysShowDeleted
 			};
 		},
 		restore: (value) => {
 			tabsOpen = value.tabsOpen;
+			trainingShowDeleted = value.trainingShowDeleted;
+			holdsShowDeleted = value.holdsShowDeleted;
+			notificationsShowDeleted = value.notificationsShowDeleted;
+			apikeysShowDeleted = value.apikeysShowDeleted;
 		}
 	};
 </script>
@@ -65,7 +82,7 @@
 				Trainings
 			</div>
 
-			<TrainingTab {target} />
+			<TrainingTab {target} bind:showDeleted={trainingShowDeleted} />
 		</TabItem>
 	{/if}
 	{#if tabs.holds}
@@ -75,7 +92,7 @@
 				Holds
 			</div>
 
-			<HoldTab {target} />
+			<HoldTab {target} bind:showDeleted={holdsShowDeleted} />
 		</TabItem>
 	{/if}
 	{#if tabs.notifications}
@@ -85,7 +102,7 @@
 				Nofications
 			</div>
 
-			<NotificationTab {target} />
+			<NotificationTab {target} bind:showDeleted={notificationsShowDeleted} />
 		</TabItem>
 	{/if}
 	{#if tabs.updates}
@@ -105,7 +122,7 @@
 				Api Keys
 			</div>
 
-			<ApikeyTab {target} />
+			<ApikeyTab {target} bind:showDeleted={apikeysShowDeleted} />
 		</TabItem>
 	{/if}
 	{#if tabs.admin}
