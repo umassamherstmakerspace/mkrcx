@@ -8,8 +8,10 @@
 	import {
 		Badge,
 		Button,
+		Checkbox,
 		CloseButton,
 		Indicator,
+		Label,
 		Table,
 		TableBody,
 		TableBodyCell,
@@ -21,9 +23,10 @@
 	export let target: User;
 
 	let notifications = {};
+	export let showDeleted = false;
 
-	async function getNotifications(): Promise<Notification[]> {
-		const notifications = await target.getAllNotifications(true, true);
+	async function getNotifications(showDeleted: boolean): Promise<Notification[]> {
+		const notifications = await target.getAllNotifications(showDeleted, true);
 		return notifications.sort((a, b) => {
 			if (a.deletedAt && b.deletedAt) return b.deletedAt.getTime() - a.deletedAt.getTime();
 			if (a.deletedAt) return 1;
@@ -80,7 +83,16 @@
 	onConfirm={deleteNotificationModal.onConfirm}
 />
 
-<Button color="primary" class="mb-4 w-full" on:click={createNotification}>New Notification</Button>
+<div class="flex flex-col space-y-4 pb-4 md:flex-row md:items-center md:justify-between md:gap-4">
+	<Button color="primary" class="mb-4 flex-grow md:mb-0 md:w-1/3" on:click={createNotification}>
+		Create Notification
+	</Button>
+	<Label class="mt-4 flex flex-grow items-center font-bold md:w-2/3 md:justify-end">
+		<Checkbox bind:checked={showDeleted} />
+		<span class="mr-2">Show Deleted</span>
+	</Label>
+</div>
+
 <Table>
 	<TableHead>
 		<TableHeadCell>Active</TableHeadCell>
@@ -95,7 +107,7 @@
 	</TableHead>
 	<TableBody>
 		{#key notifications}
-			{#await getNotifications()}
+			{#await getNotifications(showDeleted)}
 				<TableBodyRow>
 					<TableBodyCell colspan="9" class="p-0">Loading...</TableBodyCell>
 				</TableBodyRow>

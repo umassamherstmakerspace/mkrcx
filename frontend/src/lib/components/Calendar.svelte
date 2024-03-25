@@ -3,6 +3,7 @@
 	import dayGridPlugin from '@fullcalendar/daygrid';
 	import timeGridPlugin from '@fullcalendar/timegrid';
 	import listPlugin from '@fullcalendar/list';
+	import './calendar.pcss';
 
 	export let url: string;
 
@@ -12,7 +13,7 @@
 			events: {
 				url
 			},
-			initialView: 'timeGridWeek',
+			initialView: window.innerWidth < 768 ? 'listWeek' : 'timeGridWeek',
 			headerToolbar: {
 				left: 'prev,next today',
 				center: 'title',
@@ -33,7 +34,7 @@
 </script>
 
 <div
-	class="flex aspect-video w-full justify-center divide-gray-100 border-gray-100 text-gray-700 dark:divide-gray-700 dark:border-gray-700 dark:text-gray-200"
+	class="flex w-full justify-center divide-gray-100 border-gray-100 text-gray-700 dark:divide-gray-700 dark:border-gray-700 dark:text-gray-200 md:aspect-video"
 >
 	<div id="calendar" class="w-full" use:calendarAction />
 </div>

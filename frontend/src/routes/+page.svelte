@@ -5,7 +5,7 @@
 	import Calendar from '$lib/components/Calendar.svelte';
 </script>
 
-<div class="flex flex-col items-center justify-center gap-12 px-16 text-center">
+<div class="flex flex-col items-center justify-center gap-12 text-center md:px-16">
 	<Heading tag="h1" class="mb-4" customSize="text-4xl font-extrabold  md:text-5xl lg:text-6xl"
 		>Welcome to the UMass Amherst Makerspace's Online Portal</Heading
 	>
