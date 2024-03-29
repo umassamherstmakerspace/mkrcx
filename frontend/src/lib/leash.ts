@@ -954,10 +954,14 @@ export class User {
 			throw new Error('Only service users can be updated with this method.');
 		}
 
-		const updated = await this.api.leashFetch<LeashUser>(`${this.endpointPrefix}/service`, 'PATCH', {
-			name,
-			permissions
-		});
+		const updated = await this.api.leashFetch<LeashUser>(
+			`${this.endpointPrefix}/service`,
+			'PATCH',
+			{
+				name,
+				permissions
+			}
+		);
 
 		return new User(this.api, updated, this.endpointPrefix);
 	}
