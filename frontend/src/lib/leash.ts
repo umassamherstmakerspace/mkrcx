@@ -501,7 +501,7 @@ export class LeashAPI {
 	}
 
 	public async createServiceUser({ name, permissions }: ServiceUserCreateOptions): Promise<User> {
-		const user = await this.leashFetch<LeashUser>(`/api/users`, 'POST', {
+		const user = await this.leashFetch<LeashUser>(`/api/users/service`, 'POST', {
 			name,
 			permissions
 		});
@@ -954,10 +954,14 @@ export class User {
 			throw new Error('Only service users can be updated with this method.');
 		}
 
-		const updated = await this.api.leashFetch<LeashUser>(`${this.endpointPrefix}`, 'PATCH', {
-			name,
-			permissions
-		});
+		const updated = await this.api.leashFetch<LeashUser>(
+			`${this.endpointPrefix}/service`,
+			'PATCH',
+			{
+				name,
+				permissions
+			}
+		);
 
 		return new User(this.api, updated, this.endpointPrefix);
 	}
