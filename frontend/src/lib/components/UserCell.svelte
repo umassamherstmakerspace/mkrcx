@@ -41,7 +41,7 @@
 		<div class="ms-3 flex flex-col">
 			<div class="font-semibold">
 				{user.name}
-				{#if user.pronouns}
+				{#if user.pronouns && user.pronouns !== 'UNKNOWN'}
 					<span class="text-gray-500 dark:text-gray-400">
 						({user.pronouns})
 					</span>
