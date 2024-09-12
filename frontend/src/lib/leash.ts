@@ -110,7 +110,7 @@ interface LeashUser {
 
 	Email: string;
 	PendingEmail?: string;
-	CardID: number;
+	CardID: string;
 	Name: string;
 	Pronouns: string;
 	Role: string;
@@ -248,7 +248,7 @@ export interface UserUpdateOptions {
 	name?: string;
 	pronouns?: string;
 	email?: string;
-	cardID?: number;
+	cardID?: string;
 	role?: string;
 	type?: string;
 
@@ -562,7 +562,7 @@ export class LeashAPI {
 	}
 
 	public async userFromCardID(
-		cardID: number,
+		cardID: string,
 		options: LeashUserOptions = {},
 		noCache = false
 	): Promise<User> {
@@ -629,7 +629,7 @@ export class User {
 
 	email: string;
 	pendingEmail?: string;
-	cardId: number;
+	cardId: string;
 	name: string;
 	pronouns: string;
 	role: string;
