@@ -40,6 +40,4 @@ fn main() {
     println!("cargo:rustc-env=LEASH_URL={}", config.leash.url);
     println!("cargo:rustc-env=LEASH_APIKEY={}", config.leash.apikey);
     println!("cargo:rustc-env=LEASH_SKIP_STORE={}", config.leash.skip_store);
-
-    tauri_build::build()
 }
