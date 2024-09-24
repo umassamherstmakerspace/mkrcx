@@ -207,11 +207,16 @@ use rqrr::Point;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, oneshot};
 
+#[derive(Debug, Clone, Copy)]
+enum Command {
+
+}
+
 #[tokio::main]
 async fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 800.0]),
+        viewport: egui::ViewportBuilder::default().with_fullscreen(true),
         ..Default::default()
     };
 
@@ -223,6 +228,7 @@ async fn main() -> eframe::Result {
 
     let (image_tx, mut image_rx) = mpsc::channel::<DynamicImage>(1);
     let (qr_tx, qr_rx) = mpsc::channel::<Option<([Point; 4], String)>>(1);
+    let (command_tx, command_rx) = mpsc::channel::<Command>(1);
 
     let _t1 = tokio::spawn(async move {
         loop {
@@ -329,9 +335,8 @@ impl eframe::App for MyApp {
 
             pts.push(pts.get(0).unwrap().clone());
 
-            let color = [1.0, 1.0, 0.0, 0.0];
+            let color = [12.0, 242.0, 73.0, 255.0];
             for i in 0..pts.len()-1 {
-                println!("aaa: {:?}", pts[i]);
                 opencv::imgproc::line(&mut mat2, pts.get(i).unwrap().clone(), pts.get(i+1).unwrap().clone(), color.into(), 3, LineTypes::FILLED as i32, 0).unwrap();
             }
         }
