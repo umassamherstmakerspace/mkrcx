@@ -195,6 +195,7 @@
 
 use std::time::Duration;
 
+use eframe::egui::load::SizedTexture;
 use eframe::egui::{self, Image};
 use image::imageops::grayscale;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgb};
@@ -343,6 +344,7 @@ impl eframe::App for MyApp {
 
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("My egui Application");
             egui::ScrollArea::both().show(ui, |ui| {
                 let size = mat2.size().unwrap();
                 let frame_size = [size.width as usize, size.height as usize];
@@ -355,8 +357,9 @@ impl eframe::App for MyApp {
                 let img = egui::ColorImage::from_rgb(frame_size, slice);
 
                 let texture = ui.ctx().load_texture("frame", img, Default::default());
-                // let c = epaint::ColorImage::from_rgb(size, rgb)
-                ui.image(&texture);
+                let size = texture.size();
+                let a = Image::new(&texture);
+                ui.image(SizedTexture::new(&texture, [480.0 * (size[0] as f32 / size[1] as f32), 480.0]));
             });
         });
 
