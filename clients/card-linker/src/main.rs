@@ -6,18 +6,14 @@ mod api;
 use api::get_leash_api;
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{self, FontId, RichText};
-use image::imageops::grayscale;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgb};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb};
 use leash_client::user::User;
-use opencv::core::CV_8UC3;
-use opencv::imgproc::{cvt_color, cvt_color_def, LineTypes, COLOR_BGR2RGB};
+use opencv::imgproc::{cvt_color_def, LineTypes, COLOR_BGR2RGB};
 use opencv::prelude::*;
 use opencv::videoio::VideoCapture;
-use opencv::{highgui, videoio};
+use opencv::videoio;
 use tasks::{card_task, new_task, qr_checkin_task, qr_reader_task, update_task, BackgroundTaskCaller};
 use rqrr::Point;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{mpsc, oneshot, Mutex};
 
 #[tokio::main]
 async fn main() -> eframe::Result {
@@ -104,34 +100,25 @@ impl eframe::App for MyApp {
 
         self.qr_reader_caller.try_call(cam_img);
 
-        match self.qr_reader_caller.try_recv() {
-            Ok(v) => {
-                match v {
-                    Some((loc, content)) => {
-                        self.qr_last = Some(loc);
-                        self.qr_checkin_caller.try_call(content);
-                    },
-                    None => {
-                        self.qr_last = None;
-                    },
-                }
-            },
-            Err(_) => {},
+        if let Ok(v) = self.qr_reader_caller.try_recv() {
+            match v {
+                Some((loc, content)) => {
+                    self.qr_last = Some(loc);
+                    self.qr_checkin_caller.try_call(content);
+                },
+                None => {
+                    self.qr_last = None;
+                },
+            }
         }
 
-        match self.qr_checkin_caller.try_recv() {
-            Ok(v) => {
-                println!("user {:?}", v);
-                self.card_reader_caller.try_call(());
-            },
-            Err(_) => {},
+        if let Ok(v) = self.qr_checkin_caller.try_recv() {
+            println!("user {:?}", v);
+            self.card_reader_caller.try_call(());
         }
 
-        match self.card_reader_caller.try_recv() {
-            Ok(v) => {
-                println!("card {}", v);
-            },
-            Err(_) => {},
+        if let Ok(v) = self.card_reader_caller.try_recv() {
+            println!("card {}", v);
         }
 
         if let Some(loc) = self.qr_last {
@@ -141,11 +128,11 @@ impl eframe::App for MyApp {
                 pts.push(opencv::core::Point::new(pt.x, pt.y));
             }
 
-            pts.push(pts.get(0).unwrap().clone());
+            pts.push(*pts.first().unwrap());
 
             let color = [12.0, 242.0, 73.0, 255.0];
             for i in 0..pts.len()-1 {
-                opencv::imgproc::line(&mut mat2, pts.get(i).unwrap().clone(), pts.get(i+1).unwrap().clone(), color.into(), 3, LineTypes::FILLED as i32, 0).unwrap();
+                opencv::imgproc::line(&mut mat2, *pts.get(i).unwrap(), *pts.get(i+1).unwrap(), color.into(), 3, LineTypes::FILLED as i32, 0).unwrap();
             }
         }
 

@@ -4,10 +4,7 @@ use card_helper::reader::AsyncPcsc;
 use image::DynamicImage;
 use leash_client::{client::LeashClient, user::User};
 use rqrr::Point;
-use tokio::{
-    sync::{mpsc::{self, error::{TryRecvError, TrySendError, SendError}}, Mutex, TryLockError},
-    task::yield_now,
-};
+use tokio::sync::{mpsc::{self, error::{TryRecvError, TrySendError, SendError}}, Mutex, TryLockError};
 
 #[derive(Debug)]
 pub enum TaskError<T> {
