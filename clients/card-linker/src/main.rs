@@ -172,6 +172,13 @@ impl eframe::App for App {
                         ui.label(
                             RichText::new("Scan your Check-In QR Code").font(FontId::proportional(40.0)),
                         );
+
+                        ui.add_space(20.0);
+
+                        ui.separator();
+                        
+                        ui.add_space(20.0);
+
                         egui::ScrollArea::both().show(ui, |ui| {
                             let mut flip = Mat::default();
                             opencv::core::flip(&mat2, &mut flip, 1).unwrap();
@@ -202,13 +209,25 @@ impl eframe::App for App {
                         ui.label(
                             RichText::new("Card Already Linked").font(FontId::proportional(40.0)),
                         );
-                        if ui.button("Yes").clicked() {
+
+                        ui.add_space(20.0);
+
+                        ui.separator();
+                        
+                        ui.add_space(20.0);
+
+                        ui.label(
+                            RichText::new(format!("A card for {} has already been linked, would you like to relink your card?", user.email)).font(FontId::proportional(20.0)),
+                        );
+
+                        ui.add_space(40.0);
+
+                        if ui.add_sized([180.0, 60.0], egui::Button::new("Yes")).clicked() {
                             new_state = Some(State::ScanCard { user: user.clone() });
                         }
 
-                        if ui.button("No").clicked() {
-                            // new_state = Some(State::Camera { qr_last: None });
-                            new_state = Some(State::Linked { timeout: Instant::now() + Duration::from_secs(5) });
+                        if ui.add_sized([180.0, 60.0], egui::Button::new("No")).clicked() {
+                            new_state = Some(State::Camera { qr_last: None });
                         }
                     });
                 });
@@ -228,6 +247,10 @@ impl eframe::App for App {
                         ui.label(
                             RichText::new("Scan Your Card").font(FontId::proportional(40.0)),
                         );
+
+                        ui.add_space(20.0);
+
+                        ui.separator(); 
                     });
                 });
             },
@@ -241,7 +264,14 @@ impl eframe::App for App {
                         ui.label(
                             RichText::new("Card Successfully Linked").font(FontId::proportional(40.0)),
                         );
-                        if ui.button("Continue").clicked() {
+
+                        ui.add_space(20.0);
+
+                        ui.separator();
+                        
+                        ui.add_space(20.0);
+
+                        if ui.add_sized([180.0, 60.0], egui::Button::new("Continue")).clicked() {
                             new_state = Some(State::Camera { qr_last: None });
                         }
                     });
