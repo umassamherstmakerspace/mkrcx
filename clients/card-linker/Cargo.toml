@@ -22,8 +22,9 @@ env_logger = { version = "0.11", default-features = false, features = [
 ] }
 image = { version = "0.25", features = ["jpeg", "png"] }
 
-opencv = "0.92.3"
-rqrr = "0.7.1"
+opencv = "0.93"
+rqrr = "0.8"
 bardecoder = "0.5.0"
 rxing = "0.6.1"
 tokio = "1.40.0"
+catppuccin-egui = { version = "5.2.0", default_features = false, features = ["egui28"] }

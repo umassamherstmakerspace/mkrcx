@@ -1,223 +1,30 @@
-// // Prevents additional console window on Windows in release, DO NOT REMOVE!!
-// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
-// use std::sync::Arc;
-
-// use keyring::Entry;
-// use leash_client::{
-//     client::{LeashAuthenticator, LeashClient},
-//     user::User,
-// };
-// use serde::{Deserialize, Serialize};
-// use tauri::{async_runtime::Mutex, Error, Result};
-
-// use card_helper::reader::AsyncPcsc;
-
-// const KEYSTORE_SERVICE: &str = "leash-card-linker";
-
-// type Leash = Arc<Mutex<LeashClient>>;
-// type ActiveUser = Arc<Mutex<Option<User>>>;
-// type Reader = Arc<Mutex<AsyncPcsc>>;
-
-// fn map_keyring_error(e: keyring::Error) -> Error {
-//     Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
-// }
-
-// fn get_keystores() -> Result<(Entry, Entry)> {
-//     let apikey_entry = Entry::new(KEYSTORE_SERVICE, "apikey").map_err(map_keyring_error)?;
-//     let base_url_entry = Entry::new(KEYSTORE_SERVICE, "base_url").map_err(map_keyring_error)?;
-
-//     Ok((apikey_entry, base_url_entry))
-// }
-
-// fn get_leash_api() -> Result<LeashClient> {
-//     let apikey;
-//     let base_url;
-
-//     match env!("LEASH_SKIP_STORE") {
-//         "true" => {
-//             apikey = env!("LEASH_APIKEY").to_owned();
-//             base_url = env!("LEASH_URL").to_owned();
-//         },
-//         "false" => {
-//             let (apikey_entry, base_url_entry) = get_keystores()?;
-//             apikey = apikey_entry.get_password().unwrap_or_default();
-//             base_url = base_url_entry.get_password().unwrap_or_default();
-//         },
-//         _ => unreachable!()
-//     }
-
-//     Ok(LeashClient::new(
-//         LeashAuthenticator::ApiKey(apikey),
-//         base_url,
-//     ))
-// }
-
-// #[tauri::command]
-// async fn set_reader(
-//     reader_state: tauri::State<'_, Reader>,
-// ) -> Result<()> {
-//     let mut ctx = reader_state.lock().await;
-//     let readers = ctx.list_readers().await.unwrap();
-//     ctx.set_reader(&readers[0]);
-
-//     Ok(())
-// }
-
-// #[tauri::command]
-// async fn get_card_id(
-//     reader_state: tauri::State<'_, Reader>,
-// ) -> Result<String> {
-//     let ctx = reader_state.lock().await;
-//     let card = ctx.connect().await.unwrap();
-//     Ok(ctx.get_card_id(&card).await.unwrap())
-// }
-
-// #[tauri::command]
-// async fn get_checkin(
-//     token: String,
-//     api_state: tauri::State<'_, Leash>,
-//     user_state: tauri::State<'_, ActiveUser>,
-// ) -> Result<()> {
-//     let checkin = {
-//         let api = api_state.lock().await;
-//         api.get(&format!("api/users/get/checkin/{}", token), None)
-//             .await
-//     };
-
-//     match checkin {
-//         Ok(checkin) => {
-//             let body = checkin.body;
-//             let p: User = serde_json::from_str(&body)?;
-
-//             {
-//                 let mut user = user_state.lock().await;
-//                 *user = Some(p);
-//             }
-
-//             Ok(())
-//         }
-//         Err(e) => Err(Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e))),
-//     }
-// }
-// #[tauri::command]
-// async fn get_user(
-//     user_state: tauri::State<'_, ActiveUser>,
-// ) -> Result<(String, String)> {
-//     let user = match user_state.lock().await.clone() {
-//         Some(user) => user,
-//         None => {
-//             return Err(tauri::Error::FailedToExecuteApi(
-//                 tauri::api::Error::Command("get_user".to_string()),
-//             ))
-//         }
-//     };
-
-//     Ok((user.name, user.email))
-// }
-
-// #[tauri::command]
-// async fn set_card(
-//     card_number: String,
-//     api_state: tauri::State<'_, Leash>,
-//     user_state: tauri::State<'_, ActiveUser>,
-// ) -> Result<()> {
-//     let user = match user_state.lock().await.clone() {
-//         Some(user) => user,
-//         None => {
-//             return Err(tauri::Error::FailedToExecuteApi(
-//                 tauri::api::Error::Command("set_card".to_string()),
-//             ))
-//         }
-//     };
-
-//     let checkin = {
-//         let card = format!("{{\"card_id\": \"{}\"}}", card_number);
-//         let api = api_state.lock().await;
-//         api.patch(&format!("api/users/{}", user.id), None, &card)
-//             .await
-//     };
-
-//     match checkin {
-//         Ok(_) => {
-//             let mut u = user_state.lock().await;
-//             *u = None;
-//             Ok(())
-//         }
-//         Err(e) => Err(Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e))),
-//     }
-// }
-
-// #[tauri::command]
-// async fn clear_user(user_state: tauri::State<'_, ActiveUser>) -> Result<()> {
-//     let mut user = user_state.lock().await;
-//     *user = None;
-//     Ok(())
-// }
-
-// #[tauri::command]
-// async fn login(base_url: String, apikey: String, state: tauri::State<'_, Leash>) -> Result<()> {
-//     let (apikey_entry, base_url_entry) = get_keystores()?;
-//     apikey_entry
-//         .set_password(&apikey)
-//         .map_err(map_keyring_error)?;
-//     base_url_entry
-//         .set_password(&base_url)
-//         .map_err(map_keyring_error)?;
-
-//     let mut api = state.lock().await;
-//     api.base_url = base_url;
-//     api.authenticator = LeashAuthenticator::ApiKey(apikey);
-
-//     Ok(())
-// }
-
-// fn main() {
-//     tauri::Builder::default()
-//         .manage(Arc::new(Mutex::new(get_leash_api().unwrap())))
-//         .manage(Arc::new(Mutex::new(None::<User>)))
-//         .manage(Arc::new(Mutex::new(AsyncPcsc::establish().unwrap())))
-//         .invoke_handler(tauri::generate_handler![
-//             get_checkin,
-//             get_user,
-//             set_card,
-//             set_reader,
-//             get_card_id,
-//             clear_user,
-//             login
-//         ])
-//         .run(tauri::generate_context!())
-//         .expect("error while running tauri application");
-// }
-
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
-use std::time::Duration;
+mod tasks;
+mod api;
 
+use api::get_leash_api;
 use eframe::egui::load::SizedTexture;
-use eframe::egui::{self, Image};
+use eframe::egui::{self, FontId, RichText};
 use image::imageops::grayscale;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgb};
+use leash_client::user::User;
 use opencv::core::CV_8UC3;
 use opencv::imgproc::{cvt_color, cvt_color_def, LineTypes, COLOR_BGR2RGB};
 use opencv::prelude::*;
 use opencv::videoio::VideoCapture;
 use opencv::{highgui, videoio};
+use tasks::{card_task, new_task, qr_checkin_task, qr_reader_task, update_task, BackgroundTaskCaller};
 use rqrr::Point;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{mpsc, oneshot};
-
-#[derive(Debug, Clone, Copy)]
-enum Command {
-
-}
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 #[tokio::main]
 async fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_fullscreen(true),
+        // viewport: egui::ViewportBuilder::default().with_fullscreen(true),
+        viewport: egui::ViewportBuilder::default().with_fullscreen(false),
         ..Default::default()
     };
 
@@ -227,38 +34,15 @@ async fn main() -> eframe::Result {
         panic!("Unable to open default camera!");
     }
 
-    let (image_tx, mut image_rx) = mpsc::channel::<DynamicImage>(1);
-    let (qr_tx, qr_rx) = mpsc::channel::<Option<([Point; 4], String)>>(1);
-    let (command_tx, command_rx) = mpsc::channel::<Command>(1);
-
-    let _t1 = tokio::spawn(async move {
-        loop {
-            match image_rx.recv().await {
-                Some(img) => {
-                    let mut img = rqrr::PreparedImage::prepare(img.to_luma8());
-                    // Search for grids, without decoding
-                    let grids = img.detect_grids();
-
-                    // Decode the grid
-                    let mut qr_result = None;
-                    for g in grids.iter() {
-                        match g.decode() {
-                            Ok((_meta, content)) => {
-                                qr_result = Some((g.bounds, content));
-                                break;
-                            },
-                            Err(e) => {
-                                continue;
-                            },
-                        }
-                    }
-
-                    qr_tx.send(qr_result).await.unwrap();
-                },
-                None => todo!(),
-            }
-        }
-    });
+    let api = get_leash_api().unwrap();
+    let (qr_reader_fn, qr_reader_caller) = new_task();
+    let _t1 = tokio::spawn(qr_reader_task(qr_reader_fn));
+    let (qr_checkin_fn, qr_checkin_caller) = new_task();
+    let _t2 = tokio::spawn(qr_checkin_task(api.clone(), qr_checkin_fn));
+    let (card_reader_fn, card_reader_caller) = new_task();
+    let _t3 = tokio::spawn(card_task(card_reader_fn));
+    let (user_update_fn, user_update_caller) = new_task();
+    let _t4 = tokio::spawn(update_task(api.clone(), user_update_fn));
 
     eframe::run_native(
         "Image Viewer",
@@ -266,7 +50,7 @@ async fn main() -> eframe::Result {
         Box::new(|cc| {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            Ok(Box::new(MyApp { cap: Box::new(cam), qr_last: None, qr_sent: false, img_tx: image_tx, qr_rx: qr_rx }))
+            Ok(Box::new(MyApp { cap: Box::new(cam), qr_last: None, qr_reader_caller, qr_checkin_caller, card_reader_caller, user_update_caller }))
         }),
     )
 }
@@ -274,9 +58,10 @@ async fn main() -> eframe::Result {
 struct MyApp {
     cap: Box<VideoCapture>,
     qr_last: Option<[Point; 4]>,
-    qr_sent: bool,
-    img_tx: Sender<DynamicImage>,
-    qr_rx: Receiver<Option<([Point; 4], String)>>,
+    qr_reader_caller: BackgroundTaskCaller<DynamicImage, Option<([Point; 4], String)>>,
+    qr_checkin_caller: BackgroundTaskCaller<String, User>,
+    card_reader_caller: BackgroundTaskCaller<(), String>,
+    user_update_caller: BackgroundTaskCaller<(User, String), ()>,
 }
 
 impl eframe::App for MyApp {
@@ -307,24 +92,46 @@ impl eframe::App for MyApp {
             cam_img = DynamicImage::new(10, 10, image::ColorType::Rgb8);
         }
 
-        if !self.qr_sent {
-            self.img_tx.try_send(cam_img).unwrap();
-            self.qr_sent = true;
-        } else {
-            match self.qr_rx.try_recv() {
-                Ok(v) => {
-                    self.qr_sent = false;
-                    match v {
-                        Some((loc, content)) => {
-                            self.qr_last = Some(loc);
-                        },
-                        None => {
-                            self.qr_last = None;
-                        },
-                    }
-                },
-                Err(_) => {},
-            }
+        // match self.reader_rts.try_lock() {
+        //     Ok(mut v) => {
+        //         if *v {
+        //             self.image_tx.try_send(cam_img).unwrap();
+        //             *v = false;
+        //         }
+        //     },
+        //     Err(_) => {},
+        // }
+
+        self.qr_reader_caller.try_call(cam_img);
+
+        match self.qr_reader_caller.try_recv() {
+            Ok(v) => {
+                match v {
+                    Some((loc, content)) => {
+                        self.qr_last = Some(loc);
+                        self.qr_checkin_caller.try_call(content);
+                    },
+                    None => {
+                        self.qr_last = None;
+                    },
+                }
+            },
+            Err(_) => {},
+        }
+
+        match self.qr_checkin_caller.try_recv() {
+            Ok(v) => {
+                println!("user {:?}", v);
+                self.card_reader_caller.try_call(());
+            },
+            Err(_) => {},
+        }
+
+        match self.card_reader_caller.try_recv() {
+            Ok(v) => {
+                println!("card {}", v);
+            },
+            Err(_) => {},
         }
 
         if let Some(loc) = self.qr_last {
@@ -342,24 +149,27 @@ impl eframe::App for MyApp {
             }
         }
 
-
+        catppuccin_egui::set_theme(ctx, catppuccin_egui::MACCHIATO);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("My egui Application");
-            egui::ScrollArea::both().show(ui, |ui| {
-                let size = mat2.size().unwrap();
-                let frame_size = [size.width as usize, size.height as usize];
-                let slice = unsafe {
-                    std::slice::from_raw_parts(
-                        mat2.ptr(0).unwrap(),
-                        (size.width * size.height * (mat2.elem_size().unwrap() as i32)) as usize,
-                    )
-                };
-                let img = egui::ColorImage::from_rgb(frame_size, slice);
-
-                let texture = ui.ctx().load_texture("frame", img, Default::default());
-                let size = texture.size();
-                let a = Image::new(&texture);
-                ui.image(SizedTexture::new(&texture, [480.0 * (size[0] as f32 / size[1] as f32), 480.0]));
+            ui.vertical_centered(|ui| {
+                ui.label(RichText::new("Scan your Check-In QR Code").font(FontId::proportional(40.0)));
+                egui::ScrollArea::both().show(ui, |ui| {
+                    let mut flip = Mat::default();
+                    opencv::core::flip(&mat2, &mut flip, 1).unwrap();
+                    let size = flip.size().unwrap();
+                    let frame_size = [size.width as usize, size.height as usize];
+                    let slice = unsafe {
+                        std::slice::from_raw_parts(
+                            flip.ptr(0).unwrap(),
+                            (size.width * size.height * (flip.elem_size().unwrap() as i32)) as usize,
+                        )
+                    };
+                    let img = egui::ColorImage::from_rgb(frame_size, slice);
+    
+                    let texture = ui.ctx().load_texture("frame", img, Default::default());
+                    let size = texture.size();
+                    ui.image(SizedTexture::new(&texture, [480.0 * (size[0] as f32 / size[1] as f32), 480.0]));
+                });
             });
         });
 
