@@ -75,12 +75,14 @@ pub struct BackgroundTaskCaller<I, O> {
 }
 
 impl<I, O> BackgroundTaskCaller<I, O> {
-    pub async fn call(&self, input: I) {
+    pub async fn call(&self, input: I) -> Result<(), TaskError<I>> {
         let mut v = self.rts.lock().await;
         if *v {
-            self.input_tx.send(input).await;
+            self.input_tx.send(input).await?;
             *v = false;
         }
+
+        Ok(())
     }
 
     pub fn try_call(&self, input: I) -> Result<(), TaskError<I>> {
