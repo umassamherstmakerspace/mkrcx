@@ -15,6 +15,7 @@ struct Config {
 }
 
 fn main() {
+    println!("cargo::rerun-if-changed=config.toml");
   let config_path = Path::new("config.toml");
 
     let config_text = if config_path.exists() {

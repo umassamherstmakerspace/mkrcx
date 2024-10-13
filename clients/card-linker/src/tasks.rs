@@ -143,7 +143,7 @@ pub async fn qr_reader_task(
                     }
                 }
 
-                task.ret(qr_result).await.unwrap();
+                task.ret(qr_result).await;
             }
             None => {
                 continue;
@@ -173,7 +173,7 @@ pub async fn qr_checkin_task(
                             }
                         };
 
-                        task.ret(p).await.unwrap();
+                        task.ret(p).await;
                     }
                     Err(_e) => {
                         continue;
@@ -202,7 +202,7 @@ pub async fn card_task(mut task: BackgroundTaskFunction<(), String>) -> ! {
                     }
                 };
 
-                task.ret(card_id).await.unwrap();
+                task.ret(card_id).await;
             }
             None => {
                 continue;
@@ -225,7 +225,7 @@ pub async fn update_task(
 
                 match result {
                     Ok(_) => {
-                        task.ret(()).await.unwrap();
+                        task.ret(()).await;
                     }
                     Err(_e) => {
                         continue;
