@@ -8,12 +8,11 @@ use std::time::Duration;
 use api::get_leash_api;
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{self, FontId, RichText};
-use image::{DynamicImage, ImageBuffer, Rgb};
+use image::{DynamicImage, ImageBuffer};
 use leash_client::user::User;
-use opencv::imgproc::{cvt_color_def, LineTypes, COLOR_BGR2RGB};
-use opencv::prelude::*;
-use opencv::videoio;
-use opencv::videoio::VideoCapture;
+use nokhwa::pixel_format::RgbFormat;
+use nokhwa::utils::{CameraIndex, RequestedFormat, RequestedFormatType};
+use nokhwa::Camera;
 use rqrr::Point;
 use tasks::{
     card_task, new_task, qr_checkin_task, qr_reader_task, update_task, BackgroundTaskCaller,
@@ -24,18 +23,16 @@ use tokio::time::Instant;
 async fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        // viewport: egui::ViewportBuilder::default().with_fullscreen(true),
-        viewport: egui::ViewportBuilder::default().with_fullscreen(false),
+        viewport: egui::ViewportBuilder::default().with_fullscreen(env!("FULLSCREEN").to_ascii_lowercase() == "true"),
         ..Default::default()
     };
 
-    let cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap(); // 0 is the default camera
-    let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
-    if !opened {
-        panic!("Unable to open default camera!");
-    }
+    let index = CameraIndex::Index(0); 
+    let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
+    let mut camera = Camera::new(index, requested).unwrap();
+    camera.open_stream().unwrap();
 
-    let api = get_leash_api().unwrap();
+    let api = get_leash_api();
     let (qr_reader_fn, qr_reader_caller) = new_task();
     let _t1 = tokio::spawn(qr_reader_task(qr_reader_fn));
     let (qr_checkin_fn, qr_checkin_caller) = new_task();
@@ -53,8 +50,8 @@ async fn main() -> eframe::Result {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             catppuccin_egui::set_theme(&cc.egui_ctx, catppuccin_egui::MACCHIATO);
             Ok(Box::new(App {
-                cap: Box::new(cam),
-                state: State::Camera { qr_last: None },
+                cap: Box::new(camera),
+                state: State::Camera,
                 qr_reader_caller,
                 qr_checkin_caller,
                 card_reader_caller,
@@ -66,9 +63,7 @@ async fn main() -> eframe::Result {
 
 #[derive(Debug, Clone)]
 enum State {
-    Camera {
-        qr_last: Option<[Point; 4]>,
-    },
+    Camera,
     AlreadyLinked {
         user: User,
     },
@@ -81,7 +76,7 @@ enum State {
 }
 
 struct App {
-    cap: Box<VideoCapture>,
+    cap: Box<Camera>,
     state: State,
     qr_reader_caller: BackgroundTaskCaller<DynamicImage, Option<([Point; 4], String)>>,
     qr_checkin_caller: BackgroundTaskCaller<String, User>,
@@ -93,43 +88,65 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut new_state = None;
         match &self.state {
-            State::Camera { qr_last } => {
-                let cam_img;
-                let mut mat1 = Mat::default();
-                let mut mat2 = Mat::default();
-                self.cap.read(&mut mat1).unwrap();
-                if mat1.size().unwrap().width > 0 {
-                    let mut data = Vec::<opencv::core::Point3_<u8>>::new();
-                    for v in mat1.to_vec_2d().unwrap() {
-                        data.extend_from_slice(&v);
+            State::Camera => {
+                let frame = self.cap.frame().unwrap();
+                let cam_img = DynamicImage::from(match self.cap.frame_format() {
+                    nokhwa::utils::FrameFormat::NV12 => {
+                        let res = frame.resolution();
+                        let mut rgb_image = vec![0u8; ezk_image::PixelFormat::RGB.buffer_size(res.width() as usize, res.height() as usize)];
+            
+
+                    // Create the image we're converting from
+                    let source = ezk_image::Image::new(
+                        ezk_image::PixelFormat::RGB,
+                        ezk_image::PixelFormatPlanes::RGB(&mut rgb_image[..]), // RGB only has one plane
+                        res.width() as usize, 
+                        res.height() as usize,
+                        ezk_image::ColorInfo::RGB(ezk_image::RgbColorInfo {
+                            transfer: ezk_image::ColorTransfer::Linear,
+                            primaries: ezk_image::ColorPrimaries::BT709,
+                        }),
+                        8, // there's 8 bits per component (R, G or B)
+                    ).unwrap();
+
+                        // Create the image buffer we're converting to
+                        let destination = ezk_image::Image::new(
+                            ezk_image::PixelFormat::NV12,
+                            ezk_image::PixelFormatPlanes::infer_nv12(frame.buffer(), res.width() as usize, res.height() as usize), // NV12 has 2 planes, `PixelFormatPlanes` has convenience functions to calculate them from a single buffer
+                            res.width() as usize, 
+                            res.height() as usize,
+                            ezk_image::ColorInfo::YUV(ezk_image::YuvColorInfo {
+                                space: ezk_image::ColorSpace::BT709,
+                                transfer: ezk_image::ColorTransfer::Linear,
+                                primaries: ezk_image::ColorPrimaries::BT709,
+                                full_range: false,
+                            }),
+                            8, // there's 8 bits per component (Y, U or V)
+                        ).unwrap();
+
+                        // Now convert the image data
+                        ezk_image::convert_multi_thread(
+                            destination,
+                            source,
+                        ).unwrap();
+
+                        ImageBuffer::from_raw(res.width(), res.height(), rgb_image).unwrap()
+                    },
+                    _ => {
+                        frame.decode_image::<RgbFormat>().unwrap()
                     }
+                });
 
-                    cvt_color_def(&mat1, &mut mat2, COLOR_BGR2RGB).unwrap();
-                    let size = mat2.size().unwrap();
-                    let slice = unsafe {
-                        std::slice::from_raw_parts(
-                            mat2.ptr(0).unwrap(),
-                            (size.width * size.height * (mat2.elem_size().unwrap() as i32)) as usize,
-                        )
-                    };
-                    let img: ImageBuffer<Rgb<u8>, Vec<_>> =
-                        ImageBuffer::from_vec(size.width as u32, size.height as u32, slice.to_vec())
-                            .unwrap();
-                    cam_img = DynamicImage::from(img);
-                } else {
-                    cam_img = DynamicImage::new(10, 10, image::ColorType::Rgb8);
-                }
-
-                let _ = self.qr_reader_caller.try_call(cam_img);
+                let _ = self.qr_reader_caller.try_call(cam_img.clone());
 
                 if let Ok(v) = self.qr_reader_caller.try_recv() {
                     match v {
                         Some((loc, content)) => {
-                            new_state = Some(State::Camera { qr_last: Some(loc) });
+                            new_state = Some(State::Camera);
                             let _ = self.qr_checkin_caller.try_call(content);
                         }
                         None => {
-                            new_state = Some(State::Camera { qr_last: None });
+                            new_state = Some(State::Camera);
                         }
                     }
                 }
@@ -141,30 +158,6 @@ impl eframe::App for App {
                         new_state = Some(State::ScanCard { user: v });
                     }
                     
-                }
-
-                if let Some(loc) = qr_last {
-                    let mut pts = Vec::new();
-
-                    for pt in loc.iter() {
-                        pts.push(opencv::core::Point::new(pt.x, pt.y));
-                    }
-
-                    pts.push(*pts.first().unwrap());
-
-                    let color = [12.0, 242.0, 73.0, 255.0];
-                    for i in 0..pts.len() - 1 {
-                        opencv::imgproc::line(
-                            &mut mat2,
-                            *pts.get(i).unwrap(),
-                            *pts.get(i + 1).unwrap(),
-                            color.into(),
-                            3,
-                            LineTypes::FILLED as i32,
-                            0,
-                        )
-                        .unwrap();
-                    }
                 }
 
                 egui::CentralPanel::default().show(ctx, |ui| {
@@ -180,18 +173,8 @@ impl eframe::App for App {
                         ui.add_space(20.0);
 
                         egui::ScrollArea::both().show(ui, |ui| {
-                            let mut flip = Mat::default();
-                            opencv::core::flip(&mat2, &mut flip, 1).unwrap();
-                            let size = flip.size().unwrap();
-                            let frame_size = [size.width as usize, size.height as usize];
-                            let slice = unsafe {
-                                std::slice::from_raw_parts(
-                                    flip.ptr(0).unwrap(),
-                                    (size.width * size.height * (flip.elem_size().unwrap() as i32))
-                                        as usize,
-                                )
-                            };
-                            let img = egui::ColorImage::from_rgb(frame_size, slice);
+                            let frame_size = [cam_img.width() as usize, cam_img.height() as usize];
+                            let img = egui::ColorImage::from_rgb(frame_size, &cam_img.as_bytes());
 
                             let texture = ui.ctx().load_texture("frame", img, Default::default());
                             let size = texture.size();
@@ -227,7 +210,7 @@ impl eframe::App for App {
                         }
 
                         if ui.add_sized([180.0, 60.0], egui::Button::new("No")).clicked() {
-                            new_state = Some(State::Camera { qr_last: None });
+                            new_state = Some(State::Camera);
                         }
                     });
                 });
@@ -256,7 +239,7 @@ impl eframe::App for App {
             },
             State::Linked { timeout } => {
                 if timeout.elapsed() > Duration::ZERO {
-                    new_state = Some(State::Camera { qr_last: None });
+                    new_state = Some(State::Camera);
                 }
 
                 egui::CentralPanel::default().show(ctx, |ui| {
@@ -272,7 +255,7 @@ impl eframe::App for App {
                         ui.add_space(20.0);
 
                         if ui.add_sized([180.0, 60.0], egui::Button::new("Continue")).clicked() {
-                            new_state = Some(State::Camera { qr_last: None });
+                            new_state = Some(State::Camera);
                         }
                     });
                 });

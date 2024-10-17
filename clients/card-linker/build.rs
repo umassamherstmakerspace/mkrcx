@@ -4,14 +4,19 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize)]
 struct LeashConfig {
-    skip_store: bool,
     url: String,
     apikey: String,
 }
 
 #[derive(Default, Serialize, Deserialize)]
+struct WindowConfig {
+    fullscreen: bool,
+}
+
+#[derive(Default, Serialize, Deserialize)]
 struct Config {
     leash: LeashConfig,
+    window: WindowConfig
 }
 
 fn main() {
@@ -40,5 +45,5 @@ fn main() {
 
     println!("cargo:rustc-env=LEASH_URL={}", config.leash.url);
     println!("cargo:rustc-env=LEASH_APIKEY={}", config.leash.apikey);
-    println!("cargo:rustc-env=LEASH_SKIP_STORE={}", config.leash.skip_store);
+    println!("cargo:rustc-env=FULLSCREEN={}", config.window.fullscreen);
 }
