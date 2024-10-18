@@ -130,12 +130,9 @@ impl eframe::App for App {
                 if let Ok(v) = self.qr_reader_caller.try_recv() {
                     match v {
                         Some((_, content)) => {
-                            new_state = Some(State::Camera);
                             let _ = self.qr_checkin_caller.try_call(content);
                         }
-                        None => {
-                            new_state = Some(State::Camera);
-                        }
+                        None => {}
                     }
                 }
 
@@ -262,10 +259,14 @@ impl eframe::App for App {
 
             match &self.state {
                 State::Camera => {
-                    self.cap.open_stream().unwrap();
+                    if !self.cap.is_stream_open() {
+                        self.cap.open_stream().unwrap();
+                    }
                 },
                 _ => {
-                    self.cap.stop_stream().unwrap();
+                    if self.cap.is_stream_open() {
+                        self.cap.stop_stream().unwrap();
+                    }
                 }
             }
             let _ = self.qr_reader_caller.try_recv();
