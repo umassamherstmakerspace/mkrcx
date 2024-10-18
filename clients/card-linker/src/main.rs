@@ -203,12 +203,12 @@ impl eframe::App for App {
                         ui.add_space(40.0);
 
                         let yes_btn = ui.add_sized([180.0, 60.0], egui::Button::new("Yes"));
-                        if yes_btn.clicked() || (self.touchscreen && yes_btn.secondary_clicked()) {
+                        if yes_btn.clicked() || (self.touchscreen && yes_btn.has_focus()) {
                             new_state = Some(State::ScanCard { user: user.clone() });
                         }
 
                         let no_btn = ui.add_sized([180.0, 60.0], egui::Button::new("No"));
-                        if no_btn.clicked() || (self.touchscreen && no_btn.secondary_clicked()) {
+                        if no_btn.clicked() || (self.touchscreen && no_btn.has_focus()) {
                             new_state = Some(State::Camera);
                         }
                     });
@@ -254,7 +254,7 @@ impl eframe::App for App {
                         ui.add_space(20.0);
 
                         let continue_btn = ui.add_sized([180.0, 60.0], egui::Button::new("Continue"));
-                        if continue_btn.clicked() || (self.touchscreen && continue_btn.secondary_clicked()) {
+                        if continue_btn.clicked() || (self.touchscreen && continue_btn.has_focus()) {
                             new_state = Some(State::Camera);
                         }
                     });
