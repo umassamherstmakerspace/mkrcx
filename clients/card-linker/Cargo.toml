@@ -26,3 +26,4 @@ rqrr = "0.8"
 tokio = "1.40.0"
 catppuccin-egui = { version = "5.3", default_features = false, features = ["egui29"] }
 ezk-image = "0.1.4"
+dcv-color-primitives = "0.6.1"

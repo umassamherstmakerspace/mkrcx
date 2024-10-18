@@ -89,48 +89,36 @@ impl eframe::App for App {
         let mut new_state = None;
         match &self.state {
             State::Camera => {
-                let frame = self.cap.frame().unwrap();
+                let frame: nokhwa::Buffer = self.cap.frame().unwrap();
                 let cam_img = DynamicImage::from(match self.cap.frame_format() {
                     nokhwa::utils::FrameFormat::NV12 => {
                         let res = frame.resolution();
-                        let mut rgb_image = vec![0u8; ezk_image::PixelFormat::RGB.buffer_size(res.width() as usize, res.height() as usize)];
-            
+                    let mut dst_data = vec![0; 3 * res.width() as usize * res.height() as usize];
 
-                    // Create the image we're converting from
-                    let source = ezk_image::Image::new(
-                        ezk_image::PixelFormat::RGB,
-                        ezk_image::PixelFormatPlanes::RGB(&mut rgb_image[..]), // RGB only has one plane
-                        res.width() as usize, 
-                        res.height() as usize,
-                        ezk_image::ColorInfo::RGB(ezk_image::RgbColorInfo {
-                            transfer: ezk_image::ColorTransfer::Linear,
-                            primaries: ezk_image::ColorPrimaries::BT709,
-                        }),
-                        8, // there's 8 bits per component (R, G or B)
+                    let src_format = dcv_color_primitives::ImageFormat {
+                        pixel_format: dcv_color_primitives::PixelFormat::Nv12,
+                        color_space: dcv_color_primitives::ColorSpace::Bt601,
+                        num_planes: 1,
+                    };
+                
+                    let dst_format = dcv_color_primitives::ImageFormat {
+                        pixel_format: dcv_color_primitives::PixelFormat::Rgb,
+                        color_space: dcv_color_primitives::ColorSpace::Rgb,
+                        num_planes: 1,
+                    };
+                
+                    dcv_color_primitives::convert_image(
+                        res.width(),
+                        res.height(),
+                        &src_format,
+                        None,
+                        &[frame.buffer()],
+                        &dst_format,
+                        None,
+                        &mut [&mut *dst_data],
                     ).unwrap();
 
-                        // Create the image buffer we're converting to
-                        let destination = ezk_image::Image::new(
-                            ezk_image::PixelFormat::NV12,
-                            ezk_image::PixelFormatPlanes::infer_nv12(frame.buffer(), res.width() as usize, res.height() as usize), // NV12 has 2 planes, `PixelFormatPlanes` has convenience functions to calculate them from a single buffer
-                            res.width() as usize, 
-                            res.height() as usize,
-                            ezk_image::ColorInfo::YUV(ezk_image::YuvColorInfo {
-                                space: ezk_image::ColorSpace::BT709,
-                                transfer: ezk_image::ColorTransfer::Linear,
-                                primaries: ezk_image::ColorPrimaries::BT709,
-                                full_range: false,
-                            }),
-                            8, // there's 8 bits per component (Y, U or V)
-                        ).unwrap();
-
-                        // Now convert the image data
-                        ezk_image::convert_multi_thread(
-                            destination,
-                            source,
-                        ).unwrap();
-
-                        ImageBuffer::from_raw(res.width(), res.height(), rgb_image).unwrap()
+                        ImageBuffer::from_raw(res.width(), res.height(), dst_data).unwrap()
                     },
                     _ => {
                         frame.decode_image::<RgbFormat>().unwrap()
@@ -178,9 +166,16 @@ impl eframe::App for App {
 
                             let texture = ui.ctx().load_texture("frame", img, Default::default());
                             let size = texture.size();
+                            let mut h = ui.available_height();
+                            let mut w = h * (size[0] as f32 / size[1] as f32);
+
+                            if w > ui.available_width() {
+                                w = ui.available_width();
+                                h = w * (size[1] as f32 / size[0] as f32);
+                            }
                             ui.image(SizedTexture::new(
                                 &texture,
-                                [480.0 * (size[0] as f32 / size[1] as f32), 480.0],
+                                [w, h],
                             ));
                         });
                     });
