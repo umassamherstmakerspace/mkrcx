@@ -50,7 +50,6 @@ async fn main() -> eframe::Result {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             catppuccin_egui::set_theme(&cc.egui_ctx, catppuccin_egui::MACCHIATO);
             Ok(Box::new(App {
-                touchscreen: env!("TOUCHSCREEN").to_ascii_lowercase() == "true",
                 cap: Box::new(camera),
                 state: State::Camera,
                 qr_reader_caller,
@@ -77,7 +76,6 @@ enum State {
 }
 
 struct App {
-    touchscreen: bool,
     cap: Box<Camera>,
     state: State,
     qr_reader_caller: BackgroundTaskCaller<DynamicImage, Option<([Point; 4], String)>>,
@@ -202,13 +200,11 @@ impl eframe::App for App {
 
                         ui.add_space(40.0);
 
-                        let yes_btn = ui.add_sized([180.0, 60.0], egui::Button::new("Yes"));
-                        if yes_btn.clicked() || (self.touchscreen && yes_btn.has_focus()) {
+                        if ui.add_sized([180.0, 60.0], egui::Button::new("Yes")).clicked() {
                             new_state = Some(State::ScanCard { user: user.clone() });
                         }
 
-                        let no_btn = ui.add_sized([180.0, 60.0], egui::Button::new("No"));
-                        if no_btn.clicked() || (self.touchscreen && no_btn.has_focus()) {
+                        if ui.add_sized([180.0, 60.0], egui::Button::new("No")).clicked() {
                             new_state = Some(State::Camera);
                         }
                     });
@@ -253,8 +249,7 @@ impl eframe::App for App {
                         
                         ui.add_space(20.0);
 
-                        let continue_btn = ui.add_sized([180.0, 60.0], egui::Button::new("Continue"));
-                        if continue_btn.clicked() || (self.touchscreen && continue_btn.has_focus()) {
+                        if ui.add_sized([180.0, 60.0], egui::Button::new("Continue")).clicked() {
                             new_state = Some(State::Camera);
                         }
                     });
@@ -267,9 +262,11 @@ impl eframe::App for App {
 
             match &self.state {
                 State::Camera => {
-                    self.cap.frame().unwrap();
+                    self.cap.open_stream().unwrap();
                 },
-                _ => {}
+                _ => {
+                    self.cap.stop_stream().unwrap();
+                }
             }
             let _ = self.qr_reader_caller.try_recv();
             let _ = self.qr_checkin_caller.try_recv();
