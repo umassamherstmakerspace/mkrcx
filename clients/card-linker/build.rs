@@ -11,6 +11,7 @@ struct LeashConfig {
 #[derive(Default, Serialize, Deserialize)]
 struct WindowConfig {
     fullscreen: bool,
+    touchscreen: bool,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -46,4 +47,5 @@ fn main() {
     println!("cargo:rustc-env=LEASH_URL={}", config.leash.url);
     println!("cargo:rustc-env=LEASH_APIKEY={}", config.leash.apikey);
     println!("cargo:rustc-env=FULLSCREEN={}", config.window.fullscreen);
+    println!("cargo:rustc-env=TOUCHSCREEN={}", config.window.touchscreen);
 }
