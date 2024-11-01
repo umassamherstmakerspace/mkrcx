@@ -194,7 +194,12 @@ pub async fn card_task(mut task: BackgroundTaskFunction<(), String>) -> ! {
     loop {
         match task.recv().await {
             Some(_) => {
-                let card = ctx.connect().await.unwrap();
+                let card = match ctx.connect().await {
+                    Ok(card) => card,
+                    Err(_e) => {
+                        continue;
+                    }
+                };
                 let card_id = match ctx.get_card_id(&card).await {
                     Ok(id) => id,
                     Err(_e) => {
