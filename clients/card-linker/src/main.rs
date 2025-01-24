@@ -147,16 +147,6 @@ impl eframe::App for App {
 
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
-                        ui.label(
-                            RichText::new("Scan your Check-In QR Code").font(FontId::proportional(40.0)),
-                        );
-
-                        ui.add_space(20.0);
-
-                        ui.separator();
-                        
-                        ui.add_space(20.0);
-
                         egui::ScrollArea::both().show(ui, |ui| {
                             let frame_size = [cam_img.width() as usize, cam_img.height() as usize];
                             let img = egui::ColorImage::from_rgb(frame_size, &cam_img.as_bytes());
@@ -220,7 +210,7 @@ impl eframe::App for App {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.label(
-                            RichText::new("Scan Your Card").font(FontId::proportional(40.0)),
+                            RichText::new("Tap Your UCard").font(FontId::proportional(40.0)),
                         );
 
                         ui.add_space(20.0);
@@ -246,7 +236,7 @@ impl eframe::App for App {
                         
                         ui.add_space(20.0);
 
-                        if ui.add_sized([180.0, 60.0], egui::Button::new("Continue")).clicked() {
+                        if ui.add_sized([180.0, 60.0], egui::Button::new("Start Over")).clicked() {
                             new_state = Some(State::Camera);
                         }
                     });
