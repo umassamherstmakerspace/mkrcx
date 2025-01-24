@@ -26,8 +26,7 @@
 </script>
 
 <div class="flex h-full w-full flex-col items-center space-y-4">
-	<Heading level={1} class="text-center">Check In</Heading>
-	<P class="text-xl">Scan the QR code below to check in.</P>
+	<Heading level={1} class="text-center">QR Code</Heading>
 	<div class="flex aspect-square max-h-full max-w-full flex-1 items-center justify-center">
 		<img class="h-full w-full flex-1 object-contain" src={imageURI} alt="Check In QR Code" />
 	</div>

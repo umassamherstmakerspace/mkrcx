@@ -98,7 +98,7 @@
 				<span class="block truncate text-sm font-medium">{user.email}</span>
 			</DropdownHeader>
 			<DropdownItem href="/profile">Profile</DropdownItem>
-			<DropdownItem href="/profile/checkin">Check In</DropdownItem>
+			<DropdownItem href="/profile/checkin">QR Code</DropdownItem>
 			<DropdownDivider />
 			<DropdownItem href="/settings">Settings</DropdownItem>
 			<DropdownTheme />
