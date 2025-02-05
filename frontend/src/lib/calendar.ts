@@ -282,8 +282,8 @@ export class Event {
 			throw new Error('RDATE not supported');
 		}
 
-		if (event.EXDATE) {
-			event.EXDATE.forEach((exdates) => {
+		if (event.EXDATE && event.EXDATE.propertyList) {
+			event.EXDATE.propertyList.forEach((exdates) => {
 				exdates.value.forEach((exdate) => {
 					rrules.exdate(floatingTZAdjust(exdate));
 				});
