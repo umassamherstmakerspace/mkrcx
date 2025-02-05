@@ -182,6 +182,11 @@ func GetAuthentication(c *fiber.Ctx) Authentication {
 	return c.Locals(ctxAuthKey{}).(Authentication)
 }
 
+// AuthenticateHeader takes the value of the Authorization header and returns the signin status
+func AuthenticateHeader(str string, db *gorm.DB, keys *Keys) {
+
+}
+
 // AuthenticationMiddleware is the middleware that handles authentication
 func AuthenticationMiddleware(c *fiber.Ctx) error {
 	db := GetDB(c)

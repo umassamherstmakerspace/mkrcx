@@ -20,4 +20,5 @@ func RegisterAPIEndpoints(api fiber.Router) {
 	registerHoldsEndpoints(api)
 	registerApiKeyEndpoints(api)
 	registerNotificationsEndpoints(api)
+	registerFeedEndpoints(api)
 }

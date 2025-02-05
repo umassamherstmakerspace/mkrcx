@@ -174,6 +174,26 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
+type Feed struct {
+	Model
+	ID       uint `gorm:"primarykey"`
+	Name     string
+	Messages []FeedMessage
+}
+
+type FeedMessage struct {
+	Model
+	ID                   uint `gorm:"primarykey"`
+	FeedId               uint
+	AddedBy              uint
+	LogLevel             uint
+	UserID               uint
+	Title                string
+	Message              string
+	PendingUserSpecifier string `json:",omitempty"`
+	PendingUserData      string `json:",omitempty"`
+}
+
 var validate = validator.New()
 
 type ErrorResponse struct {
