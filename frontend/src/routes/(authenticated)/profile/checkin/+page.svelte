@@ -1,7 +1,7 @@
 <script lang="ts">
 	import QRCode from 'qrcode';
 	import type { PageData } from './$types';
-	import { Heading, P } from 'flowbite-svelte';
+	import { Heading } from 'flowbite-svelte';
 
 	export let data: PageData;
 	let { user } = data;
