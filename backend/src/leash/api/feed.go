@@ -1,7 +1,7 @@
 package leash_backend_api
 
 import (
-	"fmt"
+	"encoding/json"
 	"strconv"
 	"sync"
 
@@ -12,16 +12,21 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
 
-type connList struct {
-	mu   sync.Mutex
-	conn map[uuid.UUID]*websocket.Conn
+type websocketConn struct {
+	ws   *websocket.Conn
+	auth leash_auth.Authentication
 }
 
-func (c *connList) Add(connection *websocket.Conn) uuid.UUID {
+type connList struct {
+	mu   sync.Mutex
+	conn map[uuid.UUID]websocketConn
+}
+
+func (c *connList) Add(connection *websocket.Conn, auth leash_auth.Authentication) uuid.UUID {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	u := uuid.New()
-	c.conn[u] = connection
+	c.conn[u] = websocketConn{ws: connection, auth: auth}
 	return u
 }
 
@@ -36,9 +41,14 @@ func (c *connList) SendAll(messageType int, message []byte) error {
 	defer c.mu.Unlock()
 	var err error
 	for _, c := range c.conn {
-		err = c.WriteMessage(messageType, message)
-		if err != nil {
-			return err
+		err = c.auth.Authorize("leash.feeds:ws")
+		if err == nil {
+			err = c.ws.WriteMessage(messageType, message)
+			if err != nil {
+				return err
+			}
+		} else {
+			c.ws.Close()
 		}
 	}
 
@@ -50,7 +60,7 @@ func (c *connList) DisconnectAll() error {
 	defer c.mu.Unlock()
 	var err error
 	for _, c := range c.conn {
-		err = c.Close()
+		err = c.ws.Close()
 		if err != nil {
 			return err
 		}
@@ -87,8 +97,8 @@ func feedMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-// createCommonFeedEndpoints creates the common endpoints for the feed endpoint
-func createCommonFeedEndpoints(feed_ep fiber.Router) {
+// createBaseFeedEndpoints creates the base endpoints for the feed endpoint
+func createBaseFeedEndpoints(feed_ep fiber.Router) {
 	// Create a new user endpoint
 	type feedCreateRequest struct {
 		Name string `json:"name" xml:"name" form:"name" validate:"required"`
@@ -117,7 +127,7 @@ func createCommonFeedEndpoints(feed_ep fiber.Router) {
 	})
 
 	// List feeds endpoint
-	feed_ep.Get("/search", leash_auth.PrefixAuthorizationMiddleware("list"), leash_auth.AuthorizationMiddleware("leash.feeds:target"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
+	feed_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("list"), leash_auth.AuthorizationMiddleware("leash.feeds:target"), models.GetQueryMiddleware[listRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		req := c.Locals("query").(listRequest)
 
@@ -156,13 +166,13 @@ func createCommonFeedEndpoints(feed_ep fiber.Router) {
 	})
 }
 
-type feedGetRequest struct {
-	MessageCount  *int   `query:"messages" validate:"omitempty"`
-	MessageBefore string `query:"with_notifications" validate:"omitempty"`
-}
-
-func getFeedEndpoint(feed_ep fiber.Router) {
+// createCommonFeedEndpoints creates the common endpoints for the feed endpoint
+func createCommonFeedEndpoints(feed_ep fiber.Router, websocketConnections *connList) {
 	// Get the current feed endpoint
+	type feedGetRequest struct {
+		MessageCount  *int   `query:"messages" validate:"omitempty"`
+		MessageBefore string `query:"with_notifications" validate:"omitempty"`
+	}
 	feed_ep.Get("/", leash_auth.PrefixAuthorizationMiddleware("get"), models.GetQueryMiddleware[feedGetRequest], func(c *fiber.Ctx) error {
 		db := leash_auth.GetDB(c)
 		feed := c.Locals("target_feed").(models.Feed)
@@ -172,10 +182,52 @@ func getFeedEndpoint(feed_ep fiber.Router) {
 
 		return c.JSON(feed)
 	})
-}
 
-// deleteUserEndpoints creates the endpoints for deleting feeds
-func deleteFeedEndpoint(feed_ep fiber.Router) {
+	// Get the current feed endpoint
+	type feedPostRequest struct {
+		LogLevel             uint    `json:"level" xml:"level" form:"level" validate:"required,numeric"`
+		Title                string  `json:"title" xml:"title" form:"title" validate:"required"`
+		Message              string  `json:"message" xml:"message" form:"message" validate:"required"`
+		UserID               *uint   `json:"user" xml:"user" form:"user" validate:"omitempty,min=1,numeric"`
+		PendingUserSpecifier *string `json:"user_specifier" xml:"user_specifier" form:"user_specifier" validate:"omitempty"`
+		PendingUserData      *string `json:"user_data" xml:"user_data" form:"user_data" validate:"omitempty"`
+	}
+
+	feed_ep.Post("/", leash_auth.PrefixAuthorizationMiddleware("get"), models.GetBodyMiddleware[feedPostRequest], func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		feed := c.Locals("target_feed").(models.Feed)
+		req := c.Locals("body").(feedPostRequest)
+		authenticator := leash_auth.GetAuthentication(c)
+
+		message := models.FeedMessage{
+			FeedId:   feed.ID,
+			AddedBy:  authenticator.User.ID,
+			LogLevel: req.LogLevel,
+			Title:    req.Title,
+			Message:  req.Message,
+		}
+
+		if req.UserID != nil {
+			message.UserID = *req.UserID
+		}
+
+		if req.PendingUserData != nil && req.PendingUserSpecifier != nil {
+			message.PendingUserData = *req.PendingUserData
+			message.PendingUserSpecifier = *req.PendingUserSpecifier
+		}
+
+		data, err := json.Marshal(feed)
+		if err != nil {
+			return fiber.ErrInternalServerError
+		}
+
+		db.Create(&message)
+
+		websocketConnections.SendAll(websocket.TextMessage, data)
+
+		return c.JSON(feed)
+	})
+
 	feed_ep.Delete("/", leash_auth.PrefixAuthorizationMiddleware("delete"), func(c *fiber.Ctx) error {
 		feed := c.Locals("target_feed").(models.User)
 		db := leash_auth.GetDB(c)
@@ -188,7 +240,7 @@ func deleteFeedEndpoint(feed_ep fiber.Router) {
 }
 
 // websocketFeedEndpoint creates the endpoint for the websocket
-func websocketFeedEndpoint(feed_ep fiber.Router, authenticator leash_auth.Authentication) {
+func websocketFeedEndpoint(feed_ep fiber.Router, websocketConnections *connList) {
 	feed_ep.Use("/ws", func(c *fiber.Ctx) error {
 		// IsWebSocketUpgrade returns true if the client
 		// requested upgrade to the WebSocket protocol.
@@ -199,40 +251,55 @@ func websocketFeedEndpoint(feed_ep fiber.Router, authenticator leash_auth.Authen
 		return fiber.ErrUpgradeRequired
 	})
 
-	feed_ep.Get("/ws", websocket.New(func(c *websocket.Conn) {
-		user_permissions, err := authenticator.Enforcer.Enforcer.GetPermissionsForUser("user:" + fmt.Sprint(user.ID))
-		if err != nil {
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
+	feed_ep.Get("/ws", func(c *fiber.Ctx) error {
+		db := leash_auth.GetDB(c)
+		keys := leash_auth.GetKeys(c)
+		e := leash_auth.GetEnforcer(c)
 
-		role_permissions, err := authenticator.Enforcer.Enforcer.GetPermissionsForUser("role:" + user.Role)
-		if err != nil {
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
+		return websocket.New(func(conn *websocket.Conn) {
+			defer conn.Close()
+			var u uuid.UUID
+			authenticated := false
+			for {
+				mt, msg, err := conn.ReadMessage()
+				if err != nil {
+					break
+				}
 
-		permissions := make([]string, len(user_permissions)+len(role_permissions))
+				if authenticated {
+					// Use message recieved after authenticated
+				} else {
+					if mt == websocket.TextMessage {
+						authentication, err := leash_auth.AuthenticateHeader(string(msg), db, keys, e)
+						if err != nil || authentication.Authorize("leash.feeds:ws") != nil {
+							conn.WriteMessage(websocket.TextMessage, []byte("Fail to authenticate"))
+							break
+						}
 
-		for i, perm := range user_permissions {
-			permissions[i] = perm[1]
-		}
+						websocketConnections.Add(conn, authentication)
+						authenticated = true
+					}
+				}
+			}
 
-		for i, perm := range role_permissions {
-			permissions[i+len(user_permissions)] = perm[1]
-		}
-
-		return c.JSON(permissions)
-	}))
+			if authenticated {
+				websocketConnections.Remove(u)
+			}
+		})(c)
+	})
 }
 
 // registerFeedEndpoints registers all the Feed endpoints for Leash
 func registerFeedEndpoints(api fiber.Router) {
-	feeds_ep := api.Group("/feed", leash_auth.ConcatPermissionPrefixMiddleware("feeds"))
+	feeds_ep := api.Group("/feeds", leash_auth.ConcatPermissionPrefixMiddleware("feeds"))
 
-	createBaseEndpoints(feeds_ep)
-	websocketFeedEndpoint(feeds_ep, leash_auth.GetAuthentication())
+	websocketConnections := connList{
+		conn: make(map[uuid.UUID]websocketConn),
+	}
 
-	feed_ep := feeds_ep.Group("/:feed_id")
-	getFeedEndpoint(feed_ep)
-	deleteFeedEndpoint(feed_ep)
-	createCommonFeedEndpoints(feed_ep)
+	createBaseFeedEndpoints(feeds_ep)
+	websocketFeedEndpoint(feeds_ep, &websocketConnections)
+
+	feed_ep := feeds_ep.Group("/:feed_id", feedMiddleware)
+	createCommonFeedEndpoints(feed_ep, &websocketConnections)
 }

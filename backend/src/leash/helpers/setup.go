@@ -157,6 +157,7 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	enforcer.AddPermissionForUser(volunteer, "leash.feeds:target")
 	enforcer.AddPermissionForUser(volunteer, "leash.feeds:get")
 	enforcer.AddPermissionForUser(volunteer, "leash.feeds:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.feeds:ws")
 	enforcer.AddPermissionForUser(admin, "leash.feeds:create")
 	enforcer.AddPermissionForUser(admin, "leash.feeds:delete")
 
