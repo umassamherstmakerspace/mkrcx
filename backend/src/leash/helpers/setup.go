@@ -153,6 +153,14 @@ func SetupCasbin(enforcer *casbin.Enforcer) {
 	// Sign In EPs
 	enforcer.AddPermissionForUser(member, "leash:login")
 
+	// TODO: add feed permissions
+	enforcer.AddPermissionForUser(volunteer, "leash.feeds:target")
+	enforcer.AddPermissionForUser(volunteer, "leash.feeds:get")
+	enforcer.AddPermissionForUser(volunteer, "leash.feeds:list")
+	enforcer.AddPermissionForUser(volunteer, "leash.feeds:ws")
+	enforcer.AddPermissionForUser(admin, "leash.feeds:create")
+	enforcer.AddPermissionForUser(admin, "leash.feeds:delete")
+
 	enforcer.SavePolicy()
 
 	models.SetupEnforcer(enforcer)
@@ -195,6 +203,16 @@ func MigrateSchema(db *gorm.DB) error {
 	}
 
 	err = db.AutoMigrate(&models.Notification{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.Feed{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.FeedMessage{})
 	if err != nil {
 		return err
 	}
