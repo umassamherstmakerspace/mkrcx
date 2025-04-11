@@ -110,7 +110,7 @@ interface LeashUser {
 
 	Email: string;
 	PendingEmail?: string;
-	CardID: number;
+	CardID: string;
 	Name: string;
 	Pronouns: string;
 	Role: string;
@@ -248,7 +248,7 @@ export interface UserUpdateOptions {
 	name?: string;
 	pronouns?: string;
 	email?: string;
-	cardID?: number;
+	cardID?: string;
 	role?: string;
 	type?: string;
 
@@ -562,7 +562,7 @@ export class LeashAPI {
 	}
 
 	public async userFromCardID(
-		cardID: number,
+		cardID: string,
 		options: LeashUserOptions = {},
 		noCache = false
 	): Promise<User> {
@@ -629,7 +629,7 @@ export class User {
 
 	email: string;
 	pendingEmail?: string;
-	cardId: number;
+	cardId: string;
 	name: string;
 	pronouns: string;
 	role: string;
@@ -1379,6 +1379,126 @@ export class UserUpdate {
 }
 
 export class Notification {
+	private api: LeashAPI;
+	id: number;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt?: Date;
+
+	private userID: number;
+
+	title: string;
+	message: string;
+	link: string;
+	group: string;
+
+	private addedById: number;
+
+	private endpointPrefix: string;
+
+	constructor(api: LeashAPI, notification: LeashNotification, endpointPrefix: string) {
+		this.api = api;
+		this.id = notification.ID;
+		this.createdAt = new Date(notification.CreatedAt);
+		this.updatedAt = new Date(notification.UpdatedAt);
+		if (notification.DeletedAt) {
+			this.deletedAt = new Date(notification.DeletedAt);
+		}
+
+		this.userID = notification.UserID;
+
+		this.title = notification.Title;
+		this.message = notification.Message;
+		this.link = notification.Link;
+		this.group = notification.Group;
+
+		this.addedById = notification.AddedBy;
+
+		this.endpointPrefix = endpointPrefix;
+	}
+
+	async getUser(options: LeashUserOptions = {}, noCache = false): Promise<User> {
+		return this.api.userFromID(this.userID, options, noCache);
+	}
+
+	async getAddedBy(options: LeashUserOptions = {}, noCache = false): Promise<User> {
+		return this.api.userFromID(this.addedById, options, noCache);
+	}
+
+	async get(): Promise<Notification> {
+		return new Notification(
+			this.api,
+			await this.api.leashGet<LeashNotification>(`${this.endpointPrefix}`, {}, true),
+			this.endpointPrefix
+		);
+	}
+
+	async delete(): Promise<void> {
+		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
+	}
+}
+
+export class Feed {
+	private api: LeashAPI;
+	id: number;
+	createdAt: Date;
+	updatedAt: Date;
+	deletedAt?: Date;
+
+	private userID: number;
+
+	title: string;
+	message: string;
+	link: string;
+	group: string;
+
+	private addedById: number;
+
+	private endpointPrefix: string;
+
+	constructor(api: LeashAPI, notification: LeashNotification, endpointPrefix: string) {
+		this.api = api;
+		this.id = notification.ID;
+		this.createdAt = new Date(notification.CreatedAt);
+		this.updatedAt = new Date(notification.UpdatedAt);
+		if (notification.DeletedAt) {
+			this.deletedAt = new Date(notification.DeletedAt);
+		}
+
+		this.userID = notification.UserID;
+
+		this.title = notification.Title;
+		this.message = notification.Message;
+		this.link = notification.Link;
+		this.group = notification.Group;
+
+		this.addedById = notification.AddedBy;
+
+		this.endpointPrefix = endpointPrefix;
+	}
+
+	async getUser(options: LeashUserOptions = {}, noCache = false): Promise<User> {
+		return this.api.userFromID(this.userID, options, noCache);
+	}
+
+	async getAddedBy(options: LeashUserOptions = {}, noCache = false): Promise<User> {
+		return this.api.userFromID(this.addedById, options, noCache);
+	}
+
+	async get(): Promise<Notification> {
+		return new Notification(
+			this.api,
+			await this.api.leashGet<LeashNotification>(`${this.endpointPrefix}`, {}, true),
+			this.endpointPrefix
+		);
+	}
+
+	async delete(): Promise<void> {
+		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
+	}
+}
+
+export class FeedMessage {
 	private api: LeashAPI;
 	id: number;
 	createdAt: Date;
