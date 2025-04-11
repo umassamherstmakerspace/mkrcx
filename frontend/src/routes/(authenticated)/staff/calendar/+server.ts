@@ -5,7 +5,7 @@ import { CalendarServer } from '$lib/calendarServer';
 import { generateColor } from '@marko19907/string-to-color';
 import type { EventInput } from '@fullcalendar/core/index.js';
 
-let calendar: CalendarServer;
+let calendar: CalendarServer | undefined = undefined;
 
 const colorize = (event: EventInput) => {
 	if (event.title === undefined) return event;
@@ -32,7 +32,17 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
 	const end = url.searchParams.get('end');
 	if (!end) error(400, 'No end date provided');
 
-	const data = await calendar.getEventsBetween(new Date(start || ''), new Date(end || ''));
+        let data;
+
+        try {
+            data = await calendar.getEventsBetween(new Date(start || ''), new Date(end || ''));
+        } catch (e) {
+            calendar = undefined;
+            console.error(e);
+            error(500, {
+                message: 'Internal Service Error'
+            });
+        }
 
 	return new Response(JSON.stringify(data), {
 		headers: {
