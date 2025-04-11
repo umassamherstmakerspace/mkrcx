@@ -232,6 +232,10 @@ func SetupMiddlewares(app *fiber.App, db *gorm.DB, keys *leash_auth.Keys, hmacSe
 }
 
 func SetupRoutes(app *fiber.App) {
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("Welcome to the Leash!")
+	})
+
 	api := app.Group("/api", leash_auth.SetPermissionPrefixMiddleware("leash"))
 
 	leash_api.RegisterAPIEndpoints(api)
