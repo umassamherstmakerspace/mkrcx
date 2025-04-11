@@ -43,7 +43,8 @@ func (p *NewApiKeyCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interfac
 	}
 
 	// Initialize DB
-	db, err := gorm.Open(mysql.Open(os.Getenv("DB")), &gorm.Config{})
+	db_host := os.Getenv("DB_USERNAME") + ":" + os.Getenv("DB_PASSWORD") + "@tcp(" + os.Getenv("DB_HOST") + ")/" + os.Getenv("DB_TABLE") + "?parseTime=true"
+	db, err := gorm.Open(mysql.Open(db_host), &gorm.Config{})
 	if err != nil {
 		log.Panicln(err)
 	}
