@@ -66,6 +66,7 @@ enum State {
     Camera,
     AlreadyLinked {
         user: User,
+        timeout: Instant,
     },
     ScanCard {
         user: User,
@@ -138,7 +139,7 @@ impl eframe::App for App {
 
                 if let Ok(v) = self.qr_checkin_caller.try_recv() {
                     if v.card_id.is_some() {
-                        new_state = Some(State::AlreadyLinked { user: v });
+                        new_state = Some(State::AlreadyLinked { user: v, timeout: Instant::now() + Duration::from_secs(5) });
                     } else {
                         new_state = Some(State::ScanCard { user: v });
                     }
@@ -168,7 +169,11 @@ impl eframe::App for App {
                     });
                 });
             },
-            State::AlreadyLinked { user } => {
+            State::AlreadyLinked { user, timeout } => {
+                if timeout.elapsed() > Duration::ZERO {
+                    new_state = Some(State::Camera);
+                }
+                
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.label(
