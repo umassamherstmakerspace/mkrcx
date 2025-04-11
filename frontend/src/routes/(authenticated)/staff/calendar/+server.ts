@@ -32,17 +32,17 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
 	const end = url.searchParams.get('end');
 	if (!end) error(400, 'No end date provided');
 
-        let data;
+	let data;
 
-        try {
-            data = await calendar.getEventsBetween(new Date(start || ''), new Date(end || ''));
-        } catch (e) {
-            calendar = undefined;
-            console.error(e);
-            error(500, {
-                message: 'Internal Service Error'
-            });
-        }
+	try {
+		data = await calendar.getEventsBetween(new Date(start || ''), new Date(end || ''));
+	} catch (e) {
+		calendar = undefined;
+		console.error(e);
+		error(500, {
+			message: 'Internal Service Error'
+		});
+	}
 
 	return new Response(JSON.stringify(data), {
 		headers: {

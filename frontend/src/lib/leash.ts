@@ -1438,7 +1438,6 @@ export class Notification {
 	}
 }
 
-
 export class Feed {
 	private api: LeashAPI;
 	id: number;
@@ -1498,7 +1497,6 @@ export class Feed {
 		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
 	}
 }
-
 
 export class FeedMessage {
 	private api: LeashAPI;
