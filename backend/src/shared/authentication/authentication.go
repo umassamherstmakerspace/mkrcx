@@ -3,6 +3,7 @@ package leash_authentication
 import (
 	"crypto/hmac"
 	"crypto/md5"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"hash"
@@ -105,7 +106,7 @@ func (a Authentication) Authorize(permission string) error {
 }
 
 type EnforcerWrapper struct {
-	Enforcer *casbin.Enforcer
+	Enforcer *casbin.SyncedEnforcer
 }
 
 // HasPermissionForAPIKey returns true if the api key supplied is authorized to perform the given action
@@ -141,27 +142,26 @@ func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission strin
 	return val
 }
 
-// SavePolicy saves the policy
-func (e EnforcerWrapper) SavePolicy() error {
-	return e.Enforcer.SavePolicy()
-}
-
-// AddPermissionsForUser adds the permissions for the user supplied
-func (e EnforcerWrapper) SetPermissionsForUser(user models.User, permissions []string) {
+// SetPermissionsForUser replaces the direct permissions for the user supplied.
+func (e EnforcerWrapper) SetPermissionsForUser(user models.User, permissions []string) error {
 	user_id := fmt.Sprintf("user:%d", user.ID)
-	e.Enforcer.DeletePermissionsForUser(user_id)
+	policies := make([][]string, 0, len(permissions))
 	for _, permission := range permissions {
-		e.Enforcer.AddPermissionForUser(user_id, permission)
+		policies = append(policies, []string{user_id, permission})
 	}
+	_, err := e.Enforcer.UpdateFilteredPolicies(policies, 0, user_id)
+	return err
 }
 
 // SetPermissionsForAPIKey sets the permissions for the api key supplied
-func (e EnforcerWrapper) SetPermissionsForAPIKey(apikey models.APIKey, permissions []string) {
+func (e EnforcerWrapper) SetPermissionsForAPIKey(apikey models.APIKey, permissions []string) error {
 	apikey_id := fmt.Sprintf("apikey:%s", apikey.Key)
-	e.Enforcer.DeletePermissionsForUser(apikey_id)
+	policies := make([][]string, 0, len(permissions))
 	for _, permission := range permissions {
-		e.Enforcer.AddPermissionForUser(apikey_id, permission)
+		policies = append(policies, []string{apikey_id, permission})
 	}
+	_, err := e.Enforcer.UpdateFilteredPolicies(policies, 0, apikey_id)
+	return err
 }
 
 // SignInAuthentication returns an Authentication struct for the user supplied (used for signing in)
@@ -190,7 +190,7 @@ func GetAuthentication(c *fiber.Ctx) Authentication {
 }
 
 // AuthenticateHeader takes the value of the Authorization header and returns the signin status
-func AuthenticateHeader(authorization string, db *gorm.DB, keys *Keys, e *casbin.Enforcer) (Authentication, error) {
+func AuthenticateHeader(authorization string, db *gorm.DB, keys *Keys, e *casbin.SyncedEnforcer) (Authentication, error) {
 	// Get the enforcer
 	enforcer := EnforcerWrapper{
 		Enforcer: e,
@@ -332,7 +332,7 @@ func PrefixAuthorizationMiddleware(action string) fiber.Handler {
 }
 
 // InitializeCasbin initializes the casbin enforcer
-func InitializeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
+func InitializeCasbin(db *gorm.DB) (*casbin.SyncedEnforcer, error) {
 	// Initialize the adapter from the DB
 	adapter, err := gormadapter.NewAdapterByDB(db)
 	if err != nil {
@@ -362,16 +362,17 @@ func InitializeCasbin(db *gorm.DB) (*casbin.Enforcer, error) {
 	}
 
 	// Create the enforcer from the model and adapter
-	enforcer, err := casbin.NewEnforcer(model, adapter)
+	enforcer, err := casbin.NewSyncedEnforcer(model, adapter)
 	if err != nil {
 		return nil, err
 	}
 
+	enforcer.EnableAutoSave(true)
 	return enforcer, nil
 }
 
 // LocalsMiddleware is the middleware that sets the locals for common objects
-func LocalsMiddleware(db *gorm.DB, keys *Keys, hmacSecret []byte, externalAuth ExternalAuthenticator, enforcer *casbin.Enforcer) fiber.Handler {
+func LocalsMiddleware(db *gorm.DB, keys *Keys, hmacSecret []byte, externalAuth ExternalAuthenticator, enforcer *casbin.SyncedEnforcer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		c.Locals(ctxDBKey, db)
 		c.Locals(ctxKeysKey, keys)
@@ -396,12 +397,18 @@ func GetHMAC(c *fiber.Ctx) hash.Hash {
 	return hmac.New(md5.New, c.Locals(ctxHMACSecretKey).([]byte))
 }
 
+// GetHMACSHA256 returns a modern keyed hash for privacy-preserving internal
+// correlation. GetHMAC remains unchanged for the legacy check-in-token format.
+func GetHMACSHA256(c *fiber.Ctx) hash.Hash {
+	return hmac.New(sha256.New, c.Locals(ctxHMACSecretKey).([]byte))
+}
+
 // GetGoogle returns the google oauth2 config from the current context
 func GetExternalAuth(c *fiber.Ctx) ExternalAuthenticator {
 	return c.Locals(ctxExternalAuthKey).(ExternalAuthenticator)
 }
 
 // GetEnforcer returns the casbin enforcer from the current context
-func GetEnforcer(c *fiber.Ctx) *casbin.Enforcer {
-	return c.Locals(ctxEnforcerKey).(*casbin.Enforcer)
+func GetEnforcer(c *fiber.Ctx) *casbin.SyncedEnforcer {
+	return c.Locals(ctxEnforcerKey).(*casbin.SyncedEnforcer)
 }

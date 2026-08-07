@@ -86,7 +86,16 @@ export const allPermissions = [
 	'leash.apikeys:delete',
 	'leash.apikeys:update',
 	'leash.notifications:get',
-	'leash.notifications:delete'
+	'leash.notifications:delete',
+	'leash.feeds:list',
+	'leash.feeds:read',
+	'leash.feeds:create',
+	'leash.feeds:delete',
+	'leash.feeds:manage',
+	'leash.feeds:append',
+	'leash.feeds.signin:read',
+	'leash.feeds.signin:append',
+	'leash.checkins:record'
 ];
 
 export const permissionOptions = allPermissions.map((permission) => ({
@@ -223,7 +232,7 @@ interface LeashNotification {
 	AddedBy: number;
 }
 
-interface LeashTokenRefresh {
+export interface LeashTokenRefresh {
 	token: string;
 	expires_at: string;
 }
@@ -309,6 +318,51 @@ export interface LeashListResponse<T> {
 	data: T[];
 }
 
+export interface LeashFeed {
+	ID: number;
+	CreatedAt: string;
+	UpdatedAt: string;
+	DeletedAt?: string;
+	Name: string;
+}
+
+export interface LeashFeedItem {
+	ID: number;
+	CreatedAt: string;
+	FeedID: number;
+	AddedBy: number;
+	LogLevel: number;
+	UserID: number;
+	UserDisplayName?: string;
+	UserEmail?: string;
+	Title: string;
+	Message: string;
+	PendingUserSpecifier?: string;
+}
+
+export interface LeashFeedItemsResponse {
+	data: LeashFeedItem[];
+}
+
+export interface LeashFeedItemListOptions {
+	afterId?: number;
+	beforeId?: number;
+	limit?: number;
+}
+
+export interface LeashFeedReadyEvent {
+	type: 'feed.ready';
+	feed_id: number;
+}
+
+export interface LeashFeedCreatedEvent {
+	type: 'feed_item.created';
+	feed_id: number;
+	item: LeashFeedItem;
+}
+
+export type LeashFeedSocketEvent = LeashFeedReadyEvent | LeashFeedCreatedEvent;
+
 interface LeashCheckinResponse {
 	token: string;
 	expires_at: string;
@@ -375,6 +429,16 @@ type LeashListGetter<T> = (
 const camelToSnakeCase: (str: string) => string = (str) =>
 	str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 
+export class LeashAPIError extends Error {
+	constructor(
+		public readonly status: number,
+		message: string
+	) {
+		super(message);
+		this.name = 'LeashAPIError';
+	}
+}
+
 export class LeashAPI {
 	private token: string;
 	private leashURL: string;
@@ -395,25 +459,27 @@ export class LeashAPI {
 		endpoint: string,
 		method: string,
 		body?: object,
-		noResponse = false
+		noResponse = false,
+		sendAuthorization = true
 	): Promise<T> {
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json'
+		};
+		if (sendAuthorization) headers.Authorization = `Bearer ${this.token}`;
 		const r = await this.fetchFunction(`${this.leashURL}${endpoint}`, {
 			method: method,
-			headers: {
-				Authorization: `Bearer ${this.token}`,
-				'Content-Type': 'application/json'
-			},
+			headers,
 			redirect: 'follow',
 			mode: 'cors',
 			cache: 'no-cache',
 			credentials: 'same-origin',
 			body: JSON.stringify(body)
 		});
-		return await (Math.floor(r.status / 100) !== 2
-			? Promise.reject(new Error(await r.text()))
-			: noResponse
-				? r.text()
-				: r.json());
+		if (Math.floor(r.status / 100) !== 2) {
+			const message = (await r.text()) || r.statusText || `Leash request failed (${r.status})`;
+			throw new LeashAPIError(r.status, message);
+		}
+		return await (noResponse ? r.text() : r.json());
 	}
 
 	async leashGet<T extends object>(
@@ -595,27 +661,63 @@ export class LeashAPI {
 		);
 	}
 
+	public async listFeeds(
+		options: LeashListOptions = {},
+		noCache = false
+	): Promise<LeashListResponse<LeashFeed>> {
+		return this.leashList<LeashFeed, LeashListOptions>('/api/feeds', options, noCache);
+	}
+
+	public async feedFromID(id: number, noCache = false): Promise<LeashFeed> {
+		return this.leashGet<LeashFeed>(`/api/feeds/${id}`, {}, noCache);
+	}
+
+	public async feedItems(
+		id: number,
+		options: LeashFeedItemListOptions = {},
+		noCache = true
+	): Promise<LeashFeedItem[]> {
+		const response = await this.leashGet<LeashFeedItemsResponse>(
+			`/api/feeds/${id}/items`,
+			options,
+			noCache
+		);
+		return response.data;
+	}
+
+	public openFeedSocket(id: number): WebSocket {
+		const url = new URL(`/api/feeds/${id}/ws`, this.leashURL);
+		url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+		const socket = new WebSocket(url);
+		socket.addEventListener('open', () => socket.send(`Bearer ${this.token}`), { once: true });
+		return socket;
+	}
+
 	public async refreshTokens(): Promise<LeashTokenRefresh> {
 		return this.leashFetch<LeashTokenRefresh>(`/auth/refresh`, 'GET');
+	}
+
+	public async exchangeLoginCode(code: string): Promise<LeashTokenRefresh> {
+		return this.leashFetch<LeashTokenRefresh>('/auth/exchange', 'POST', { code }, false, false);
 	}
 
 	public async validateToken(): Promise<boolean> {
 		try {
 			await this.leashFetch(`/auth/validate`, 'GET', undefined, true);
 			return true;
-		} catch (e) {
-			return false;
+		} catch (error) {
+			if (error instanceof LeashAPIError && error.status === 401) return false;
+			throw error;
 		}
 	}
 
 	public login(login: string, return_to: string): string {
 		const state = btoa(return_to);
-
-		return `${this.leashURL}/auth/login?return=${login}&state=${state}`;
+		return `${this.leashURL}/auth/login?return=${encodeURIComponent(login)}&state=${encodeURIComponent(state)}`;
 	}
 
-	public logout(return_to: string): string {
-		return `${this.leashURL}/auth/logout?token=${this.token}&return=${return_to}`;
+	public async logout(): Promise<void> {
+		await this.leashFetch('/auth/logout', 'POST', undefined, true);
 	}
 }
 
@@ -811,6 +913,10 @@ export class User {
 
 	get isStaff(): boolean {
 		return this.roleNumber >= Role.USER_ROLE_VOLUNTEER;
+	}
+
+	get canListFeeds(): boolean {
+		return this.roleNumber >= Role.USER_ROLE_STAFF || this.permissions.includes('leash.feeds:list');
 	}
 
 	async getTrainings(
@@ -1379,126 +1485,6 @@ export class UserUpdate {
 }
 
 export class Notification {
-	private api: LeashAPI;
-	id: number;
-	createdAt: Date;
-	updatedAt: Date;
-	deletedAt?: Date;
-
-	private userID: number;
-
-	title: string;
-	message: string;
-	link: string;
-	group: string;
-
-	private addedById: number;
-
-	private endpointPrefix: string;
-
-	constructor(api: LeashAPI, notification: LeashNotification, endpointPrefix: string) {
-		this.api = api;
-		this.id = notification.ID;
-		this.createdAt = new Date(notification.CreatedAt);
-		this.updatedAt = new Date(notification.UpdatedAt);
-		if (notification.DeletedAt) {
-			this.deletedAt = new Date(notification.DeletedAt);
-		}
-
-		this.userID = notification.UserID;
-
-		this.title = notification.Title;
-		this.message = notification.Message;
-		this.link = notification.Link;
-		this.group = notification.Group;
-
-		this.addedById = notification.AddedBy;
-
-		this.endpointPrefix = endpointPrefix;
-	}
-
-	async getUser(options: LeashUserOptions = {}, noCache = false): Promise<User> {
-		return this.api.userFromID(this.userID, options, noCache);
-	}
-
-	async getAddedBy(options: LeashUserOptions = {}, noCache = false): Promise<User> {
-		return this.api.userFromID(this.addedById, options, noCache);
-	}
-
-	async get(): Promise<Notification> {
-		return new Notification(
-			this.api,
-			await this.api.leashGet<LeashNotification>(`${this.endpointPrefix}`, {}, true),
-			this.endpointPrefix
-		);
-	}
-
-	async delete(): Promise<void> {
-		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
-	}
-}
-
-export class Feed {
-	private api: LeashAPI;
-	id: number;
-	createdAt: Date;
-	updatedAt: Date;
-	deletedAt?: Date;
-
-	private userID: number;
-
-	title: string;
-	message: string;
-	link: string;
-	group: string;
-
-	private addedById: number;
-
-	private endpointPrefix: string;
-
-	constructor(api: LeashAPI, notification: LeashNotification, endpointPrefix: string) {
-		this.api = api;
-		this.id = notification.ID;
-		this.createdAt = new Date(notification.CreatedAt);
-		this.updatedAt = new Date(notification.UpdatedAt);
-		if (notification.DeletedAt) {
-			this.deletedAt = new Date(notification.DeletedAt);
-		}
-
-		this.userID = notification.UserID;
-
-		this.title = notification.Title;
-		this.message = notification.Message;
-		this.link = notification.Link;
-		this.group = notification.Group;
-
-		this.addedById = notification.AddedBy;
-
-		this.endpointPrefix = endpointPrefix;
-	}
-
-	async getUser(options: LeashUserOptions = {}, noCache = false): Promise<User> {
-		return this.api.userFromID(this.userID, options, noCache);
-	}
-
-	async getAddedBy(options: LeashUserOptions = {}, noCache = false): Promise<User> {
-		return this.api.userFromID(this.addedById, options, noCache);
-	}
-
-	async get(): Promise<Notification> {
-		return new Notification(
-			this.api,
-			await this.api.leashGet<LeashNotification>(`${this.endpointPrefix}`, {}, true),
-			this.endpointPrefix
-		);
-	}
-
-	async delete(): Promise<void> {
-		await this.api.leashFetch(`${this.endpointPrefix}`, 'DELETE', undefined, true);
-	}
-}
-
-export class FeedMessage {
 	private api: LeashAPI;
 	id: number;
 	createdAt: Date;

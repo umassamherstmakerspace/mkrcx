@@ -58,7 +58,9 @@ func (p *NewServiceUserCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...int
 		log.Panicln(err)
 	}
 
-	leash_helpers.SetupCasbin(e)
+	if err := leash_helpers.SetupCasbin(e); err != nil {
+		log.Panicln(err)
+	}
 
 	enforcer := leash_auth.EnforcerWrapper{
 		Enforcer: e,
@@ -145,7 +147,9 @@ func (p *NewServiceUserCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...int
 		log.Panicln(err)
 	}
 
-	enforcer.SetPermissionsForUser(user, user.Permissions)
+	if err := enforcer.SetPermissionsForUser(user, user.Permissions); err != nil {
+		log.Panicln(err)
+	}
 
 	log.Println("Service user created successfully!")
 

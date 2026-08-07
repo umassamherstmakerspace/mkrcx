@@ -67,6 +67,12 @@
 								<LockSolid class={iconClass} />
 							</svelte:fragment>
 							<SidebarDropdownItem label="Home" href="/staff" />
+							{#if user.canListFeeds}
+								<SidebarDropdownItem
+									label="Front Desk Check-in HUD"
+									href="https://staging.mkr.cx/staff/feeds/1"
+								/>
+							{/if}
 							<SidebarDropdownItem label="User Directory" href="/staff/directory" />
 							<SidebarDropdownItem
 								label="Makerspace Wifi Portal"

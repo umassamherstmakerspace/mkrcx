@@ -11,6 +11,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -20,9 +23,9 @@ jobs:
     name: Test Backend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.21.x"
           cache-dependency-path: ./backend/go.sum
@@ -31,116 +34,128 @@ jobs:
         run: go mod download
       - name: Test Leash
         working-directory: ./backend
-        run: go test src/leash/leash_test.go
+        run: go test ./...
+
   test-frontend:
     name: Test Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "21"
+          node-version: "22"
+      - name: Install pnpm
+        run: npm install --global pnpm@9.15.5
       - name: Install dependencies
         working-directory: ./frontend
-        run: npm install
+        run: pnpm install --frozen-lockfile
       - name: Lint Frontend
         working-directory: ./frontend
-        run: npm run lint
-      # - name: Test Frontend # No tests yet
-      #   working-directory: ./frontend
-      #   run: npm test
-  build_and_push:
-    name: Build and Push
+        run: pnpm run lint
+      - name: Test Frontend Units
+        working-directory: ./frontend
+        run: pnpm run test:unit -- --run
+
+  build-pr:
+    name: Build PR (no publish)
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     needs: [test-backend, test-frontend]
     strategy:
-      # Prevent a failure in one image from stopping the other builds
       fail-fast: false
       matrix:
         include:
           - image: mkrcx-leash
             context: backend
             file: backend/src/leash/Dockerfile
-            # platforms: linux/amd64
             platforms: linux/amd64,linux/arm64
-
           - image: mkrcx-frontend
             context: frontend
             file: frontend/Dockerfile
-            # platforms: linux/amd64
             platforms: linux/amd64,linux/arm64
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.0.0
-
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.0.0
-        # Workaround to fix error:
-        # failed to push: failed to copy: io: read/write on closed pipe
-        # See https://github.com/docker/build-push-action/issues/761
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
         with:
           driver-opts: |
             image=moby/buildkit:v0.10.6
-
-      - name: Login to Docker Hub
-        # Only push to Docker Hub when making a release
-        if: ${{ github.event_name == 'release' }}
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        # Skip when PR from a fork
-        if: ${{ !github.event.pull_request.head.repo.fork }}
-        with:
-          registry: ghcr.io
-          username: ${{ env.ACT && github.actor || github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate docker image tags
-        id: metadata
-        uses: docker/metadata-action@v5
-        with:
-          flavor: |
-            latest=auto
-          images: |
-            name=ghcr.io/${{ github.repository_owner }}/${{matrix.image}}
-            name=umassmakerspace/${{matrix.image}},enable=${{ github.event_name == 'release' }}
-          tags: |
-            # Tag with branch name
-            type=ref,event=branch,suffix=${{ matrix.suffix }}
-            # Tag with pr-number
-            type=ref,event=pr,suffix=${{ matrix.suffix }}
-            # Tag with git tag on release
-            type=ref,event=tag,suffix=${{ matrix.suffix }}
-            type=raw,value=release,enable=${{ github.event_name == 'release' }},suffix=${{ matrix.suffix }}
-
-      - name: Determine build cache output
-        id: cache-target
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # Essentially just ignore the cache output (PR can't write to registry cache)
-            echo "cache-to=type=local,dest=/tmp/discard,ignore-error=true" >> $GITHUB_OUTPUT
-          else
-            echo "cache-to=type=registry,mode=max,ref=ghcr.io/${{ github.repository_owner }}/mkrcx-build-cache:${{ matrix.image }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build and push image
-        uses: docker/build-push-action@v5.1.0
+      - name: Build image without publishing
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           platforms: ${{ matrix.platforms }}
-          # Skip pushing when PR from a fork
-          push: ${{ !github.event.pull_request.head.repo.fork }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/mkrcx-build-cache:${{matrix.image}}
-          cache-to: ${{ steps.cache-target.outputs.cache-to }}
+          push: false
+          tags: local/${{ matrix.image }}:pr-${{ github.event.pull_request.number }}
+
+  build-and-push:
+    name: Build and Push
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: mkrcx-leash
+            context: backend
+            file: backend/src/leash/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - image: mkrcx-frontend
+            context: frontend
+            file: frontend/Dockerfile
+            platforms: linux/amd64,linux/arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+      - name: Login to Docker Hub
+        if: ${{ github.event_name == 'release' }}
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ env.ACT && github.actor || github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate docker image tags
+        id: metadata
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          flavor: |
+            latest=auto
+          images: |
+            name=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+            name=umassmakerspace/${{ matrix.image }},enable=${{ github.event_name == 'release' }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=release,enable=${{ github.event_name == 'release' }}
+      - name: Build and push image
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platforms }}
+          push: true
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/mkrcx-build-cache:${{ matrix.image }}
+          cache-to: type=registry,mode=max,ref=ghcr.io/${{ github.repository_owner }}/mkrcx-build-cache:${{ matrix.image }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}

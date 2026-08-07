@@ -11,10 +11,10 @@ import (
 	"gorm.io/gorm"
 )
 
-var enforcer *casbin.Enforcer
+var enforcer *casbin.SyncedEnforcer
 
 // SetupEnforcer sets up the enforcer for the model AfterFind hooks
-func SetupEnforcer(e *casbin.Enforcer) {
+func SetupEnforcer(e *casbin.SyncedEnforcer) {
 	enforcer = e
 }
 
@@ -169,29 +169,38 @@ type Notification struct {
 
 type Session struct {
 	Model
-	SessionID string `gorm:"column:api_key;primaryKey"`
-	UserID    uint
-	ExpiresAt time.Time
+	SessionID           string `gorm:"column:api_key;primaryKey"`
+	UserID              uint
+	ExpiresAt           time.Time
+	LoginCodeHash       *string    `gorm:"size:64;uniqueIndex" json:"-"`
+	LoginCodeExpiresAt  *time.Time `json:"-"`
+	LoginCodeConsumedAt *time.Time `json:"-"`
 }
 
 type Feed struct {
 	Model
-	ID       uint `gorm:"primarykey"`
-	Name     string
-	Messages []FeedMessage
+	ID       uint          `gorm:"primarykey"`
+	Name     string        `gorm:"size:64;uniqueIndex"`
+	Messages []FeedMessage `gorm:"foreignKey:FeedID" json:",omitempty"`
 }
 
 type FeedMessage struct {
 	Model
-	ID                   uint `gorm:"primarykey"`
-	FeedId               uint
-	AddedBy              uint
-	LogLevel             uint
-	UserID               uint
-	Title                string
-	Message              string
-	PendingUserSpecifier string `json:",omitempty"`
-	PendingUserData      string `json:",omitempty"`
+	ID                     uint `gorm:"primarykey;index:idx_feed_messages_cursor,priority:2"`
+	FeedID                 uint `gorm:"column:feed_id;index:idx_feed_messages_cursor,priority:1;uniqueIndex:idx_feed_messages_idempotency,priority:1"`
+	AddedBy                uint
+	LogLevel               uint
+	UserID                 uint
+	Title                  string
+	Message                string
+	PendingUserSpecifier   string  `json:",omitempty"`
+	PendingUserData        string  `json:"-"`
+	PendingCardFingerprint *string `gorm:"size:64;index" json:"-"`
+	IdempotencyScope       string  `gorm:"size:80;uniqueIndex:idx_feed_messages_idempotency,priority:2" json:"-"`
+	IdempotencyKey         *string `gorm:"size:128;uniqueIndex:idx_feed_messages_idempotency,priority:3" json:"-"`
+	CheckinDecision        string  `gorm:"size:8" json:"-"`
+	UserDisplayName        string  `gorm:"-" json:",omitempty"`
+	UserEmail              string  `gorm:"-" json:",omitempty"`
 }
 
 var validate = validator.New()
