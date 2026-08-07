@@ -71,9 +71,16 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 		db := leash_auth.GetDB(c)
 		apikey := c.Locals("apikey").(models.APIKey)
 		enforcer := leash_auth.GetEnforcer(c)
-		enforcer.DeletePermissionsForUser(fmt.Sprintf("apikey:%s", apikey.Key))
 
-		db.Delete(&apikey)
+		// Invalidate the database credential first. If policy cleanup fails, the
+		// remaining Casbin rows are inert because authentication can no longer
+		// resolve the API key.
+		if err := db.Delete(&apikey).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
+		if _, err := enforcer.DeletePermissionsForUser(fmt.Sprintf("apikey:%s", apikey.Key)); err != nil {
+			return fiber.ErrInternalServerError
+		}
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -96,16 +103,18 @@ func addCommonApiKeyEndpoints(apikey_ep fiber.Router) {
 		enforcer := leash_auth.GetAuthentication(c).Enforcer
 
 		if req.Permissions != nil {
-			enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions)
+			if err := enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions); err != nil {
+				return fiber.ErrInternalServerError
+			}
 		}
 
 		if req.FullAccess != nil {
 			apikey.FullAccess = *req.FullAccess
 		}
 
-		enforcer.SavePolicy()
-
-		db.Save(&apikey)
+		if err := db.Save(&apikey).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
 
 		return c.JSON(apikey)
 	})
@@ -182,11 +191,17 @@ func addUserApiKeyEndpoints(user_ep fiber.Router) {
 			Key:         key.String(),
 		}
 
-		db.Create(&apikey)
+		if err := db.Create(&apikey).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
 
 		enforcer := leash_auth.GetAuthentication(c).Enforcer
-		enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions)
-		enforcer.SavePolicy()
+		if err := enforcer.SetPermissionsForAPIKey(apikey, *req.Permissions); err != nil {
+			if cleanupErr := db.Delete(&apikey).Error; cleanupErr != nil {
+				return fiber.ErrInternalServerError
+			}
+			return fiber.ErrInternalServerError
+		}
 
 		return c.JSON(apikey)
 	})

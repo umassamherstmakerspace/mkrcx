@@ -3,6 +3,8 @@ package main_test
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/casbin/casbin/v2"
+	"github.com/glebarez/sqlite"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -19,7 +22,6 @@ import (
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"github.com/valyala/fasthttp"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -83,6 +85,7 @@ type EndpointTester struct {
 	testPrefix  string
 	TestName    string
 	Body        []byte
+	Headers     map[string]string
 	SetupUser   func(testPrefix string, user models.User) error
 	CleanUpUser func(testPrefix string, user models.User) error
 }
@@ -101,6 +104,9 @@ func (e *EndpointTester) TestEndpoint(t *testing.T, auth string) (int, []byte) {
 	req.SetRequestURI(e.URL)
 	req.Header.Set("Authorization", auth)
 	req.Header.SetContentType(fiber.MIMEApplicationJSON)
+	for name, value := range e.Headers {
+		req.Header.Set(name, value)
+	}
 
 	if e.Body != nil {
 		req.SetBody(e.Body)
@@ -171,9 +177,7 @@ func (e *EndpointTester) RequiresPermissions(permissions []string) *EndpointTest
 				}
 			}
 
-			e.enforcer.SetPermissionsForUser(user, testPermissions)
-			err := e.enforcer.SavePolicy()
-			if err != nil {
+			if err := e.enforcer.SetPermissionsForUser(user, testPermissions); err != nil {
 				e.t.Fatal(err)
 			}
 
@@ -376,6 +380,11 @@ func (e *EndpointTester) GivesResponseNoAuth(responseTesters ...ResponseTester) 
 	return e
 }
 
+func (e *EndpointTester) WithHeader(name, value string) *EndpointTester {
+	e.Headers[name] = value
+	return e
+}
+
 type EndpointBuilder struct {
 	t           *testing.T
 	db          *gorm.DB
@@ -422,6 +431,7 @@ func (b *EndpointBuilder) Test(testName string, endpointTesterFunction func(t *E
 			testPrefix:  b.testPrefix,
 			TestName:    testName,
 			Body:        b.body,
+			Headers:     make(map[string]string),
 			SetupUser:   b.userSetup,
 			CleanUpUser: b.userCleanup,
 		}
@@ -484,7 +494,7 @@ func (test *Tester) Endpoint(endpoint string, method string) *EndpointBuilder {
 	}
 }
 
-func setupTester(t *testing.T, db *gorm.DB, enforcer *casbin.Enforcer) *Tester {
+func setupTester(t *testing.T, db *gorm.DB, enforcer *casbin.SyncedEnforcer) *Tester {
 
 	enforcerWrapper := leash_auth.EnforcerWrapper{
 		Enforcer: enforcer,
@@ -537,7 +547,9 @@ func TestLeash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	leash_helpers.SetupCasbin(enforcer)
+	if err := leash_helpers.SetupCasbin(enforcer); err != nil {
+		t.Fatal(err)
+	}
 
 	// Setup tester
 	t.Log("Setting tester...")
@@ -1211,6 +1223,24 @@ func TestLeash(t *testing.T) {
 					GivesResponse(
 						statusCode(fiber.StatusOK),
 						userEQ(updateResponseUser),
+					)
+			})
+
+		test.Endpoint("/api/users/self", fiber.MethodPatch).
+			WithBody(encode(map[string]interface{}{
+				"card_id": "",
+			})).
+			SetupUser(func(_ string, user models.User) error {
+				existingCard := "1234567890"
+				user.CardID = &existingCard
+				return db.Save(&user).Error
+			}).
+			Test("Clear Self Card ID", func(e *EndpointTester) {
+				e.RequiresPermissions([]string{"leash.users:target_self", "leash.users.self:update", "leash.users.self:update_card_id"}).
+					MinimumRole(ROLE_ADMIN).
+					GivesResponse(
+						statusCode(fiber.StatusOK),
+						userEQ(responseUser),
 					)
 			})
 
@@ -2110,8 +2140,7 @@ func TestLeash(t *testing.T) {
 				return err
 			}
 
-			test.enforcer.SetPermissionsForUser(serviceUser, serviceUser.Permissions)
-			return test.enforcer.SavePolicy()
+			return test.enforcer.SetPermissionsForUser(serviceUser, serviceUser.Permissions)
 		}
 
 		cleanupUser := func(_ string, _ models.User) error {
@@ -2208,13 +2237,19 @@ func TestLeash(t *testing.T) {
 	tester.Test("Login Endpoints", func(test *Tester) {
 		test.Endpoint("/auth/login", fiber.MethodGet).
 			WithQuery(QueryArgs{
-				"redirect": "/test",
-				"state":    "test",
+				"return": "/test",
+				"state":  "test",
 			}).
 			Test("Login Redirect", func(e *EndpointTester) {
 				e.GivesResponseNoAuth(statusCode(fiber.StatusFound))
 			})
 
+		nonceBytes := make([]byte, 32)
+		if _, err := rand.Read(nonceBytes); err != nil {
+			t.Fatal(err)
+		}
+		nonce := base64.RawURLEncoding.EncodeToString(nonceBytes)
+		nonceDigest := sha256.Sum256([]byte(nonce))
 		tok, err := jwt.NewBuilder().
 			Issuer(leash_auth.ISSUER).
 			IssuedAt(time.Now()).
@@ -2222,6 +2257,7 @@ func TestLeash(t *testing.T) {
 			Audience([]string{"leash", "login-callback"}).
 			Claim("return", "/").
 			Claim("state", "state").
+			Claim("nonce", fmt.Sprintf("%x", nonceDigest)).
 			Build()
 
 		if err != nil {
@@ -2246,8 +2282,17 @@ func TestLeash(t *testing.T) {
 				"code":  user.Email,
 				"state": string(signed),
 			}).
+			Test("Login Callback Without Initiating Browser", func(e *EndpointTester) {
+				e.GivesResponseNoAuth(statusCode(fiber.StatusBadRequest))
+			})
+
+		test.Endpoint("/auth/callback", fiber.MethodGet).
+			WithQuery(QueryArgs{
+				"code":  user.Email,
+				"state": string(signed),
+			}).
 			Test("Login Callback With Non-Existent User", func(e *EndpointTester) {
-				e.GivesResponseNoAuth(statusCode(fiber.StatusUnauthorized))
+				e.WithHeader("Cookie", "mkrcx_oauth_nonce="+nonce).GivesResponseNoAuth(statusCode(fiber.StatusUnauthorized))
 			})
 
 		db.Create(&user)
@@ -2258,11 +2303,12 @@ func TestLeash(t *testing.T) {
 				"state": string(signed),
 			}).
 			Test("Login Callback With User that doesn't have login permissions", func(e *EndpointTester) {
-				e.GivesResponseNoAuth(statusCode(fiber.StatusUnauthorized))
+				e.WithHeader("Cookie", "mkrcx_oauth_nonce="+nonce).GivesResponseNoAuth(statusCode(fiber.StatusUnauthorized))
 			})
 
-		test.enforcer.SetPermissionsForUser(user, []string{"leash:login"})
-		test.enforcer.SavePolicy()
+		if err := test.enforcer.SetPermissionsForUser(user, []string{"leash:login"}); err != nil {
+			t.Fatal(err)
+		}
 
 		test.Endpoint("/auth/callback", fiber.MethodGet).
 			WithQuery(QueryArgs{
@@ -2270,7 +2316,45 @@ func TestLeash(t *testing.T) {
 				"state": string(signed),
 			}).
 			Test("Login Callback With User that has login permissions", func(e *EndpointTester) {
-				e.GivesResponseNoAuth(statusCode(fiber.StatusFound))
+				e.WithHeader("Cookie", "mkrcx_oauth_nonce="+nonce).GivesResponseNoAuth(statusCode(fiber.StatusFound))
+			})
+
+		logoutSession := models.Session{
+			SessionID: uuid.NewString(),
+			UserID:    user.ID,
+			ExpiresAt: time.Now().Add(time.Hour),
+		}
+		if err := db.Create(&logoutSession).Error; err != nil {
+			t.Fatal(err)
+		}
+		logoutJWT, err := jwt.NewBuilder().
+			Issuer(leash_auth.ISSUER).
+			IssuedAt(time.Now()).
+			Expiration(logoutSession.ExpiresAt).
+			Audience([]string{"leash", "session"}).
+			Claim("email", user.Email).
+			Claim("session", logoutSession.SessionID).
+			Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		logoutToken, err := keys.Sign(logoutJWT)
+		if err != nil {
+			t.Fatal(err)
+		}
+		test.Endpoint("/auth/logout", fiber.MethodPost).
+			Test("Logout Uses Bearer Header", func(e *EndpointTester) {
+				status, _ := e.TestEndpoint(e.t, "Bearer "+string(logoutToken))
+				if status != fiber.StatusNoContent {
+					e.t.Fatalf("logout status = %d, want %d", status, fiber.StatusNoContent)
+				}
+				var count int64
+				if err := db.Model(&models.Session{}).Where("api_key = ?", logoutSession.SessionID).Count(&count).Error; err != nil {
+					e.t.Fatal(err)
+				}
+				if count != 0 {
+					e.t.Fatal("logout did not delete the server-side session")
+				}
 			})
 	})
 }

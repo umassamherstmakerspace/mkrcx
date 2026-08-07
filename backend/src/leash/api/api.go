@@ -12,13 +12,23 @@ type listRequest struct {
 }
 
 // RegisterAPIEndpoints registers all the API endpoints for Leash
-func RegisterAPIEndpoints(api fiber.Router) {
+func RegisterAPIEndpoints(api fiber.Router, feedRuntime ...*FeedRuntime) {
+	runtime := NewLocalFeedRuntime()
+	if len(feedRuntime) > 0 && feedRuntime[0] != nil {
+		runtime = feedRuntime[0]
+	}
+
+	// Browser WebSockets cannot attach an Authorization header to the upgrade.
+	// Register only this route before the HTTP authentication middleware; the
+	// endpoint authenticates its first frame before adding the socket to the hub.
+	websocketFeedEndpoint(api.Group("/feeds"), runtime)
 	api.Use(leash_auth.AuthenticationMiddleware)
 
-	registerUserEndpoints(api)
+	registerUserEndpoints(api, runtime)
 	registerTrainingEndpoints(api)
 	registerHoldsEndpoints(api)
 	registerApiKeyEndpoints(api)
 	registerNotificationsEndpoints(api)
-	registerFeedEndpoints(api)
+	registerFeedEndpoints(api, runtime)
+	registerCheckinEndpoints(api, runtime)
 }

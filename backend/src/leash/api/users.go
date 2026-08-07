@@ -203,7 +203,9 @@ func createBaseEndpoints(users_ep fiber.Router) {
 			JobTitle:       req.JobTitle,
 		}
 
-		db.Create(&user)
+		if err := db.Create(&user).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
 
 		event := UserEvent{
 			c:         c,
@@ -617,9 +619,9 @@ func updateUserEndpoint(user_ep fiber.Router) {
 					}
 				} else {
 					if *req.CardId == "" {
+						old = *user.CardID
 						user.CardID = nil
 						changed = true
-						old = *user.CardID
 					} else if *req.CardId != *user.CardID {
 						old = *user.CardID
 						user.CardID = req.CardId
@@ -634,8 +636,6 @@ func updateUserEndpoint(user_ep fiber.Router) {
 						New:   new,
 						Field: "card_id",
 					})
-
-					db.Save(&user)
 				}
 			} else {
 				return fiber.NewError(fiber.StatusUnauthorized, "You are not authorized to update the card ID")
@@ -657,7 +657,9 @@ func updateUserEndpoint(user_ep fiber.Router) {
 			}
 		}
 
-		db.Save(&user)
+		if err := db.Save(&user).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
 
 		// Run the update callbacks
 		for _, callback := range userUpdateCallbacks {
@@ -784,13 +786,19 @@ func serviceCreateEndpoint(service_ep fiber.Router) {
 			Permissions: req.Permissions,
 		}
 
-		db.Create(&user)
+		if err := db.Create(&user).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
 
 		// Set the user's permissions in the RBAC
 		enforcer := leash_auth.GetAuthentication(c).Enforcer
 
-		enforcer.SetPermissionsForUser(user, req.Permissions)
-		enforcer.SavePolicy()
+		if err := enforcer.SetPermissionsForUser(user, req.Permissions); err != nil {
+			if cleanupErr := db.Delete(&user).Error; cleanupErr != nil {
+				return fiber.ErrInternalServerError
+			}
+			return fiber.ErrInternalServerError
+		}
 
 		event := UserEvent{
 			c:         c,
@@ -845,14 +853,6 @@ func updateServiceEndpoint(user_ep fiber.Router) {
 			user.Name = *req.Name
 		}
 
-		if req.Permissions != nil {
-			enforcer := leash_auth.GetAuthentication(c).Enforcer
-
-			enforcer.SetPermissionsForUser(user, *req.Permissions)
-			enforcer.SavePolicy()
-			user.Permissions = *req.Permissions
-		}
-
 		if req.ServiceTag != nil {
 			serviceTag := *req.ServiceTag + "@mkrcx"
 			if serviceTag != user.Email {
@@ -866,7 +866,17 @@ func updateServiceEndpoint(user_ep fiber.Router) {
 			}
 		}
 
-		db.Save(&user)
+		if err := db.Save(&user).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
+
+		if req.Permissions != nil {
+			enforcer := leash_auth.GetAuthentication(c).Enforcer
+			if err := enforcer.SetPermissionsForUser(user, *req.Permissions); err != nil {
+				return fiber.ErrInternalServerError
+			}
+			user.Permissions = *req.Permissions
+		}
 
 		// Run the update callbacks
 		for _, callback := range userUpdateCallbacks {
@@ -878,7 +888,7 @@ func updateServiceEndpoint(user_ep fiber.Router) {
 }
 
 // registerUserEndpoints registers all the User endpoints for Leash
-func registerUserEndpoints(api fiber.Router) {
+func registerUserEndpoints(api fiber.Router, feedRuntime *FeedRuntime) {
 	users_ep := api.Group("/users", leash_auth.ConcatPermissionPrefixMiddleware("users"))
 
 	userCreateCallbacks = []func(UserEvent){}
@@ -898,6 +908,19 @@ func registerUserEndpoints(api fiber.Router) {
 			}
 
 			db.Create(&update)
+		}
+	})
+
+	// Once a previously unknown card is linked, enrich matching recent red HUD
+	// items without changing their historical red outcome.
+	OnUserUpdate(func(event UserUpdateEvent) {
+		for _, change := range event.Changes {
+			if change.Field != "card_id" || change.New == "" {
+				continue
+			}
+			if err := resolvePendingCardCheckinsForUser(event.GetCtx(), feedRuntime, event.Target.ID, change.New); err != nil {
+				log.Error("Failed to resolve earlier unknown check-ins for user %d: %s\n", event.Target.ID, err)
+			}
 		}
 	})
 

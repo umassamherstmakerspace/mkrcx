@@ -12,9 +12,10 @@ export const load: PageServerLoad = async ({ parent, fetch, url, cookies }) => {
 		const api = new LeashAPI(token, leashURL);
 		api.overrideFetchFunction(fetch);
 
+		await api.logout();
 		cookies.delete('token', { path: '/' });
-		redirect(307, api.logout(root));
+		redirect(303, root);
 	} else {
-		redirect(307, root);
+		redirect(303, root);
 	}
 };

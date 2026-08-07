@@ -62,7 +62,9 @@ func (p *NewApiKeyCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interfac
 		log.Panicln(err)
 	}
 
-	leash_helpers.SetupCasbin(e)
+	if err := leash_helpers.SetupCasbin(e); err != nil {
+		log.Panicln(err)
+	}
 
 	enforcer := leash_auth.EnforcerWrapper{
 		Enforcer: e,
@@ -157,7 +159,9 @@ func (p *NewApiKeyCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interfac
 		log.Panicln(err)
 	}
 
-	enforcer.SetPermissionsForAPIKey(apikey, apikey.Permissions)
+	if err := enforcer.SetPermissionsForAPIKey(apikey, apikey.Permissions); err != nil {
+		log.Panicln(err)
+	}
 
 	log.Println("API Key:", apikey.Key)
 
