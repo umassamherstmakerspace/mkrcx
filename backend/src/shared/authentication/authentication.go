@@ -142,6 +142,22 @@ func (e EnforcerWrapper) HasPermissionForUser(user models.User, permission strin
 	return val
 }
 
+// HasDirectPermissionForUser checks only policy attached to this user. It does
+// not honor role inheritance, which is useful for deliberately narrow access
+// such as privileged data exports.
+func (e EnforcerWrapper) HasDirectPermissionForUser(user models.User, permission string) (bool, error) {
+	permissions, err := e.Enforcer.GetPermissionsForUser(fmt.Sprintf("user:%d", user.ID))
+	if err != nil {
+		return false, err
+	}
+	for _, policy := range permissions {
+		if len(policy) >= 2 && policy[1] == permission {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // SetPermissionsForUser replaces the direct permissions for the user supplied.
 func (e EnforcerWrapper) SetPermissionsForUser(user models.User, permissions []string) error {
 	user_id := fmt.Sprintf("user:%d", user.ID)

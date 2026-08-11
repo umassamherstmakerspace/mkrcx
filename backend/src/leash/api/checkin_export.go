@@ -162,10 +162,20 @@ func authorizeCheckinExport(c *fiber.Ctx) error {
 	if !authentication.IsUser() {
 		return fiber.ErrForbidden
 	}
+	if authentication.User.Role != "staff" && authentication.User.Role != "admin" {
+		return fiber.ErrForbidden
+	}
+	if authentication.User.Type != "employee" {
+		return fiber.ErrForbidden
+	}
 	if err := authentication.Enforcer.Enforcer.LoadPolicy(); err != nil {
 		return fiber.ErrInternalServerError
 	}
-	if !authentication.Enforcer.HasPermissionForUser(authentication.User, checkinExportPermission) {
+	allowed, err := authentication.Enforcer.HasDirectPermissionForUser(authentication.User, checkinExportPermission)
+	if err != nil {
+		return fiber.ErrInternalServerError
+	}
+	if !allowed {
 		return fiber.ErrForbidden
 	}
 	return c.Next()

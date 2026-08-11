@@ -56,7 +56,7 @@
 <main class="mx-auto flex max-w-3xl flex-col gap-6">
 	<header>
 		<p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
-			Staff zone
+			Restricted professional-staff tool
 		</p>
 		<h1 class="text-3xl font-bold text-gray-950 dark:text-white">Check-in data</h1>
 		<p class="mt-2 text-gray-600 dark:text-gray-300">

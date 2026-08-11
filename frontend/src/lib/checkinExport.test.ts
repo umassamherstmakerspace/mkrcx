@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { LeashAPI, LeashAPIError } from '$lib/leash';
+import { hasCheckinExportAccess, LeashAPI, LeashAPIError } from '$lib/leash';
 
 describe('Check-in CSV client', () => {
+	it('requires an individually permitted professional-staff account', () => {
+		const permission = ['leash.checkins:export'];
+		expect(
+			hasCheckinExportAccess({ type: 'employee', role: 'staff', permissions: permission })
+		).toBe(true);
+		expect(
+			hasCheckinExportAccess({ type: 'undergrad', role: 'staff', permissions: permission })
+		).toBe(false);
+		expect(
+			hasCheckinExportAccess({ type: 'employee', role: 'volunteer', permissions: permission })
+		).toBe(false);
+		expect(hasCheckinExportAccess({ type: 'employee', role: 'admin', permissions: [] })).toBe(
+			false
+		);
+	});
+
 	it('sends an authenticated UTC range and preserves the server filename', async () => {
 		const api = new LeashAPI('staff-token', 'https://leash.example');
 		let requestURL = '';

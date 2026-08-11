@@ -37,8 +37,11 @@ func TestAuthorizeCheckinExportRequiresDirectSignedInUserPermission(t *testing.T
 	}
 	models.SetupEnforcer(enforcer)
 	wrapper := leash_auth.EnforcerWrapper{Enforcer: enforcer}
-	allowed := models.User{ID: 11, Role: "staff"}
+	allowed := models.User{ID: 11, Role: "staff", Type: "employee"}
 	if err := wrapper.SetPermissionsForUser(allowed, []string{checkinExportPermission}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := enforcer.AddPermissionForUser("role:admin", checkinExportPermission); err != nil {
 		t.Fatal(err)
 	}
 
@@ -57,10 +60,28 @@ func TestAuthorizeCheckinExportRequiresDirectSignedInUserPermission(t *testing.T
 			wantStatus: fiber.StatusNoContent,
 		},
 		{
-			name: "admin without direct permission",
+			name: "role permission does not authorize an admin",
 			authentication: leash_auth.Authentication{
 				Authenticator: leash_auth.AUTHENTICATOR_USER,
-				User:          models.User{ID: 12, Role: "admin"},
+				User:          models.User{ID: 12, Role: "admin", Type: "employee"},
+				Enforcer:      wrapper,
+			},
+			wantStatus: fiber.StatusForbidden,
+		},
+		{
+			name: "student staff with direct permission is ineligible",
+			authentication: leash_auth.Authentication{
+				Authenticator: leash_auth.AUTHENTICATOR_USER,
+				User:          models.User{ID: 11, Role: "staff", Type: "undergrad"},
+				Enforcer:      wrapper,
+			},
+			wantStatus: fiber.StatusForbidden,
+		},
+		{
+			name: "employee volunteer with direct permission is ineligible",
+			authentication: leash_auth.Authentication{
+				Authenticator: leash_auth.AUTHENTICATOR_USER,
+				User:          models.User{ID: 11, Role: "volunteer", Type: "employee"},
 				Enforcer:      wrapper,
 			},
 			wantStatus: fiber.StatusForbidden,
@@ -105,7 +126,7 @@ func TestCheckinCSVUsesStableMemberIdentityAndAuditsScope(t *testing.T) {
 	}
 	models.SetupEnforcer(enforcer)
 	wrapper := leash_auth.EnforcerWrapper{Enforcer: enforcer}
-	requester := models.User{ID: 42, Role: "staff"}
+	requester := models.User{ID: 42, Role: "staff", Type: "employee"}
 	if err := wrapper.SetPermissionsForUser(requester, []string{checkinExportPermission}); err != nil {
 		t.Fatal(err)
 	}

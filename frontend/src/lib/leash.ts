@@ -104,6 +104,18 @@ export const permissionOptions = allPermissions.map((permission) => ({
 	value: permission
 }));
 
+export function hasCheckinExportAccess(user: {
+	type: string;
+	role: string;
+	permissions: readonly string[];
+}): boolean {
+	return (
+		user.type === 'employee' &&
+		(user.role === 'staff' || user.role === 'admin') &&
+		user.permissions.includes('leash.checkins:export')
+	);
+}
+
 export enum Role {
 	USER_ROLE_SERVICE = 0,
 	USER_ROLE_MEMBER = 1,
@@ -953,7 +965,7 @@ export class User {
 	}
 
 	get canExportCheckins(): boolean {
-		return this.permissions.includes('leash.checkins:export');
+		return hasCheckinExportAccess(this);
 	}
 
 	async getTrainings(

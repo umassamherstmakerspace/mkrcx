@@ -91,14 +91,21 @@ stable across export date ranges and future exports.
 end. It accepts signed-in user sessions only, requires `leash.checkins:export`, limits a request to
 370 days and 250,000 rows, returns `Cache-Control: no-store`, and records requester, range, and row
 count in `checkin_export_audits`. API keys are deliberately rejected, including full-access keys.
-The permission is not seeded onto staff or admin roles: grant it directly to the initial authorized
-operator, and only later attach it to a reviewed supervisor role if that broader policy is approved.
+The endpoint additionally requires an employee account with the staff or admin role. The permission
+is never inherited from a role: it must be attached directly to each authorized person. This keeps
+student staff out even if a broad role policy is added later. Use the dry-run-first
+`checkin_export_access` command described in `docs/checkin-export-access.md` to grant or revoke it.
 
 CSV fields are `event_id`, `occurred_at_utc`, `member_uuid`, `linked_at_tap`,
 `identity_resolution`, `outcome`, and `source`. An unknown card has a blank member UUID. If a member
 links that card during the seven-day resolution window, the durable row gains the member UUID and
 `identity_resolution=later_link`, while `linked_at_tap` remains false and the original red outcome
 is preserved.
+
+This first export is intentionally pseudonymous. If an identified export is approved later, it must
+use a separate permission such as `leash.checkins:export_identified`, a visibly distinct endpoint
+and page, and its own audit/test review. Names or emails must not be silently added to this CSV. The
+stable UUID remains the join key for separately governed registrar or self-reported datasets.
 
 Historical card-server rows can be imported with `backend/cmd/checkin-backfill`. The command is a
 dry run unless `-apply` is supplied, is idempotent by source swipe-row ID, and emits aggregate counts
@@ -267,8 +274,9 @@ Before this reaches a live environment:
 8. Integrate one test reader using synthetic/non-personal data first.
 9. If Discord is selected, approve the private channel/webhook, visible history window,
    and third-party retention implications before adding credentials.
-10. Deploy the mkr.cx export first. Grant `leash.checkins:export` directly to the initial operator,
-    run and reconcile the historical backfill, then complete a bounded authenticated CSV test.
+10. Deploy the mkr.cx export first. Dry-run then grant `leash.checkins:export` directly to the
+    initial professional-staff operator, run and reconcile the historical backfill, then complete a
+    bounded authenticated CSV test.
 11. Deploy the ingestion-only card-server release and verify `/card` and `/data` return `404` through
     both public route shapes while `/send` remains healthy. Do not restore the old read routes as a
     rollback.
