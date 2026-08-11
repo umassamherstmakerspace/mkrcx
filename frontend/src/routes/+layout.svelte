@@ -63,7 +63,8 @@
 	let hideSidebar = true;
 
 	export let data: LayoutData;
-	const { user } = data;
+	let user = data.user;
+	$: user = data.user;
 </script>
 
 <svelte:head>

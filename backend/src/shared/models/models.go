@@ -203,6 +203,44 @@ type FeedMessage struct {
 	UserEmail              string  `gorm:"-" json:",omitempty"`
 }
 
+// CheckinIdentity is the stable, export-safe identity for one member. The
+// public UUID is created once and deliberately does not encode the database
+// user ID or a card number.
+type CheckinIdentity struct {
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	UserID     uint   `gorm:"primaryKey" json:"-"`
+	MemberUUID string `gorm:"size:36;uniqueIndex;not null" json:"-"`
+}
+
+// CheckinEvent is the durable analytics record for a card tap. FeedMessage is
+// the short-lived HUD projection; this table is the source for privileged CSV
+// exports and never stores a raw card identifier.
+type CheckinEvent struct {
+	Model
+	ID                 uint      `gorm:"primaryKey"`
+	OccurredAt         time.Time `gorm:"index:idx_checkin_events_occurred_at"`
+	UserID             uint      `gorm:"index" json:"-"`
+	MemberUUID         string    `gorm:"size:36;index"`
+	LinkedAtTap        bool
+	IdentityResolution string `gorm:"size:32"`
+	Decision           string `gorm:"size:8"`
+	Source             string `gorm:"size:32"`
+	IdempotencyScope   string `gorm:"size:80;uniqueIndex:idx_checkin_events_idempotency,priority:1" json:"-"`
+	IdempotencyKey     string `gorm:"size:128;uniqueIndex:idx_checkin_events_idempotency,priority:2" json:"-"`
+}
+
+// CheckinExportAudit records the scope of a privileged export without copying
+// any exported identity or event content into logs.
+type CheckinExportAudit struct {
+	CreatedAt   time.Time
+	ID          uint `gorm:"primaryKey"`
+	RequestedBy uint `gorm:"index"`
+	StartAt     time.Time
+	EndAt       time.Time
+	RowCount    int64
+}
+
 var validate = validator.New()
 
 type ErrorResponse struct {

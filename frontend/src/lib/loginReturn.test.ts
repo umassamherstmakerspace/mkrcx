@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LeashAPI } from './leash';
+import { LeashAPI, LeashAPIError } from './leash';
 import { safeLoginReturn } from './loginReturn';
+import { revokeLoginSession } from './logout';
 
 const origin = 'https://staging.mkr.cx';
 const fallback = 'https://staging.mkr.cx/';
@@ -63,5 +64,25 @@ describe('logout', () => {
 		expect(requestURL).not.toContain('session-token');
 		expect(request?.method).toBe('POST');
 		expect(new Headers(request?.headers).get('Authorization')).toBe('Bearer session-token');
+	});
+
+	it('treats an already-missing server session as successfully revoked', async () => {
+		await expect(
+			revokeLoginSession({
+				logout: async () => {
+					throw new LeashAPIError(401, 'session already expired');
+				}
+			})
+		).resolves.toBeUndefined();
+	});
+
+	it('does not claim logout when server-side revocation fails', async () => {
+		await expect(
+			revokeLoginSession({
+				logout: async () => {
+					throw new LeashAPIError(503, 'temporarily unavailable');
+				}
+			})
+		).rejects.toEqual(expect.objectContaining<Partial<LeashAPIError>>({ status: 503 }));
 	});
 });

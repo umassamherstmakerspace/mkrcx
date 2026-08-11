@@ -95,13 +95,26 @@ export const allPermissions = [
 	'leash.feeds:append',
 	'leash.feeds.signin:read',
 	'leash.feeds.signin:append',
-	'leash.checkins:record'
+	'leash.checkins:record',
+	'leash.checkins:export'
 ];
 
 export const permissionOptions = allPermissions.map((permission) => ({
 	name: permission,
 	value: permission
 }));
+
+export function hasCheckinExportAccess(user: {
+	type: string;
+	role: string;
+	permissions: readonly string[];
+}): boolean {
+	return (
+		user.type === 'employee' &&
+		(user.role === 'staff' || user.role === 'admin') &&
+		user.permissions.includes('leash.checkins:export')
+	);
+}
 
 export enum Role {
 	USER_ROLE_SERVICE = 0,
@@ -685,6 +698,38 @@ export class LeashAPI {
 		return response.data;
 	}
 
+	public async downloadCheckinCSV(
+		start: Date,
+		end: Date
+	): Promise<{ blob: Blob; filename: string }> {
+		const url = new URL('/api/checkins/export.csv', this.leashURL);
+		url.searchParams.set('start', start.toISOString());
+		url.searchParams.set('end', end.toISOString());
+
+		const response = await this.fetchFunction(url, {
+			method: 'GET',
+			headers: { Authorization: `Bearer ${this.token}` },
+			redirect: 'follow',
+			mode: 'cors',
+			cache: 'no-store',
+			credentials: 'same-origin'
+		});
+		if (!response.ok) {
+			const message =
+				(await response.text()) ||
+				response.statusText ||
+				`Leash request failed (${response.status})`;
+			throw new LeashAPIError(response.status, message);
+		}
+
+		const disposition = response.headers.get('content-disposition') || '';
+		const match = disposition.match(/filename="?([^";]+)"?/i);
+		return {
+			blob: await response.blob(),
+			filename: match?.[1] || 'checkins.csv'
+		};
+	}
+
 	public openFeedSocket(id: number): WebSocket {
 		const url = new URL(`/api/feeds/${id}/ws`, this.leashURL);
 		url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -917,6 +962,10 @@ export class User {
 
 	get canListFeeds(): boolean {
 		return this.roleNumber >= Role.USER_ROLE_STAFF || this.permissions.includes('leash.feeds:list');
+	}
+
+	get canExportCheckins(): boolean {
+		return hasCheckinExportAccess(this);
 	}
 
 	async getTrainings(

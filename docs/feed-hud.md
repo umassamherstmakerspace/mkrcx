@@ -79,6 +79,41 @@ The `signin` feed has a seven-day retention ceiling. Items older than seven days
 reads immediately, removed from an open HUD by its five-second maintenance poll, and hard-deleted
 by the hourly server sweep. Other feed types are not given this retention rule automatically.
 
+### Durable check-in CSV export
+
+The short-lived HUD is not the attendance export source. Every accepted card check-in also creates
+an idempotent `checkin_events` row in the same transaction as its feed item. That durable row stores
+the occurrence time, outcome, source, and privacy-safe member identity, but never a card number or
+card fingerprint. `checkin_identities` assigns one UUIDv4 to each mkr.cx user once; that UUID remains
+stable across export date ranges and future exports.
+
+`GET /api/checkins/export.csv?start=<RFC3339>&end=<RFC3339>` uses an inclusive start and exclusive
+end. It accepts signed-in user sessions only, requires `leash.checkins:export`, limits a request to
+370 days and 250,000 rows, returns `Cache-Control: no-store`, and records requester, range, and row
+count in `checkin_export_audits`. API keys are deliberately rejected, including full-access keys.
+The endpoint additionally requires an employee account with the staff or admin role. The permission
+is never inherited from a role: it must be attached directly to each authorized person. This keeps
+student staff out even if a broad role policy is added later. Use the dry-run-first
+`checkin_export_access` command described in `docs/checkin-export-access.md` to grant or revoke it.
+
+CSV fields are `event_id`, `occurred_at_utc`, `member_uuid`, `linked_at_tap`,
+`identity_resolution`, `outcome`, and `source`. An unknown card has a blank member UUID. If a member
+links that card during the seven-day resolution window, the durable row gains the member UUID and
+`identity_resolution=later_link`, while `linked_at_tap` remains false and the original red outcome
+is preserved.
+
+This first export is intentionally pseudonymous. If an identified export is approved later, it must
+use a separate permission such as `leash.checkins:export_identified`, a visibly distinct endpoint
+and page, and its own audit/test review. Names or emails must not be silently added to this CSV. The
+stable UUID remains the join key for separately governed registrar or self-reported datasets.
+
+Historical card-server rows can be imported with `backend/cmd/checkin-backfill`. The command is a
+dry run unless `-apply` is supplied, is idempotent by source swipe-row ID, and emits aggregate counts
+only. Because the old rows do not prove ownership at tap time, a card linked to a current member at
+import receives that member's stable UUID but remains `linked_at_tap=false` with
+`identity_resolution=historical_current_link`; unresolved cards remain blank. See the command's
+README for the reconciliation and promotion sequence.
+
 Hold state is evaluated at `occurred_at`, including a hold removed shortly after a tap, so a delayed
 outbox retry does not silently rewrite the historical result. A previously committed idempotent
 retry returns that original result before resolving mutable user/hold state. A new event more than
@@ -213,9 +248,9 @@ deletion from Discord systems.
 ## Deployment gates
 
 The earlier canary commit passed the official backend and frontend CI. For the current local
-hardening follow-up, changed-file frontend formatting, frontend ESLint, unit tests, and whitespace
-checks pass. The new Go changes still require the official backend CI because this workstation has
-no local Go toolchain. Do not treat the earlier green run as validation of the unpushed follow-up.
+hardening follow-up, the changed Go package suites and targeted frontend unit tests pass locally;
+repository-wide frontend type checking still reports the pre-existing `calendar.ts` EXDATE typing
+errors. Official backend/frontend CI remains a promotion gate for the unpushed follow-up.
 
 Before this reaches a live environment:
 
@@ -239,8 +274,14 @@ Before this reaches a live environment:
 8. Integrate one test reader using synthetic/non-personal data first.
 9. If Discord is selected, approve the private channel/webhook, visible history window,
    and third-party retention implications before adding credentials.
-10. Deploy canary-first, measure tap-to-screen latency, then retire the static-password card-data
-   page only after the authenticated feed has proven reliable.
+10. Deploy the mkr.cx export first. Dry-run then grant `leash.checkins:export` directly to the
+    initial professional-staff operator, run and reconcile the historical backfill, then complete a
+    bounded authenticated CSV test.
+11. Deploy the ingestion-only card-server release and verify `/card` and `/data` return `404` through
+    both public route shapes while `/send` remains healthy. Do not restore the old read routes as a
+    rollback.
+12. Deploy canary-first and measure tap-to-screen plus tap-to-export durability before expanding the
+    export permission beyond the initial operator.
 
 A transactional outbox is the main hardening item still recommended for production. The current
 implementation commits before publishing and the HUD repairs missed live signals by polling, but

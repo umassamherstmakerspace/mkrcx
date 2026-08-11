@@ -122,7 +122,7 @@ func TestRecordCardCheckinPersistsOnceWithoutRawCard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&models.User{}, &models.Hold{}, &models.Feed{}, &models.FeedMessage{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Hold{}, &models.Feed{}, &models.FeedMessage{}, &models.CheckinIdentity{}, &models.CheckinEvent{}, &models.CheckinExportAudit{}); err != nil {
 		t.Fatal(err)
 	}
 	feed := models.Feed{Name: checkinFeedName}
@@ -202,6 +202,13 @@ func TestRecordCardCheckinPersistsOnceWithoutRawCard(t *testing.T) {
 	if persisted.UserID != user.ID || persisted.LogLevel != 0 || !persisted.CreatedAt.Equal(when) {
 		t.Fatalf("unexpected persisted item: %+v", persisted)
 	}
+	var events []models.CheckinEvent
+	if err := db.Find(&events).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].UserID != user.ID || events[0].MemberUUID == "" || !events[0].LinkedAtTap || events[0].IdentityResolution != "tap_time" {
+		t.Fatalf("unexpected durable check-in event: %+v", events)
+	}
 }
 
 func TestRecordUnknownCardStoresOnlyKeyedFingerprint(t *testing.T) {
@@ -209,7 +216,7 @@ func TestRecordUnknownCardStoresOnlyKeyedFingerprint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&models.User{}, &models.Hold{}, &models.Feed{}, &models.FeedMessage{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Hold{}, &models.Feed{}, &models.FeedMessage{}, &models.CheckinIdentity{}, &models.CheckinEvent{}, &models.CheckinExportAudit{}); err != nil {
 		t.Fatal(err)
 	}
 	feed := models.Feed{Name: checkinFeedName}
@@ -220,8 +227,8 @@ func TestRecordUnknownCardStoresOnlyKeyedFingerprint(t *testing.T) {
 	when := time.Now().UTC().Add(-time.Minute).Truncate(time.Millisecond)
 	authentication := leash_auth.Authentication{
 		Authenticator: leash_auth.AUTHENTICATOR_APIKEY,
-		User: models.User{ID: 99, Role: "service"},
-		Data: models.APIKey{Key: "reader-key"},
+		User:          models.User{ID: 99, Role: "service"},
+		Data:          models.APIKey{Key: "reader-key"},
 	}
 	app := fiber.New()
 	app.Post("/", func(c *fiber.Ctx) error {
