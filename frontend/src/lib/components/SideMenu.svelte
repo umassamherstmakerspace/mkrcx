@@ -31,6 +31,12 @@
 
 		const drawer = document.getElementById('sidebar2');
 		const toggle = document.getElementById('sidebar-toggle');
+		const target = event.target instanceof Element ? event.target : event.target.parentElement;
+		const link = target?.closest('a[href]');
+		if (link && drawer?.contains(link)) {
+			hidden = true;
+			return;
+		}
 		if (!drawer?.contains(event.target) && !toggle?.contains(event.target)) hidden = true;
 	}
 

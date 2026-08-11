@@ -31,6 +31,10 @@ test('hamburger toggles the drawer without breaking alternate close controls', a
 	await expect(drawer).toBeHidden();
 
 	await toggle.click();
+	await drawer.locator('a[href="/"]').click();
+	await expect(drawer).toBeHidden();
+
+	await toggle.click();
 	await page.locator('div[role="presentation"]').click();
 	await expect(drawer).toBeHidden();
 });
