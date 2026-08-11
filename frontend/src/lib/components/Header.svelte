@@ -61,7 +61,14 @@
 
 <Navbar>
 	<div class="flex flex-1 items-center space-x-6 md:order-1">
-		<NavHamburger onClick={() => (hideSidebar = false)} class="m-0 ml-3 sm:hidden md:block" />
+		<NavHamburger
+			id="sidebar-toggle"
+			name={hideSidebar ? 'Open main menu' : 'Close main menu'}
+			aria-controls="sidebar2"
+			aria-expanded={!hideSidebar}
+			onClick={() => (hideSidebar = !hideSidebar)}
+			class="relative z-[60] m-0 ml-3 sm:hidden md:block"
+		/>
 		<NavBrand href="/">
 			<span class="self-center whitespace-nowrap text-xl font-semibold dark:text-white"
 				>UMass Makerspace</span

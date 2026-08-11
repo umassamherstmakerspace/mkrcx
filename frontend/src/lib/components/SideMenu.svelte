@@ -26,10 +26,26 @@
 	const iconClass =
 		'h-5 w-5 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white';
 
+	function handleClickOutside(event: MouseEvent) {
+		if (hidden || !(event.target instanceof Node)) return;
+
+		const drawer = document.getElementById('sidebar2');
+		const toggle = document.getElementById('sidebar-toggle');
+		if (!drawer?.contains(event.target) && !toggle?.contains(event.target)) hidden = true;
+	}
+
 	$: activeUrl = $page.url.pathname;
 </script>
 
-<Drawer transitionType="fly" {transitionParams} bind:hidden id="sidebar2">
+<svelte:window on:click={handleClickOutside} />
+
+<Drawer
+	transitionType="fly"
+	{transitionParams}
+	bind:hidden
+	id="sidebar2"
+	activateClickOutside={false}
+>
 	<div class="flex items-center">
 		<h5
 			id="drawer-navigation-label-3"
