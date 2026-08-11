@@ -21,6 +21,8 @@
 
 	export let hideSidebar: boolean;
 	export let user: User | null;
+	let loggingOut = false;
+	$: if (!user) loggingOut = false;
 
 	function holdSort(a: Hold, b: Hold) {
 		if (a.priority < b.priority) return -1;
@@ -67,6 +69,11 @@
 		</NavBrand>
 	</div>
 	<div class="flex items-center space-x-3 md:order-2">
+		{#if loggingOut}
+			<span aria-live="polite" class="text-sm font-medium text-gray-600 dark:text-gray-300"
+				>Signing out…</span
+			>
+		{/if}
 		{#if user}
 			<div
 				id="bell"
@@ -103,7 +110,17 @@
 			<DropdownItem href="/settings">Settings</DropdownItem>
 			<DropdownTheme />
 			<DropdownDivider />
-			<DropdownItem href="/logout">Logout</DropdownItem>
+			<li>
+				<form method="POST" action="/logout" on:submit={() => (loggingOut = true)}>
+					<button
+						type="submit"
+						disabled={loggingOut}
+						class="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-100 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-gray-600"
+					>
+						{loggingOut ? 'Signing out…' : 'Logout'}
+					</button>
+				</form>
+			</li>
 		</Dropdown>
 		<Dropdown
 			triggeredBy="#bell"

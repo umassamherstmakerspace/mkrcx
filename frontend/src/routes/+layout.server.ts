@@ -1,9 +1,9 @@
 import type { LayoutServerLoad } from './$types';
-import { LeashAPI } from '$lib/leash';
+import { LeashAPI, LeashAPIError } from '$lib/leash';
 import { env } from '$env/dynamic/public';
 import { error } from '@sveltejs/kit';
 
-export const load: LayoutServerLoad = async ({ fetch, cookies }) => {
+export const load: LayoutServerLoad = async ({ fetch, cookies, url }) => {
 	let token = cookies.get('token');
 	const leashURL = env.PUBLIC_LEASH_ENDPOINT;
 	if (!leashURL) {
@@ -20,6 +20,9 @@ export const load: LayoutServerLoad = async ({ fetch, cookies }) => {
 				token = refresh.token;
 				cookies.set('token', refresh.token, {
 					expires: new Date(refresh.expires_at),
+					httpOnly: true,
+					secure: url.protocol === 'https:',
+					sameSite: 'lax',
 					path: '/'
 				});
 			} else {
@@ -27,7 +30,12 @@ export const load: LayoutServerLoad = async ({ fetch, cookies }) => {
 				token = undefined;
 			}
 		} catch (e) {
-			error(500, 'Error communicating with Leash');
+			if (e instanceof LeashAPIError && e.status === 401) {
+				cookies.delete('token', { path: '/' });
+				token = undefined;
+			} else {
+				error(500, 'Error communicating with Leash');
+			}
 		}
 	}
 
