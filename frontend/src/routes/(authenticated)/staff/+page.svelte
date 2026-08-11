@@ -15,7 +15,7 @@
 	>
 	{#if data.user.canListFeeds}
 		<a
-			href="https://staging.mkr.cx/staff/feeds/1"
+			href="/staff/feeds/1"
 			class="group w-full max-w-2xl rounded-2xl border border-blue-200 bg-blue-50 p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-200 dark:border-blue-900 dark:bg-blue-950 dark:focus:ring-blue-900"
 		>
 			<span
@@ -33,6 +33,31 @@
 				</span>
 				<span aria-hidden="true" class="text-3xl text-blue-700 transition group-hover:translate-x-1"
 					>→</span
+				>
+			</span>
+		</a>
+	{/if}
+	{#if data.user.canExportCheckins}
+		<a
+			href="/staff/checkins"
+			class="group w-full max-w-2xl rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-200 dark:border-emerald-900 dark:bg-emerald-950 dark:focus:ring-emerald-900"
+		>
+			<span
+				class="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300"
+				>Restricted data tool</span
+			>
+			<span class="mt-2 flex items-center justify-between gap-4">
+				<span>
+					<span class="block text-2xl font-bold text-gray-950 dark:text-white"
+						>Check-in Data Export</span
+					>
+					<span class="mt-1 block text-gray-700 dark:text-gray-200"
+						>Download card-tap events with stable, privacy-safe member UUIDs.</span
+					>
+				</span>
+				<span
+					aria-hidden="true"
+					class="text-3xl text-emerald-700 transition group-hover:translate-x-1">→</span
 				>
 			</span>
 		</a>

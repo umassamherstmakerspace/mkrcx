@@ -466,6 +466,12 @@ func feedItemResponse(c *fiber.Ctx, item models.FeedMessage, status int, kind fe
 }
 
 func persistFeedItem(c *fiber.Ctx, runtime *FeedRuntime, feed models.Feed, req feedItemRequest, responseKind feedItemResponseKind) error {
+	return persistFeedItemWithHook(c, runtime, feed, req, responseKind, nil)
+}
+
+type feedItemPersistHook func(*gorm.DB, *models.FeedMessage) error
+
+func persistFeedItemWithHook(c *fiber.Ctx, runtime *FeedRuntime, feed models.Feed, req feedItemRequest, responseKind feedItemResponseKind, hook feedItemPersistHook) error {
 	db := leash_auth.GetDB(c)
 	authentication := leash_auth.GetAuthentication(c)
 
@@ -513,6 +519,11 @@ func persistFeedItem(c *fiber.Ctx, runtime *FeedRuntime, feed models.Feed, req f
 			if !sameFeedItemContent(existing, item) {
 				return fiber.NewError(fiber.StatusConflict, "Idempotency-Key was already used for different content")
 			}
+			if hook != nil {
+				if err := hook(db, &existing); err != nil {
+					return fiber.ErrInternalServerError
+				}
+			}
 			if feed.Name == checkinFeedName {
 				if err := hydrateFeedUserDisplayName(db, &existing); err != nil {
 					return fiber.ErrInternalServerError
@@ -525,7 +536,15 @@ func persistFeedItem(c *fiber.Ctx, runtime *FeedRuntime, feed models.Feed, req f
 		}
 	}
 
-	if err := db.Create(&item).Error; err != nil {
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&item).Error; err != nil {
+			return err
+		}
+		if hook != nil {
+			return hook(tx, &item)
+		}
+		return nil
+	}); err != nil {
 		if item.IdempotencyKey != nil {
 			var existing models.FeedMessage
 			if db.Where(
@@ -534,6 +553,11 @@ func persistFeedItem(c *fiber.Ctx, runtime *FeedRuntime, feed models.Feed, req f
 			).First(&existing).Error == nil {
 				if !sameFeedItemContent(existing, item) {
 					return fiber.NewError(fiber.StatusConflict, "Idempotency-Key was already used for different content")
+				}
+				if hook != nil {
+					if err := hook(db, &existing); err != nil {
+						return fiber.ErrInternalServerError
+					}
 				}
 				if feed.Name == checkinFeedName {
 					if err := hydrateFeedUserDisplayName(db, &existing); err != nil {

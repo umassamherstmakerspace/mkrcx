@@ -229,6 +229,21 @@ func MigrateSchema(db *gorm.DB) error {
 		return err
 	}
 
+	err = db.AutoMigrate(&models.CheckinIdentity{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.CheckinEvent{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.CheckinExportAudit{})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

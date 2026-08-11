@@ -209,7 +209,7 @@ func recordCardCheckin(runtime *FeedRuntime) fiber.Handler {
 			}
 			item.PendingCardFingerprint = &fingerprint
 		}
-		return persistFeedItem(c, runtime, feed, item, feedItemResponseCheckinDecision)
+		return persistFeedItemWithHook(c, runtime, feed, item, feedItemResponseCheckinDecision, persistCheckinEvent)
 	}
 }
 
@@ -235,6 +235,9 @@ func resolvePendingCardCheckins(db *gorm.DB, runtime *FeedRuntime, userID uint, 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		for index := range pending {
 			item := &pending[index]
+			if err := resolveCheckinEventIdentity(tx, *item, userID); err != nil {
+				return err
+			}
 			holds, err := activeDocusignHoldCount(tx, userID, item.CreatedAt)
 			if err != nil {
 				return err
@@ -412,6 +415,12 @@ func authorizeCardCheckin(c *fiber.Ctx) error {
 
 func registerCheckinEndpoints(api fiber.Router, runtime *FeedRuntime) {
 	checkins := api.Group("/checkins")
+	checkins.Get(
+		"/export.csv",
+		authorizeCheckinExport,
+		models.GetQueryMiddleware[checkinExportRequest],
+		exportCheckinsCSV,
+	)
 	checkins.Post(
 		"/card",
 		authorizeCardCheckin,

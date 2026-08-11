@@ -68,10 +68,10 @@
 							</svelte:fragment>
 							<SidebarDropdownItem label="Home" href="/staff" />
 							{#if user.canListFeeds}
-								<SidebarDropdownItem
-									label="Front Desk Check-in HUD"
-									href="https://staging.mkr.cx/staff/feeds/1"
-								/>
+								<SidebarDropdownItem label="Front Desk Check-in HUD" href="/staff/feeds/1" />
+							{/if}
+							{#if user.canExportCheckins}
+								<SidebarDropdownItem label="Check-in Data" href="/staff/checkins" />
 							{/if}
 							<SidebarDropdownItem label="User Directory" href="/staff/directory" />
 							<SidebarDropdownItem
