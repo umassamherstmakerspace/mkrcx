@@ -2,12 +2,15 @@ import type { ICS } from '@filecage/ical';
 import type { DateTime } from '@filecage/ical/ValueTypes';
 import { parseString } from '@filecage/ical/parser';
 import { addDays, isWithinInterval, subDays } from 'date-fns';
-import RRULE from 'rrule';
+import RRULE, * as RRULENamespace from 'rrule';
 import tcal from 'tcal';
+
+const { RRule, RRuleSet } = (RRULE ?? RRULENamespace) as typeof import('rrule');
 
 export type EventJSON = {
 	title: string;
 	description?: string;
+	location?: string;
 	start: string;
 	end: string;
 	allDay: boolean;
@@ -36,19 +39,19 @@ export class TimezoneTransition {
 	public tzoffsetfrom: number;
 	public tzoffsetto: number;
 	public dtstart: Date;
-	public rrule?: RRULE.RRuleSet;
+	public rrule?: import('rrule').RRuleSet;
 
 	constructor(transition: ICS.TimezoneDefinition) {
 		this.tzoffsetfrom = getOffsetValue(transition.TZOFFSETFROM.value);
 		this.tzoffsetto = getOffsetValue(transition.TZOFFSETTO.value);
 		this.dtstart = transition.DTSTART.value.date;
 		if (transition.RRULE) {
-			const rrule = new RRULE.RRuleSet();
+			const rrule = new RRuleSet();
 
 			rrule.rrule(
-				new RRULE.RRule({
+				new RRule({
 					dtstart: this.dtstart,
-					...RRULE.RRule.parseString(transition.RRULE.value)
+					...RRule.parseString(transition.RRULE.value)
 				})
 			);
 
@@ -134,6 +137,7 @@ export type EventEndType =
 export class EventInstance {
 	public title: string;
 	public description: string;
+	public location: string;
 	public start: DateTime;
 	public end: EventEndType;
 	public allDay: boolean;
@@ -144,6 +148,7 @@ export class EventInstance {
 	constructor(event: Event, start: Date) {
 		this.title = event.title;
 		this.description = event.description || '';
+		this.location = event.location || '';
 		this.start = {
 			date: start,
 			isDateOnly: event.start.isDateOnly,
@@ -192,6 +197,7 @@ export class EventInstance {
 		return {
 			title: this.title,
 			description: this.description,
+			location: this.location,
 			start,
 			end: this.getEndTimeTimestamp(timezoneMap),
 			allDay: this.allDay,
@@ -207,6 +213,7 @@ export class EventInstance {
 export class Event {
 	public title: string;
 	public description?: string;
+	public location?: string;
 	public start: DateTime;
 	public end: EventEndType;
 	public allDay: boolean;
@@ -214,11 +221,12 @@ export class Event {
 	public sequence: number;
 	public recurrenceId?: DateTime;
 
-	public rrules?: RRULE.RRuleSet;
+	public rrules?: import('rrule').RRuleSet;
 
 	constructor(event: ICS.VEVENT.Published) {
 		this.title = event.SUMMARY.value;
 		this.description = event.DESCRIPTION?.value;
+		this.location = event.LOCATION?.value;
 
 		this.start = event.DTSTART.value;
 		if (!this.start.isUTC) {
@@ -264,15 +272,15 @@ export class Event {
 
 		this.allDay = event.DTSTART.value.isDateOnly;
 
-		const rrules = new RRULE.RRuleSet();
+		const rrules = new RRuleSet();
 		let useRrule = false;
 
 		if (event.RRULE) {
 			useRrule = true;
 			rrules.rrule(
-				new RRULE.RRule({
+				new RRule({
 					dtstart: this.start.date,
-					...RRULE.RRule.parseString(event.RRULE.value)
+					...RRule.parseString(event.RRULE.value)
 				})
 			);
 		}
@@ -282,8 +290,18 @@ export class Event {
 			throw new Error('RDATE not supported');
 		}
 
-		if (event.EXDATE && event.EXDATE.propertyList) {
-			event.EXDATE.propertyList.forEach((exdates) => {
+		if (event.EXDATE) {
+			// @filecage/ical declares EXDATE as an array, but 0.3.2 returns a property-list
+			// wrapper at runtime. Accept both shapes so exclusions remain correct across versions.
+			const exceptionDates: { value: DateTime[] }[] = Array.isArray(event.EXDATE)
+				? event.EXDATE
+				: (
+						event.EXDATE as unknown as {
+							propertyList: { value: DateTime[] }[];
+						}
+					).propertyList;
+
+			exceptionDates.forEach((exdates) => {
 				exdates.value.forEach((exdate) => {
 					rrules.exdate(floatingTZAdjust(exdate));
 				});

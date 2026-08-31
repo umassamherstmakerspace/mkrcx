@@ -22,7 +22,9 @@ describe('CalendarServer source cache', () => {
 		calendarMock.cleanAndParse.mockReturnValue({ between: calendarMock.between });
 	});
 
-	afterEach(() => vi.useRealTimers());
+	afterEach(() => {
+		vi.useRealTimers();
+	});
 
 	it('reuses the private ICS read for five minutes and then refreshes it', async () => {
 		const sourceFetch = vi.fn(async () => new Response('private ICS contents'));
