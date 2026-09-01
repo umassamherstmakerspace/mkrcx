@@ -241,6 +241,31 @@ type CheckinExportAudit struct {
 	RowCount    int64
 }
 
+// NoteSubmission is an immutable, authenticated note from a Makerspace user.
+// Name and email are copied at submission time so the historical record does
+// not silently change if the user's profile changes later. Discord delivery
+// fields form a durable outbox; the database row remains authoritative even
+// while delivery is pending or being retried.
+type NoteSubmission struct {
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	ID        uint `gorm:"primaryKey"`
+
+	SubmittedBy    uint   `gorm:"index;uniqueIndex:idx_note_submission_idempotency,priority:1" json:"-"`
+	SubmitterName  string `gorm:"size:255" json:"-"`
+	SubmitterEmail string `gorm:"size:255" json:"-"`
+	Content        string `gorm:"type:text" json:"-"`
+	IdempotencyKey string `gorm:"size:128;uniqueIndex:idx_note_submission_idempotency,priority:2" json:"-"`
+
+	DiscordDeliveredAt   *time.Time `gorm:"index" json:"-"`
+	DiscordMessageID     string     `gorm:"size:32" json:"-"`
+	DiscordAttemptCount  uint       `json:"-"`
+	DiscordNextAttemptAt time.Time  `gorm:"index:idx_note_delivery_due,priority:1" json:"-"`
+	DiscordClaimToken    string     `gorm:"size:36" json:"-"`
+	DiscordClaimedUntil  *time.Time `gorm:"index:idx_note_delivery_due,priority:2" json:"-"`
+	DiscordLastStatus    int        `json:"-"`
+}
+
 var validate = validator.New()
 
 type ErrorResponse struct {
