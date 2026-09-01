@@ -24,7 +24,7 @@
 					download
 					class="inline-flex shrink-0 items-center justify-center rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-800 focus:outline-none focus:ring-4 focus:ring-violet-300 dark:focus:ring-violet-900"
 				>
-					Download my shifts (.ics)
+					Download your shifts (.ics)
 				</a>
 			{:else}
 				<p class="text-sm text-gray-600 dark:text-gray-300">
