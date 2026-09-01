@@ -2,6 +2,7 @@ import type { EventInput } from '@fullcalendar/core';
 import {
 	CURRENT_STAFF_NAMES,
 	normalizeCalendarTitle,
+	STAFF_NAME_BY_EMAIL,
 	type StaffName
 } from '$lib/staffCalendarColors';
 
@@ -10,21 +11,21 @@ type StaffIdentity = {
 	name: string;
 };
 
-// Most accounts match the calendar through the first word of the Leash name.
-// Add only exceptions here, keyed by lower-case account email. This table is
-// intentionally separate from authentication and grants no additional access.
-export const STAFF_SHIFT_NAME_OVERRIDES: Readonly<Record<string, StaffName>> = Object.freeze({});
-
 export function resolveStaffShiftName(
 	user: StaffIdentity,
-	overrides: Readonly<Record<string, StaffName>> = STAFF_SHIFT_NAME_OVERRIDES
+	overrides: Readonly<Record<string, StaffName>> = STAFF_NAME_BY_EMAIL
 ): StaffName | undefined {
 	const override = overrides[user.email.trim().toLowerCase()];
 	if (override) return override;
 
-	const firstName = user.name.trim().split(/\s+/)[0] || '';
-	const normalized = normalizeCalendarTitle(firstName);
-	return CURRENT_STAFF_NAMES.find((name) => normalizeCalendarTitle(name) === normalized);
+	const accountNameParts = user.name
+		.trim()
+		.split(/[\s,]+/)
+		.map(normalizeCalendarTitle)
+		.filter(Boolean);
+	return CURRENT_STAFF_NAMES.find((name) =>
+		accountNameParts.includes(normalizeCalendarTitle(name))
+	);
 }
 
 function eventDate(value: EventInput['start'] | EventInput['end']): Date | undefined {

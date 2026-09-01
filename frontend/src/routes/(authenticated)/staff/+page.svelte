@@ -52,6 +52,19 @@
 						class="text-2xl text-fuchsia-700 transition group-hover:translate-x-1">↓</span
 					>
 				</a>
+			{:else}
+				<div
+					class="flex items-center rounded-xl border border-gray-200 bg-gray-50 p-4 text-left dark:border-gray-700 dark:bg-gray-900"
+				>
+					<span>
+						<span class="block text-lg font-semibold text-gray-950 dark:text-white"
+							>My Shift Calendar</span
+						>
+						<span class="mt-1 block text-sm text-gray-600 dark:text-gray-300"
+							>Your account needs a calendar-name match before shifts can be exported.</span
+						>
+					</span>
+				</div>
 			{/if}
 
 			{#if data.user.canListFeeds}

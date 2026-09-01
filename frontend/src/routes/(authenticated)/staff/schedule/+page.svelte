@@ -26,6 +26,10 @@
 				>
 					Download my shifts (.ics)
 				</a>
+			{:else}
+				<p class="text-sm text-gray-600 dark:text-gray-300">
+					Shift export needs an account-to-calendar name match.
+				</p>
 			{/if}
 		</header>
 

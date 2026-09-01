@@ -7,6 +7,7 @@ import {
 	staffShiftEvents,
 	staffShiftFilename
 } from '$lib/staffShiftExport';
+import { CURRENT_STAFF_NAMES } from '$lib/staffCalendarColors';
 
 describe('staff shift export', () => {
 	it('maps the account first name to the maintained staff roster', () => {
@@ -23,6 +24,24 @@ describe('staff shift export', () => {
 			)
 		).toBe('Niall');
 	});
+
+	it('matches the configured Shira account when its display name differs', () => {
+		expect(resolveStaffShiftName({ email: 'SHIRAE@UMASS.EDU', name: 'Different Name' })).toBe(
+			'Shira'
+		);
+	});
+
+	it.each(CURRENT_STAFF_NAMES)(
+		'matches current roster name %s anywhere in a display name',
+		(name) => {
+			expect(
+				resolveStaffShiftName({
+					email: `${name.toLowerCase()}@example.edu`,
+					name: `Family, ${name}`
+				})
+			).toBe(name);
+		}
+	);
 
 	it('selects exact timed shifts without including other events', () => {
 		const events = [

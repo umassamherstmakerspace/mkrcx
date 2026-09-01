@@ -28,10 +28,11 @@ describe('staff calendar color policy', () => {
 			Marcelo: '#9a9cff',
 			Sastha: '#7bd148',
 			Ethan: '#16a765',
-			Tvisha: '#9fe1e7'
+			Tvisha: '#9fe1e7',
+			Rachel: '#b1365f'
 		});
-		expect(CURRENT_STAFF_NAMES).toHaveLength(19);
-		expect(new Set(Object.values(STAFF_COLORS)).size).toBe(19);
+		expect(CURRENT_STAFF_NAMES).toHaveLength(20);
+		expect(new Set(Object.values(STAFF_COLORS)).size).toBe(20);
 		expect(Object.values(STAFF_COLORS)).not.toContain(COMMITTEE_EVENT_COLOR);
 	});
 
