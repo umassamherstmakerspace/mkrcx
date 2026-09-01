@@ -1,8 +1,6 @@
 module github.com/mkrcx/mkrcx
 
-go 1.21
-
-toolchain go1.21.6
+go 1.26.7
 
 require (
 	github.com/casbin/casbin/v2 v2.85.0
