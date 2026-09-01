@@ -15,7 +15,7 @@
 	<header>
 		<h1 class="text-3xl font-bold text-gray-950 dark:text-white">Send a note</h1>
 		<p class="mt-2 text-gray-700 dark:text-gray-200">
-			Share an observation, problem, or anything Makerspace staff should know.
+			Share an observation with the Makerspace team.
 		</p>
 	</header>
 
@@ -24,7 +24,7 @@
 			class="mt-5 rounded-lg border border-green-300 bg-green-50 p-4 font-medium text-green-900 dark:border-green-800 dark:bg-green-950 dark:text-green-100"
 			role="status"
 		>
-			Thanks! Your note was saved for Makerspace staff.
+			Thanks! Your note has been submitted.
 		</div>
 	{:else if form?.message}
 		<div
@@ -48,7 +48,7 @@
 				required
 				maxlength="1500"
 				rows="8"
-				class="block w-full rounded-lg border border-gray-300 bg-white p-3 text-base text-gray-950 focus:border-red-700 focus:ring-red-700 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+				class="block w-full rounded-lg border border-gray-300 bg-white p-3 text-base text-gray-950 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
 				placeholder="What should we know?"
 			></textarea>
 			<p class="mt-1 text-right text-sm text-gray-500 dark:text-gray-400">
@@ -59,7 +59,7 @@
 		<div
 			class="rounded-lg bg-gray-100 p-4 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200"
 		>
-			<p>Your note, name, and email will be recorded &amp; sent to Makerspace staff.</p>
+			<p>The note will be shared with Makerspace staff along with your name and email.</p>
 			<p class="mt-2">
 				Need to include photos or attachments? Send those to
 				<a class="font-medium underline" href="mailto:makerspace@umass.edu">makerspace@umass.edu</a
@@ -69,7 +69,7 @@
 
 		<button
 			type="submit"
-			class="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-red-800 px-5 py-3 text-lg font-semibold text-white transition hover:bg-red-900 focus:outline-none focus:ring-4 focus:ring-red-300 dark:focus:ring-red-950 sm:w-auto"
+			class="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-700 px-5 py-3 text-lg font-semibold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 sm:w-auto"
 		>
 			Send note
 		</button>
