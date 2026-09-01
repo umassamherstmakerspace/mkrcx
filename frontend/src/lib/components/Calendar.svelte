@@ -89,7 +89,8 @@
 				? {
 						height: 'auto' as const,
 						slotMinTime: '08:00:00',
-						slotMaxTime: '22:00:00'
+						slotMaxTime: '22:00:00',
+						slotDuration: '01:00:00'
 					}
 				: {}),
 			eventClick: ({ event, jsEvent }) => {

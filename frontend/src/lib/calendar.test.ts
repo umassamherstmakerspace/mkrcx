@@ -36,6 +36,39 @@ describe('calendar event details', () => {
 		});
 	});
 
+	it('decodes escaped text in event details', () => {
+		const calendar = CalendarSet.cleanAndParse(
+			[
+				'BEGIN:VCALENDAR',
+				'VERSION:2.0',
+				'PRODID:-//Makerspace//Calendar test//EN',
+				'BEGIN:VEVENT',
+				'UID:cold-storage@example.com',
+				'DTSTAMP:20260831T120000Z',
+				'DTSTART:20260923T140000Z',
+				'DTEND:20260923T150000Z',
+				'SUMMARY:Cold storage\\, phase 1',
+				'DESCRIPTION:Bring back chairs\\, tables\\; and tools.\\n\\nMeet in Chenoweth 116.',
+				'LOCATION:Chenoweth 116\\, UMass',
+				'SEQUENCE:0',
+				'END:VEVENT',
+				'END:VCALENDAR',
+				''
+			].join('\r\n')
+		);
+
+		const events = calendar.between(
+			new Date('2026-09-23T00:00:00Z'),
+			new Date('2026-09-24T00:00:00Z')
+		);
+
+		expect(events[0]).toMatchObject({
+			title: 'Cold storage, phase 1',
+			description: 'Bring back chairs, tables; and tools.\n\nMeet in Chenoweth 116.',
+			location: 'Chenoweth 116, UMass'
+		});
+	});
+
 	it('omits excluded instances from a recurring event', () => {
 		const calendar = CalendarSet.cleanAndParse(
 			[

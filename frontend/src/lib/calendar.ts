@@ -19,6 +19,16 @@ export type EventJSON = {
 	recurrenceId?: string;
 };
 
+function decodeCalendarText(value: string): string {
+	return value.replace(/\\([nN,;\\])/g, (_match, escaped: string) => {
+		if (escaped === 'n' || escaped === 'N') {
+			return '\n';
+		}
+
+		return escaped;
+	});
+}
+
 export function getOffsetValue(offset: string): number {
 	const regex = /([+-]?)(\d{2})(\d{2})(\d{2})?/;
 	const match = offset.match(regex);
@@ -224,9 +234,9 @@ export class Event {
 	public rrules?: import('rrule').RRuleSet;
 
 	constructor(event: ICS.VEVENT.Published) {
-		this.title = event.SUMMARY.value;
-		this.description = event.DESCRIPTION?.value;
-		this.location = event.LOCATION?.value;
+		this.title = decodeCalendarText(event.SUMMARY.value);
+		this.description = event.DESCRIPTION ? decodeCalendarText(event.DESCRIPTION.value) : undefined;
+		this.location = event.LOCATION ? decodeCalendarText(event.LOCATION.value) : undefined;
 
 		this.start = event.DTSTART.value;
 		if (!this.start.isUTC) {
