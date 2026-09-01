@@ -24,8 +24,8 @@ export async function requireStaffCalendarAccess({
 
 	let user: User;
 	try {
-		// Verify the user and role with Leash on the server. Never trust a role
-		// supplied by the browser when protecting this standalone JSON endpoint.
+		// The user and role come from Leash on the server. Do not trust page data or
+		// a client-provided role when protecting a standalone JSON endpoint.
 		user = await api.selfUser({}, true);
 	} catch (caught) {
 		if (caught instanceof LeashAPIError && caught.status === 401) {

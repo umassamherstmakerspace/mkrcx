@@ -52,7 +52,6 @@
 		"@fullcalendar/icalendar": "^6.1.15",
 		"@fullcalendar/list": "^6.1.15",
 		"@fullcalendar/timegrid": "^6.1.15",
-		"@marko19907/string-to-color": "^1.0.0",
 		"@types/color-hash": "^1.0.5",
 		"@types/js-cookie": "^3.0.6",
 		"@types/leaflet": "^1.9.16",

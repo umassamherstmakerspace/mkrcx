@@ -3,8 +3,7 @@ import type { RequestHandler } from './$types';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 import { CalendarServer } from '$lib/calendarServer';
-import { generateColor } from '@marko19907/string-to-color';
-import type { EventInput } from '@fullcalendar/core/index.js';
+import { colorizeStaffCalendarEvent } from '$lib/staffCalendarColors';
 import {
 	requireStaffCalendarAccess,
 	type StaffCalendarAccessOptions
@@ -26,15 +25,6 @@ interface StaffCalendarHandlerDependencies {
 	authorize: (options: StaffCalendarAccessOptions) => Promise<unknown>;
 	createCalendar: (endpoint: string, fetch: typeof globalThis.fetch) => CalendarReader;
 }
-
-const colorize = (event: EventInput) => {
-	if (event.title === undefined) return event;
-
-	return {
-		...event,
-		color: generateColor(event.title)
-	};
-};
 
 export function _createStaffCalendarHandler(
 	dependencies: StaffCalendarHandlerDependencies
@@ -91,7 +81,8 @@ const staffCalendarHandler = _createStaffCalendarHandler({
 	getCalendarEndpoint: () => privateEnv.STAFF_CALENDAR_ENDPOINT,
 	getLeashEndpoint: () => publicEnv.PUBLIC_LEASH_ENDPOINT,
 	authorize: requireStaffCalendarAccess,
-	createCalendar: (endpoint, fetch) => new CalendarServer(endpoint, fetch, colorize)
+	createCalendar: (endpoint, fetch) =>
+		new CalendarServer(endpoint, fetch, colorizeStaffCalendarEvent)
 });
 
 export const GET: RequestHandler = async ({ fetch, url, cookies }) =>

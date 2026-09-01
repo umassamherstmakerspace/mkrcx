@@ -19,7 +19,7 @@ function handlerForRole(role: 'anonymous' | 'member' | 'staff') {
 				title: 'Niall',
 				start: '2026-09-08T09:00:00-04:00',
 				end: '2026-09-08T17:00:00-04:00',
-				color: '#cd74e6'
+				backgroundColor: '#cd74e6'
 			}
 		])
 	}));
@@ -56,7 +56,9 @@ describe('/staff/calendar endpoint', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('content-type')).toContain('application/json');
 		expect(response.headers.get('cache-control')).toBe('private, no-store');
-		expect(JSON.parse(body)).toEqual([expect.objectContaining({ title: 'Niall' })]);
+		expect(JSON.parse(body)).toEqual([
+			expect.objectContaining({ title: 'Niall', backgroundColor: '#cd74e6' })
+		]);
 		expect(body).not.toContain(secretEndpoint);
 		expect(createCalendar).toHaveBeenCalledWith(secretEndpoint, expect.any(Function));
 	});

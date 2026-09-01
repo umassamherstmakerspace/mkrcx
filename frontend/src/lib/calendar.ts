@@ -10,6 +10,7 @@ const { RRule, RRuleSet } = (RRULE ?? RRULENamespace) as typeof import('rrule');
 export type EventJSON = {
 	title: string;
 	description?: string;
+	location?: string;
 	start: string;
 	end: string;
 	allDay: boolean;
@@ -17,6 +18,16 @@ export type EventJSON = {
 	sequence: number;
 	recurrenceId?: string;
 };
+
+function decodeCalendarText(value: string): string {
+	return value.replace(/\\([nN,;\\])/g, (_match, escaped: string) => {
+		if (escaped === 'n' || escaped === 'N') {
+			return '\n';
+		}
+
+		return escaped;
+	});
+}
 
 export function getOffsetValue(offset: string): number {
 	const regex = /([+-]?)(\d{2})(\d{2})(\d{2})?/;
@@ -136,6 +147,7 @@ export type EventEndType =
 export class EventInstance {
 	public title: string;
 	public description: string;
+	public location: string;
 	public start: DateTime;
 	public end: EventEndType;
 	public allDay: boolean;
@@ -146,6 +158,7 @@ export class EventInstance {
 	constructor(event: Event, start: Date) {
 		this.title = event.title;
 		this.description = event.description || '';
+		this.location = event.location || '';
 		this.start = {
 			date: start,
 			isDateOnly: event.start.isDateOnly,
@@ -194,6 +207,7 @@ export class EventInstance {
 		return {
 			title: this.title,
 			description: this.description,
+			location: this.location,
 			start,
 			end: this.getEndTimeTimestamp(timezoneMap),
 			allDay: this.allDay,
@@ -209,6 +223,7 @@ export class EventInstance {
 export class Event {
 	public title: string;
 	public description?: string;
+	public location?: string;
 	public start: DateTime;
 	public end: EventEndType;
 	public allDay: boolean;
@@ -219,8 +234,9 @@ export class Event {
 	public rrules?: import('rrule').RRuleSet;
 
 	constructor(event: ICS.VEVENT.Published) {
-		this.title = event.SUMMARY.value;
-		this.description = event.DESCRIPTION?.value;
+		this.title = decodeCalendarText(event.SUMMARY.value);
+		this.description = event.DESCRIPTION ? decodeCalendarText(event.DESCRIPTION.value) : undefined;
+		this.location = event.LOCATION ? decodeCalendarText(event.LOCATION.value) : undefined;
 
 		this.start = event.DTSTART.value;
 		if (!this.start.isUTC) {
