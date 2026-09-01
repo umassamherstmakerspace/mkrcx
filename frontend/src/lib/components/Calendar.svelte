@@ -74,6 +74,15 @@
 	function calendarAction(element: HTMLElement) {
 		let calendar = new Calendar(element, {
 			plugins: [dayGridPlugin, timeGridPlugin, listPlugin],
+			views: detailsEnabled
+				? {
+						timeGridThreeDay: {
+							type: 'timeGrid',
+							duration: { days: 3 },
+							buttonText: '3 days'
+						}
+					}
+				: undefined,
 			events: {
 				url
 			},
@@ -81,7 +90,9 @@
 			headerToolbar: {
 				left: 'prev,next today',
 				center: 'title',
-				right: 'dayGridMonth,timeGridWeek,listWeek'
+				right: detailsEnabled
+					? 'timeGridThreeDay,timeGridWeek,listWeek'
+					: 'dayGridMonth,timeGridWeek,listWeek'
 			},
 			nowIndicator: true,
 			scrollTime: fitWorkingHours ? '08:00:00' : new Date().getHours() + ':00:00',
