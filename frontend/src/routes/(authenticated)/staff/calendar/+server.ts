@@ -2,8 +2,9 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
-import { CalendarServer } from '$lib/calendarServer';
+import type { CalendarServer } from '$lib/calendarServer';
 import { colorizeStaffCalendarEvent } from '$lib/staffCalendarColors';
+import { getStaffCalendarSnapshot } from '$lib/server/staffCalendarSnapshot';
 import {
 	requireStaffCalendarAccess,
 	type StaffCalendarAccessOptions
@@ -81,8 +82,13 @@ const staffCalendarHandler = _createStaffCalendarHandler({
 	getCalendarEndpoint: () => privateEnv.STAFF_CALENDAR_ENDPOINT,
 	getLeashEndpoint: () => publicEnv.PUBLIC_LEASH_ENDPOINT,
 	authorize: requireStaffCalendarAccess,
-	createCalendar: (endpoint, fetch) =>
-		new CalendarServer(endpoint, fetch, colorizeStaffCalendarEvent)
+	createCalendar: (endpoint) => {
+		const snapshot = getStaffCalendarSnapshot(endpoint);
+		return {
+			getEventsBetween: async (start, end) =>
+				(await snapshot.getEventsBetween(start, end)).map(colorizeStaffCalendarEvent)
+		};
+	}
 });
 
 export const GET: RequestHandler = async ({ fetch, url, cookies }) =>
