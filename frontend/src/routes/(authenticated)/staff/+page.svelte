@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { resolveStaffShiftName } from '$lib/staffShiftExport';
 
 	export let data: PageData;
+	$: shiftCalendarName = resolveStaffShiftName(data.user);
 </script>
 
 <div class="w-full space-y-6 px-2 pb-12 md:px-6">
@@ -30,6 +32,27 @@
 					class="text-2xl text-violet-700 transition group-hover:translate-x-1">→</span
 				>
 			</a>
+
+			{#if shiftCalendarName}
+				<a
+					href="/staff/shifts.ics"
+					download
+					class="group flex items-center justify-between gap-4 rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-4 text-left transition hover:border-fuchsia-400 hover:shadow-sm focus:outline-none focus:ring-4 focus:ring-fuchsia-200 dark:border-fuchsia-900 dark:bg-fuchsia-950 dark:focus:ring-fuchsia-900"
+				>
+					<span>
+						<span class="block text-lg font-semibold text-gray-950 dark:text-white"
+							>My Shift Calendar</span
+						>
+						<span class="mt-1 block text-sm text-gray-700 dark:text-gray-200"
+							>Download {shiftCalendarName}'s upcoming shifts as an .ics calendar file.</span
+						>
+					</span>
+					<span
+						aria-hidden="true"
+						class="text-2xl text-fuchsia-700 transition group-hover:translate-x-1">↓</span
+					>
+				</a>
+			{/if}
 
 			{#if data.user.canListFeeds}
 				<a
@@ -70,6 +93,42 @@
 					>
 				</a>
 			{/if}
+
+			<a
+				href="/staff/directory"
+				class="group flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left transition hover:border-amber-400 hover:shadow-sm focus:outline-none focus:ring-4 focus:ring-amber-200 dark:border-amber-900 dark:bg-amber-950 dark:focus:ring-amber-900"
+			>
+				<span>
+					<span class="block text-lg font-semibold text-gray-950 dark:text-white"
+						>User Directory</span
+					>
+					<span class="mt-1 block text-sm text-gray-700 dark:text-gray-200"
+						>Find Makerspace members and manage staff-visible account information.</span
+					>
+				</span>
+				<span
+					aria-hidden="true"
+					class="text-2xl text-amber-700 transition group-hover:translate-x-1">→</span
+				>
+			</a>
+
+			<a
+				href="/staff/wifi"
+				target="_blank"
+				rel="noreferrer"
+				class="group flex items-center justify-between gap-4 rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-left transition hover:border-cyan-400 hover:shadow-sm focus:outline-none focus:ring-4 focus:ring-cyan-200 dark:border-cyan-900 dark:bg-cyan-950 dark:focus:ring-cyan-900"
+			>
+				<span>
+					<span class="block text-lg font-semibold text-gray-950 dark:text-white">Wi-Fi Portal</span
+					>
+					<span class="mt-1 block text-sm text-gray-700 dark:text-gray-200"
+						>Open the Makerspace Wi-Fi management portal.</span
+					>
+				</span>
+				<span aria-hidden="true" class="text-2xl text-cyan-700 transition group-hover:translate-x-1"
+					>↗</span
+				>
+			</a>
 		</div>
 	</section>
 </div>
