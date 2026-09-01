@@ -40,9 +40,12 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       workflow: ${{ steps.filter.outputs.workflow }}
     steps:
-      - name: Filter pull-request paths
+      - name: Checkout push
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Filter changed paths
         id: filter
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
@@ -58,8 +61,10 @@ jobs:
     needs: changes
     if: >-
       ${{
-        (github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.workflow == 'true') &&
-        (github.event_name != 'workflow_dispatch' || inputs.component == 'backend' || inputs.component == 'both')
+        ((github.event_name == 'pull_request' || github.event_name == 'push') &&
+          (needs.changes.outputs.backend == 'true' || needs.changes.outputs.workflow == 'true')) ||
+        (github.event_name == 'workflow_dispatch' && (inputs.component == 'backend' || inputs.component == 'both')) ||
+        github.event_name == 'release'
       }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -85,8 +90,10 @@ jobs:
     needs: changes
     if: >-
       ${{
-        (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflow == 'true') &&
-        (github.event_name != 'workflow_dispatch' || inputs.component == 'frontend' || inputs.component == 'both')
+        ((github.event_name == 'pull_request' || github.event_name == 'push') &&
+          (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflow == 'true')) ||
+        (github.event_name == 'workflow_dispatch' && (inputs.component == 'frontend' || inputs.component == 'both')) ||
+        github.event_name == 'release'
       }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -117,8 +124,13 @@ jobs:
 
   build-frontend:
     name: Build Frontend (${{ matrix.arch }})
-    if: ${{ github.event_name != 'pull_request' }}
-    needs: test-frontend
+    if: >-
+      ${{
+        (github.event_name == 'push' && needs.changes.outputs.frontend == 'true') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.component == 'frontend' || inputs.component == 'both')) ||
+        github.event_name == 'release'
+      }}
+    needs: [changes, test-frontend]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     permissions:
@@ -285,8 +297,13 @@ jobs:
 
   build-backend:
     name: Build Backend (${{ matrix.arch }})
-    if: ${{ github.event_name != 'pull_request' }}
-    needs: test-backend
+    if: >-
+      ${{
+        (github.event_name == 'push' && needs.changes.outputs.backend == 'true') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.component == 'backend' || inputs.component == 'both')) ||
+        github.event_name == 'release'
+      }}
+    needs: [changes, test-backend]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     permissions:
