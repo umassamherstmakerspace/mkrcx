@@ -1,0 +1,30 @@
+# Current staff calendar roster
+#
+# One person per line:
+# Calendar label | color | Google account email(s), comma-separated (optional)
+#
+# The calendar label must exactly match that person's event title in the Team
+# calendar. Names are otherwise matched from the person's Google display name.
+# Add an email when the display name does not match, or when two people share a
+# first name and their calendar labels need to be different.
+
+Shira | #9fc6e7 | shirae@umass.edu
+Lauren | #42d692 |
+Keegan | #f83a22 |
+Jack | #a47ae2 |
+Niall | #cd74e6 |
+Julius | #4986e7 |
+Tobias | #f691b2 |
+Peyton | #92e1c0 |
+Brody | #fbe983 |
+Duy | #b99aff |
+Punya | #fa573c |
+Brooke | #ff7537 |
+Rigel | #b3dc6c |
+Sean | #ffad46 |
+Quinlan | #fad165 |
+Marcelo | #9a9cff |
+Sastha | #7bd148 |
+Ethan | #16a765 |
+Tvisha | #9fe1e7 |
+Rachel | #b1365f |

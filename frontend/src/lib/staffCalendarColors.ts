@@ -1,36 +1,51 @@
 import type { EventInput } from '@fullcalendar/core';
+import rosterText from './staff-calendar-roster.txt?raw';
 
 export const COMMITTEE_EVENT_COLOR = '#c2c2c2';
 // Anything that is not an exact, recognized staff shift is gray. Unknown
 // titles still warn so a newly scheduled staff member can be added explicitly.
 export const UNKNOWN_EVENT_COLOR = COMMITTEE_EVENT_COLOR;
 
-// Frozen from the Fall 2026 Team-calendar overlap plan. Keep this explicit so a
-// new person cannot silently take an existing person's color.
-export const STAFF_COLORS = Object.freeze({
-	Shira: '#9fc6e7',
-	Lauren: '#42d692',
-	Keegan: '#f83a22',
-	Jack: '#a47ae2',
-	Niall: '#cd74e6',
-	Julius: '#4986e7',
-	Tobias: '#f691b2',
-	Peyton: '#92e1c0',
-	Brody: '#fbe983',
-	Duy: '#b99aff',
-	Punya: '#fa573c',
-	Brooke: '#ff7537',
-	Rigel: '#b3dc6c',
-	Sean: '#ffad46',
-	Quinlan: '#fad165',
-	Marcelo: '#9a9cff',
-	Sastha: '#7bd148',
-	Ethan: '#16a765',
-	Tvisha: '#9fe1e7'
-});
+export type StaffName = string;
+type StaffRosterEntry = Readonly<{ name: StaffName; color: string; emails: readonly string[] }>;
 
-export type StaffName = keyof typeof STAFF_COLORS;
-export const CURRENT_STAFF_NAMES = Object.freeze(Object.keys(STAFF_COLORS) as StaffName[]);
+function parseStaffRoster(text: string): StaffRosterEntry[] {
+	const entries = text
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => line && !line.startsWith('#'))
+		.map((line, index) => {
+			const [name = '', color = '', emailList = '', ...extra] = line
+				.split('|')
+				.map((part) => part.trim());
+			if (!name || !/^#[0-9a-f]{6}$/i.test(color) || extra.length > 0) {
+				throw new Error(`Invalid staff roster line ${index + 1}: ${JSON.stringify(line)}`);
+			}
+			const emails = emailList
+				.split(',')
+				.map((email) => email.trim().toLowerCase())
+				.filter(Boolean);
+			return Object.freeze({ name, color: color.toLowerCase(), emails: Object.freeze(emails) });
+		});
+
+	const names = entries.map((entry) => normalizeCalendarTitle(entry.name));
+	const emails = entries.flatMap((entry) => entry.emails);
+	if (new Set(names).size !== names.length) throw new Error('Duplicate staff calendar label');
+	if (new Set(emails).size !== emails.length) throw new Error('Duplicate staff account email');
+	return entries;
+}
+
+// Edit staff-calendar-roster.txt for semester-to-semester staffing changes.
+export const STAFF_ROSTER = Object.freeze(parseStaffRoster(rosterText));
+export const STAFF_COLORS: Readonly<Record<StaffName, string>> = Object.freeze(
+	Object.fromEntries(STAFF_ROSTER.map(({ name, color }) => [name, color]))
+);
+export const CURRENT_STAFF_NAMES = Object.freeze(STAFF_ROSTER.map(({ name }) => name));
+export const STAFF_NAME_BY_EMAIL: Readonly<Record<string, StaffName>> = Object.freeze(
+	Object.fromEntries(
+		STAFF_ROSTER.flatMap(({ name, emails }) => emails.map((email) => [email, name] as const))
+	)
+);
 
 const COLOR_BY_NORMALIZED_NAME: ReadonlyMap<string, string> = new Map(
 	CURRENT_STAFF_NAMES.map((name) => [normalizeCalendarTitle(name), STAFF_COLORS[name]])

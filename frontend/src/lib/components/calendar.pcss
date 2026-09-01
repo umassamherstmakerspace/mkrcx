@@ -11,3 +11,38 @@
 	outline: 3px solid #2563eb;
 	outline-offset: 2px;
 }
+
+@media (max-width: 767px) {
+	.fc .fc-header-toolbar {
+		align-items: center;
+		display: grid;
+		gap: 0.75rem;
+		grid-template-columns: 1fr auto;
+	}
+
+	.fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(1) {
+		grid-column: 1;
+		grid-row: 2;
+	}
+
+	.fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(2) {
+		grid-column: 1 / -1;
+		grid-row: 1;
+		text-align: center;
+	}
+
+	.fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(3) {
+		grid-column: 2;
+		grid-row: 2;
+	}
+
+	.fc .fc-toolbar-title {
+		font-size: 1.25rem;
+		line-height: 1.5;
+	}
+
+	.fc .fc-button {
+		font-size: 0.875rem;
+		padding: 0.4rem 0.6rem;
+	}
+}

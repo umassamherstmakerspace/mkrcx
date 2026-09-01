@@ -3,8 +3,8 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
+		"dev": "vite build --config vite.worker.config.ts && vite dev",
+		"build": "vite build && vite build --config vite.worker.config.ts && node scripts/verify-calendar-worker.mjs && node scripts/verify-calendar-prewarm.mjs",
 		"preview": "vite preview",
 		"test": "npm run test:integration && npm run test:unit",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

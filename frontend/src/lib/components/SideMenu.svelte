@@ -52,14 +52,14 @@
 	id="sidebar2"
 	activateClickOutside={false}
 >
-	<div class="flex items-center">
+	<div class="flex items-center justify-between">
 		<h5
 			id="drawer-navigation-label-3"
 			class="text-base font-semibold uppercase text-gray-500 dark:text-gray-400"
 		>
 			Menu
 		</h5>
-		<CloseButton on:click={() => (hidden = true)} class="mb-4 dark:text-white" />
+		<CloseButton on:click={() => (hidden = true)} class="dark:text-white" />
 	</div>
 	<Sidebar {activeUrl}>
 		<SidebarWrapper divClass="overflow-y-auto py-4 px-3 rounded dark:bg-gray-800">
@@ -89,6 +89,7 @@
 								<LockSolid class={iconClass} />
 							</svelte:fragment>
 							<SidebarDropdownItem label="Home" href="/staff" />
+							<SidebarDropdownItem label="Staff Calendar" href="/staff/schedule" />
 							{#if user.canListFeeds}
 								<SidebarDropdownItem label="Front Desk Check-in HUD" href="/staff/feeds/1" />
 							{/if}
