@@ -134,6 +134,11 @@ func (p *LaunchCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}
 	defer feedRuntime.Close()
 	stopCheckinMaintenance := leash_api.StartCheckinFeedMaintenance(db, []byte(hmacSecret), feedRuntime)
 	defer stopCheckinMaintenance()
+	stopNoteDiscordDelivery, err := leash_api.StartNoteDiscordDelivery(db, os.Getenv("DISCORD_NOTES_WEBHOOK_URL"))
+	if err != nil {
+		log.Panicln("Unable to initialize note Discord delivery:", err)
+	}
+	defer stopNoteDiscordDelivery()
 
 	// Create App
 	log.Println("Initializing Fiber...")

@@ -161,6 +161,10 @@ func SetupCasbin(enforcer *casbin.SyncedEnforcer) error {
 	// Sign In EPs
 	check(enforcer.AddPermissionForUser(member, "leash:login"))
 
+	// Authenticated Makerspace members may submit notes. The submission API
+	// records identity from the session and does not accept API keys.
+	check(enforcer.AddPermissionForUser(member, "leash.notes:submit"))
+
 	// Feed administration and broad staff-reader permissions. Service users can
 	// instead receive a least-privilege feed-specific permission such as
 	// leash.feeds.signin:append.
@@ -240,6 +244,11 @@ func MigrateSchema(db *gorm.DB) error {
 	}
 
 	err = db.AutoMigrate(&models.CheckinExportAudit{})
+	if err != nil {
+		return err
+	}
+
+	err = db.AutoMigrate(&models.NoteSubmission{})
 	if err != nil {
 		return err
 	}

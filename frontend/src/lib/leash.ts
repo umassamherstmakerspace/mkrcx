@@ -730,6 +730,29 @@ export class LeashAPI {
 		};
 	}
 
+	public async submitNote(note: string, idempotencyKey: string): Promise<void> {
+		const response = await this.fetchFunction(`${this.leashURL}/api/notes`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${this.token}`,
+				'Content-Type': 'application/json',
+				'Idempotency-Key': idempotencyKey
+			},
+			redirect: 'error',
+			mode: 'cors',
+			cache: 'no-store',
+			credentials: 'same-origin',
+			body: JSON.stringify({ note })
+		});
+		if (!response.ok) {
+			const message =
+				(await response.text()) ||
+				response.statusText ||
+				`Leash request failed (${response.status})`;
+			throw new LeashAPIError(response.status, message);
+		}
+	}
+
 	public openFeedSocket(id: number): WebSocket {
 		const url = new URL(`/api/feeds/${id}/ws`, this.leashURL);
 		url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';

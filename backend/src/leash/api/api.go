@@ -31,4 +31,5 @@ func RegisterAPIEndpoints(api fiber.Router, feedRuntime ...*FeedRuntime) {
 	registerNotificationsEndpoints(api)
 	registerFeedEndpoints(api, runtime)
 	registerCheckinEndpoints(api, runtime)
+	registerNoteEndpoints(api)
 }
