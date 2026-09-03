@@ -233,15 +233,12 @@
 
 <svelte:head><title>Activity · mkr.cx</title></svelte:head>
 
-<main class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-2 pb-8 md:px-6">
+<main class="mx-auto flex w-full max-w-7xl flex-col gap-3 px-2 pb-6 md:px-6">
 	<header>
 		<div>
-			<p class="text-sm font-semibold uppercase tracking-wide text-[#840028] dark:text-[#e07a9a]">
-				Makerspace pulse
-			</p>
-			<h1 class="mt-1 text-3xl font-bold text-gray-950 dark:text-white">Activity</h1>
-			<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-				A current snapshot, two focused explorers, and a fixed academic-year comparison.
+			<h1 class="text-2xl font-bold text-gray-950 dark:text-white">Activity</h1>
+			<p class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
+				Membership and arrival patterns from existing records.
 			</p>
 		</div>
 	</header>
@@ -257,7 +254,7 @@
 
 	{#if summaryActivity.snapshot_at}
 		<p
-			class="rounded-xl bg-gray-100 px-4 py-2 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+			class="rounded-xl bg-gray-100 px-3 py-1.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300"
 		>
 			<strong>Real production data</strong> · Snapshot through {snapshotLabel(
 				summaryActivity.snapshot_at
@@ -266,7 +263,7 @@
 	{/if}
 
 	<section aria-labelledby="snapshot-heading">
-		<div class="mb-2 flex flex-wrap items-end justify-between gap-2 px-1">
+		<div class="mb-1.5 flex flex-wrap items-end justify-between gap-2 px-1">
 			<div>
 				<h2 id="snapshot-heading" class="text-lg font-bold text-gray-950 dark:text-white">
 					At a glance
@@ -280,10 +277,10 @@
 				{dateRange(summaryActivity.range.start, summaryActivity.range.end)}
 			</span>
 		</div>
-		<div class="grid gap-3 md:grid-cols-2">
+		<div class="grid gap-2 md:grid-cols-2">
 			{#each summaryMetrics as metric}
 				<article
-					class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+					class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 				>
 					<div class="flex items-baseline justify-between gap-3">
 						<h2 class="font-semibold text-gray-950 dark:text-white">{metric.label}</h2>
@@ -293,7 +290,7 @@
 					</div>
 					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{metric.description}</p>
 					<div
-						class="mt-3 grid grid-cols-3 divide-x divide-gray-200 border-t border-gray-100 pt-3 text-center dark:divide-gray-700 dark:border-gray-800"
+						class="mt-2 grid grid-cols-3 divide-x divide-gray-200 border-t border-gray-100 pt-2 text-center dark:divide-gray-700 dark:border-gray-800"
 					>
 						{#each [{ label: 'Today', value: summaryActivity.today }, { label: 'This week', value: summaryActivity.week }, { label: summaryActivity.range.label, value: summaryActivity.selected }] as period}
 							<div class="px-2 first:pl-0 last:pr-0">
@@ -313,7 +310,7 @@
 	</section>
 
 	<section
-		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+		class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 		aria-labelledby="trend-heading"
 	>
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -325,7 +322,7 @@
 					Explore one period at a time. Each person is counted once per bar.
 				</p>
 			</div>
-			<div class="flex flex-wrap items-end gap-3">
+			<div class="flex flex-wrap items-end gap-2">
 				<label class="flex flex-col gap-1 text-xs font-medium text-gray-600 dark:text-gray-300">
 					Chart period
 					<select
@@ -363,7 +360,7 @@
 
 		{#if points.length > 0 && highlightedPoint}
 			<div
-				class="mt-3 flex items-baseline justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800"
+				class="mt-2 flex items-baseline justify-between rounded-lg bg-gray-50 px-3 py-1.5 dark:bg-gray-800"
 			>
 				<span class="text-sm text-gray-600 dark:text-gray-300"
 					>{pointDescription(highlightedPoint)}</span
@@ -373,9 +370,9 @@
 					{highlightedPoint.value === 1 ? 'member' : 'members'}</strong
 				>
 			</div>
-			<div class="mt-3">
+			<div class="mt-2">
 				<div
-					class="grid h-36 items-end gap-px border-b border-gray-200 dark:border-gray-700"
+					class="grid h-28 items-end gap-px border-b border-gray-200 dark:border-gray-700"
 					style={`grid-template-columns: repeat(${points.length}, minmax(0, 1fr));`}
 				>
 					{#each points as point, index}
@@ -412,7 +409,7 @@
 	</section>
 
 	<section
-		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+		class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 		aria-labelledby="heat-heading"
 	>
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -442,7 +439,7 @@
 
 		{#if highlightedHeat}
 			<div
-				class="mt-3 flex items-baseline justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800"
+				class="mt-2 flex items-baseline justify-between rounded-lg bg-gray-50 px-3 py-1.5 dark:bg-gray-800"
 			>
 				<span class="text-sm text-gray-600 dark:text-gray-300"
 					>{heatPointLabel(highlightedHeat)}</span
@@ -454,7 +451,7 @@
 			</div>
 		{/if}
 
-		<div class="mt-3 overflow-x-auto pb-1">
+		<div class="mt-2 overflow-x-auto pb-1">
 			<div
 				class="grid min-w-[42rem] gap-1"
 				style="grid-template-columns: 2.25rem repeat(15, minmax(1.1rem, 1fr));"
@@ -473,7 +470,7 @@
 						{@const point = heatPoint(weekday.value, hour)}
 						<button
 							type="button"
-							class="flex h-7 min-w-0 items-center justify-center rounded text-[9px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-[#840028] focus-visible:ring-offset-1 {point.members /
+							class="flex h-6 min-w-0 items-center justify-center rounded text-[9px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-[#840028] focus-visible:ring-offset-1 {point.members /
 								heatMax >
 							0.42
 								? 'text-white'
@@ -499,7 +496,7 @@
 	</section>
 
 	<section
-		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+		class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 		aria-labelledby="comparison-heading"
 	>
 		<div class="flex flex-wrap items-start justify-between gap-2">
@@ -517,9 +514,9 @@
 				Fixed comparison
 			</span>
 		</div>
-		<div class="mt-4 grid gap-4 md:grid-cols-3">
+		<div class="mt-3 grid gap-3 md:grid-cols-3">
 			{#each summaryActivity.academic_years as year}
-				<div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+				<div class="rounded-xl border border-gray-100 p-2.5 dark:border-gray-800">
 					<div class="flex flex-wrap items-baseline justify-between gap-2">
 						<strong class="text-sm text-gray-900 dark:text-white">
 							{year.label}{year.current ? ' to date' : ''}
@@ -528,7 +525,7 @@
 							{dateRange(year.start, year.end)}
 						</span>
 					</div>
-					<div class="mt-3 grid grid-cols-[6.5rem_1fr_3rem] items-center gap-2 text-xs">
+					<div class="mt-2 grid grid-cols-[6.5rem_1fr_3rem] items-center gap-2 text-xs">
 						<span class="text-gray-600 dark:text-gray-300">New members</span>
 						<div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
 							<div
@@ -555,7 +552,7 @@
 		</div>
 		{#if summaryActivity.coverage.first_card_link}
 			<p
-				class="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400"
+				class="mt-3 border-t border-gray-100 pt-2 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400"
 			>
 				Recorded card-link history begins {fullDate(summaryActivity.coverage.first_card_link)}.
 			</p>
