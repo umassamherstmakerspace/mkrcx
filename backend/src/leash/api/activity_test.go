@@ -1,11 +1,40 @@
 package leash_backend_api
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/mkrcx/mkrcx/src/shared/models"
 )
+
+func TestLoadActivitySnapshotSelectsRequestedRange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "activity.json")
+	contents := []byte(`{
+		"semester": {"timezone":"America/New_York","snapshot_at":"2026-09-03T20:15:00Z","range":{"key":"semester","label":"This semester","start":"2026-08-01","end":"2026-09-03"}},
+		"30_days": {"timezone":"America/New_York","range":{"key":"30_days","label":"Past 30 days","start":"2026-08-05","end":"2026-09-03"}}
+	}`)
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := loadActivitySnapshot(path, "30_days")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Range.Key != "30_days" {
+		t.Fatalf("range key = %q, want 30_days", response.Range.Key)
+	}
+
+	response, err = loadActivitySnapshot(path, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Range.Key != "semester" || response.SnapshotAt == "" {
+		t.Fatalf("unexpected default snapshot: %+v", response)
+	}
+}
 
 func TestActivityPresetUsesEasternAcademicWindows(t *testing.T) {
 	location, err := time.LoadLocation(activityTimezone)
@@ -64,7 +93,7 @@ func TestBuildActivityResponseDeduplicatesVisitorsAndKeepsAllCheckinsInHeatmap(t
 		t.Fatal(err)
 	}
 
-	response, err := buildActivityResponse(db, "semester", now, location)
+	response, err := BuildActivityResponse(db, "semester", now, location)
 	if err != nil {
 		t.Fatal(err)
 	}

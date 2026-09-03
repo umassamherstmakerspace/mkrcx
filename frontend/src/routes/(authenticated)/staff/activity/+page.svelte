@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/stores';
 	import type { ActivityPoint, ActivityRangeKey, ActivityResponse } from '$lib/leash';
 	import type { PageData } from './$types';
 
@@ -29,15 +28,12 @@
 	];
 	const hours = Array.from({ length: 15 }, (_, index) => index + 8);
 
-	let liveActivity: ActivityResponse = data.activity;
-	let activity: ActivityResponse;
-	let selectedRange: ActivityRangeKey = liveActivity.range.key;
+	let activity: ActivityResponse = data.activity;
+	let selectedRange: ActivityRangeKey = activity.range.key;
 	let trendMode: TrendMode = 'daily';
 	let loading = false;
 	let failure = '';
 
-	$: previewing = $page.url.searchParams.get('preview') === '1';
-	$: activity = previewing ? sampleActivity(liveActivity) : liveActivity;
 	$: points = trendPoints(activity, trendMode);
 	$: chartMax = Math.max(1, ...points.map((point) => point.value));
 	$: heatMax = Math.max(1, ...activity.heatmap.map((cell) => cell.checkins));
@@ -61,6 +57,16 @@
 		return hour < 12 ? `${hour}a` : `${hour - 12}p`;
 	}
 
+	function snapshotLabel(value: string): string {
+		return new Intl.DateTimeFormat('en-US', {
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			timeZone: activity.timezone
+		}).format(new Date(value));
+	}
+
 	function heatValue(weekday: number, hour: number): number {
 		return (
 			activity.heatmap.find((cell) => cell.weekday === weekday && cell.hour === hour)?.checkins || 0
@@ -73,102 +79,11 @@
 		return `background-color: rgba(5, 150, 105, ${opacity.toFixed(2)})`;
 	}
 
-	function sampleActivity(source: ActivityResponse): ActivityResponse {
-		let cumulativeVisitors = 0;
-		const daily = source.daily.map((point, index) => {
-			const weekday = new Date(`${point.start}T12:00:00`).getDay();
-			const openDay = weekday >= 1 && weekday <= 5;
-			const wave = Math.round(5 * Math.sin(index / 4) + 3 * Math.cos(index / 9));
-			const visitors = Math.max(0, openDay ? 19 + wave + (weekday === 3 ? 7 : 0) : 2 + wave);
-			const checkins = Math.max(visitors, Math.round(visitors * (1.18 + (index % 4) * 0.06)));
-			const newAccounts = openDay && index % 5 === 1 ? 2 : index % 6 === 0 ? 1 : 0;
-			cumulativeVisitors += visitors;
-			return {
-				...point,
-				visitors,
-				checkins,
-				new_accounts: newAccounts,
-				cumulative_visitors: cumulativeVisitors
-			};
-		});
-
-		let weeklyCumulative = 0;
-		const weekly = source.weekly.map((point, index) => {
-			const nextStart = source.weekly[index + 1]?.start;
-			const days = daily.filter(
-				(day) => day.start >= point.start && (!nextStart || day.start < nextStart)
-			);
-			const dailyVisitors = days.reduce((sum, day) => sum + day.visitors, 0);
-			const visitors = Math.round(dailyVisitors * 0.78);
-			weeklyCumulative += visitors;
-			return {
-				...point,
-				visitors,
-				checkins: days.reduce((sum, day) => sum + day.checkins, 0),
-				new_accounts: days.reduce((sum, day) => sum + day.new_accounts, 0),
-				cumulative_visitors: weeklyCumulative
-			};
-		});
-
-		const lastDay = daily.at(-1) || {
-			visitors: 23,
-			checkins: 29,
-			new_accounts: 1,
-			start: source.range.end,
-			cumulative_visitors: 23
-		};
-		const currentWeek = weekly.at(-1) || lastDay;
-		const totalCheckins = daily.reduce((sum, day) => sum + day.checkins, 0);
-		const totalAccounts = daily.reduce((sum, day) => sum + day.new_accounts, 0);
-
-		const heatmap = weekdays.flatMap((weekday) =>
-			hours.map((hour) => {
-				const weekdayFactor = weekday.value >= 1 && weekday.value <= 5 ? 1 : 0.12;
-				const midday = Math.max(0, 8 - Math.abs(hour - 13) * 2);
-				const afternoon = Math.max(0, 11 - Math.abs(hour - 17) * 2);
-				const dayBoost = weekday.value === 3 ? 4 : weekday.value === 5 ? -2 : 0;
-				return {
-					weekday: weekday.value,
-					hour,
-					checkins: Math.max(0, Math.round((midday + afternoon + dayBoost) * weekdayFactor))
-				};
-			})
-		);
-
-		return {
-			...source,
-			today: {
-				visitors: lastDay.visitors,
-				checkins: lastDay.checkins,
-				new_accounts: lastDay.new_accounts
-			},
-			week: {
-				visitors: currentWeek.visitors,
-				checkins: currentWeek.checkins,
-				new_accounts: currentWeek.new_accounts
-			},
-			selected: {
-				visitors: Math.max(...daily.map((day) => day.cumulative_visitors), 428),
-				checkins: totalCheckins || 612,
-				new_accounts: totalAccounts || 37
-			},
-			daily,
-			weekly,
-			heatmap,
-			coverage: {
-				identified_checkins: totalCheckins,
-				total_checkins: totalCheckins,
-				identified_percent: 100,
-				first_checkin: source.range.start
-			}
-		};
-	}
-
 	async function changeRange(): Promise<void> {
 		loading = true;
 		failure = '';
 		try {
-			liveActivity = await data.api.getActivity(selectedRange);
+			activity = await data.api.getActivity(selectedRange);
 		} catch (error) {
 			failure = error instanceof Error ? error.message : 'Unable to load activity.';
 		} finally {
@@ -216,17 +131,14 @@
 		</div>
 	{/if}
 
-	{#if previewing}
-		<div
-			class="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between"
+	{#if activity.snapshot_at}
+		<p
+			class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100"
 		>
-			<div>
-				<strong>Sample-data preview</strong>
-				<span class="ml-1">These illustrative numbers are not stored anywhere.</span>
-			</div>
-			<a class="font-semibold underline underline-offset-2" href="/staff/activity">Show live data</a
-			>
-		</div>
+			<strong>Real production data</strong> · Snapshot through {snapshotLabel(
+				activity.snapshot_at
+			)}.
+		</p>
 	{/if}
 
 	<section aria-label="Activity summary" class="grid gap-3 sm:grid-cols-3">
@@ -309,15 +221,11 @@
 				</div>
 			</div>
 		{:else}
-			<div
+			<p
 				class="mt-6 rounded-xl bg-gray-50 p-6 text-center text-gray-500 dark:bg-gray-800 dark:text-gray-400"
 			>
-				<p>No activity recorded in this range yet.</p>
-				<a
-					class="mt-3 inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-					href="/staff/activity?preview=1">Preview with sample data</a
-				>
-			</div>
+				No activity recorded in this range yet.
+			</p>
 		{/if}
 	</section>
 

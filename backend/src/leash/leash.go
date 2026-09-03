@@ -18,6 +18,7 @@ func main() {
 	subcommands.Register(&commands.NewServiceUserCmd{}, "")
 	subcommands.Register(&commands.NewApiKeyCmd{}, "")
 	subcommands.Register(&commands.CheckinExportAccessCmd{}, "")
+	subcommands.Register(&commands.ActivitySnapshotCmd{}, "")
 
 	flag.Parse()
 	ctx := context.Background()

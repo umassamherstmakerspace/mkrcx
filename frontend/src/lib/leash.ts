@@ -381,6 +381,7 @@ export interface ActivityPoint extends ActivitySummary {
 
 export interface ActivityResponse {
 	timezone: string;
+	snapshot_at?: string;
 	range: { key: ActivityRangeKey; label: string; start: string; end: string };
 	today: ActivitySummary;
 	week: ActivitySummary;
