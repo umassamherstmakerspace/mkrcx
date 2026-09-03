@@ -1,6 +1,6 @@
 # Printer dashboard — active prototype
 
-Updated: 2026-09-03. Staging deployment authorized and being prepared; not yet staged or connected to printers.
+Updated: 2026-09-03. Staging image built and verified; deployment blocked on VPN access. Not yet staged or connected to printers.
 
 ## Goal and settled design
 
@@ -78,13 +78,45 @@ No dependency or lockfile versions were changed.
 
 ## Next checkpoint
 
-Validation: the anonymous local `/printers` route returned HTTP 200 and compiled without a route
-error. The existing production build passed, including the calendar-worker and calendar-prewarm
-smoke checks. Both new source files were formatted with the existing project formatter. Browser
-interaction and visual QA were not run; the local preview was queued in Codex for Shira's review.
-The running preview uses `http://127.0.0.1:5183/printers`.
+The immediate next action is the already-authorized **staging-only frontend deployment**, after
+the campus/Makerspace VPN is connected. Two bounded SSH attempts could not resolve
+`spence.infra.mkr.cx`; do not substitute a public server address. No Kubernetes mutation occurred.
+The public `https://staging.mkr.cx/` returned HTTP 200 and did not yet have the printer shortcut.
 
-Review the visual prototype with Shira and incorporate feedback. Before staging with real data:
+Prepared artifact (reuse; no new build required):
+
+- Code commit: `b52bfdb4d4eca8e0a3e32d5a134e6643079d0d41` on pushed branch
+  `codex/printer-dashboard-prototype-20260903`.
+- GitHub Actions frontend-only dispatch: [run 33767699164](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33767699164).
+  Frontend tests, both native architecture builds, and manifest publication succeeded. Backend
+  jobs were skipped as intended. All 83 local unit tests and changed-file ESLint also passed.
+- Published and independently registry-verified image:
+  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:04ec3df5bade2f7104430ca795e4d2990f9b3ed1b2f85c2d4fb97819d95e6395`.
+  Registry digest matched; `linux/amd64` and `linux/arm64` are available.
+- The full local formatting pass encountered Windows checkout CRLF in unchanged files. The
+  actual Linux release lint gate passed; unrelated files were not reformatted.
+- Local `/` and `/printers` return HTTP 200; homepage contains both shortcuts. Browser interaction
+  and visual QA were not run. The existing local preview remains at `http://127.0.0.1:5183/printers`.
+
+After VPN access is restored:
+
+1. Read current staging and production deployment images and readiness via
+   `ssh maker@spence.infra.mkr.cx` and `kubectl --kubeconfig=/home/maker/.kube/config`.
+   Record the live staging frontend container name and image as the rollback point. Confirm the
+   old image remains pullable. Read only selected fields; never print Secret values or full envs.
+2. Compare the proposed image-only change for `deployment/mkrcx-frontend-staging`, dry-run it,
+   apply the pinned image above, and verify rollout/readback. Preserve existing staging config,
+   backend, database, authentication, and production deployments. Use a bounded rollout window
+   with rollback to the measured old frontend image if readiness or page verification fails.
+3. Verify anonymous staging `/` and `/printers`, both homepage links, main-menu placement, sample
+   labeling and the expected public table. Record the outcome here and in the root project index.
+   The design preview switch uses only fictional print data; it is not real staff authentication.
+
+The local bounded GitHub helper is `Makerspace/.scratch/printer-dashboard-github.py`; it uses the
+configured Git credential helper in memory and prints only selected build metadata. The build
+image above is already verified; this helper is not a deployment or production permission grant.
+
+After prototype review, before any live-data integration:
 
 1. Replace fixtures with a read-only server integration to printer condition and active-job sources.
    Confirm current fleet coverage; Shira reports four deployed printer UIs, without identifying the
