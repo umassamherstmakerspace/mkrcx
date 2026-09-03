@@ -19,13 +19,13 @@ calendar backed by the private Ag Eng 119 Google Calendar feed. Production is un
 
 ## Implementation and verification
 
-- Source commit: `89b7b1b5a3a016f733e9c58a2b3a9a69fbd3d212` on
+- Deployed source commit: `81e42ce3314f4ce793a78cbb450c1632c80030e9` on
   `codex/printer-dashboard-prototype-20260903`.
-- Frontend-only [GitHub Actions run 33786418583](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33786418583)
+- Frontend-only [GitHub Actions run 33787507579](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33787507579)
   passed the full frontend test/lint gate, both native-architecture builds, and manifest
   publication. Backend jobs were skipped.
 - Deployed, registry-verified image:
-  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:d108f5553fcc631268317666bb08ca203f59190b3d6d8351f7052319b6096f7c`.
+  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:38bff323258e6f0332738aa342cd03abfff0b77e82bc61cd0981460605cbcbe7`.
   Linux amd64 and arm64 are present.
 - The staging manifest secret reference is committed on k8s branch
   `codex/printer-dashboard-staging-ingest-20260903` at `4b7fb45`. No credential value is committed.
@@ -41,8 +41,10 @@ calendar backed by the private Ag Eng 119 Google Calendar feed. Production is un
   available `1/1/1`; the production frontend and both staging/production backends retained their
   prior images and readiness.
 
-Guarded rollback files are `/tmp/room-calendar-staging-rollback.json` on Spence and
-`.scratch/room-calendar-staging-rollback.json` locally. The optional staging-secret removal patch
+The current guarded frontend rollback files are `/tmp/room-calendar-name-staging-rollback.json` on
+Spence and `.scratch/room-calendar-name-staging-rollback.json` locally. The earlier combined
+code/config rollback remains at `/tmp/room-calendar-staging-rollback.json`. The optional
+staging-secret removal patch
 is `/tmp/room-calendar-secret-rollback.json` on Spence and
 `.scratch/room-calendar-secret-rollback.json` locally. Recheck current state before rollback.
 
