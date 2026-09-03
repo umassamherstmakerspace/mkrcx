@@ -368,8 +368,10 @@ export type ActivityRangeKey = 'semester' | 'academic_year' | '30_days';
 
 export interface ActivitySummary {
 	visitors: number;
+	unlinked_card_holders: number;
 	checkins: number;
 	new_accounts: number;
+	newly_linked_cards: number;
 }
 
 export interface ActivityPoint extends ActivitySummary {
@@ -386,12 +388,21 @@ export interface ActivityResponse {
 	selected: ActivitySummary;
 	daily: ActivityPoint[];
 	weekly: ActivityPoint[];
-	heatmap: { weekday: number; hour: number; checkins: number }[];
+	heatmap: { weekday: number; hour: number; members: number }[];
+	academic_years: {
+		label: string;
+		start: string;
+		end: string;
+		new_accounts: number;
+		newly_linked_cards: number;
+		current: boolean;
+	}[];
 	coverage: {
 		identified_checkins: number;
 		total_checkins: number;
 		identified_percent: number;
 		first_checkin?: string;
+		first_card_link?: string;
 	};
 }
 
