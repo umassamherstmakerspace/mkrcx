@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Ag Eng 119 Availability · UMass Makerspace</title>
+	<title>Room 119 Availability · UMass Makerspace</title>
 	<meta
 		name="description"
 		content="See when the UMass Makerspace room in Agricultural Engineering 119 is available."
@@ -19,13 +19,16 @@
 		<header class="mb-5 text-left">
 			<div class="flex flex-wrap items-center gap-3">
 				<h1 id="room-calendar-heading" class="text-3xl font-bold text-gray-950 dark:text-white">
-					Ag Eng 119 availability
+					Room 119 Availability
 				</h1>
 				<span
 					class="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-500 dark:border-gray-600 dark:text-gray-300"
 					>{data.user.isStaff ? 'Staff view' : 'Free/busy view'}</span
 				>
 			</div>
+			<p class="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+				Agricultural Engineering 119
+			</p>
 			<p class="mt-1 text-gray-600 dark:text-gray-300">
 				{data.user.isStaff
 					? 'Select a booking to see its details.'

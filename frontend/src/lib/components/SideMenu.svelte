@@ -75,7 +75,7 @@
 					</svelte:fragment>
 				</SidebarItem>
 				{#if user}
-					<SidebarItem label="Room Availability" href="/room">
+					<SidebarItem label="Room 119 Availability" href="/room">
 						<svelte:fragment slot="icon">
 							<CalendarWeekOutline class={iconClass} />
 						</svelte:fragment>

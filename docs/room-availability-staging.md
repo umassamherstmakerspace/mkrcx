@@ -1,11 +1,11 @@
-# Ag Eng 119 availability — live staging
+# Room 119 Availability — live staging
 
 Updated: 2026-09-03. [Staging](https://staging.mkr.cx/room) has a logged-in room-availability
 calendar backed by the private Ag Eng 119 Google Calendar feed. Production is unchanged.
 
 ## Settled behavior
 
-- The page is available to every authenticated mkr.cx user and is linked as `Room Availability`
+- The page is available to every authenticated mkr.cx user and is linked as `Room 119 Availability`
   in the hamburger menu. Logged-out requests return to the page after login.
 - Ordinary members see only `Busy`, start/end time, and all-day status. The server removes the
   title, description, location, source UID, and every other source-calendar field before returning
@@ -48,7 +48,7 @@ is `/tmp/room-calendar-secret-rollback.json` on Spence and
 
 ## Next checkpoint
 
-Complete one real staff login: confirm the hamburger menu contains `Room Availability`, the page
+Complete one real staff login: confirm the hamburger menu contains `Room 119 Availability`, the page
 shows `Staff view`, bookings have their real titles, and selecting one opens its details. Then use
 an authenticated ordinary-member account or a bounded server-side acceptance fixture to confirm
 the live response contains only `Busy` plus time fields before making a separate production
