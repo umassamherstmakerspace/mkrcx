@@ -98,6 +98,10 @@
 		sortKey = 'condition';
 		sortDirection = 'asc';
 	}
+	function selectMobileSort(event: Event) {
+		sortKey = (event.currentTarget as HTMLSelectElement).value as SortKey;
+		sortDirection = 'asc';
+	}
 	function activityLabel(printer: Printer) {
 		if (disconnected || printer.stale || printer.activity === 'unknown') return 'Unknown';
 		return printer.activity === 'printing'
@@ -155,6 +159,24 @@
 				class="reset-sort"
 				on:click={resetSort}>Restore default order</Button
 			>{/if}
+	</div>
+	<div class="mobile-sort">
+		<label for="mobile-sort-key">Sort</label>
+		<select id="mobile-sort-key" value={sortKey} on:change={selectMobileSort}>
+			<option value="condition">Status</option>
+			<option value="name">Printer</option>
+			<option value="model">Model</option>
+			<option value="activity">Activity</option>
+			<option value="remaining">Est. time left</option>
+		</select>
+		<button
+			type="button"
+			class="mobile-sort-direction"
+			on:click={() => (sortDirection = sortDirection === 'asc' ? 'desc' : 'asc')}
+			aria-label={`Sort ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}
+			title={sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+			>{sortDirection === 'asc' ? '↑' : '↓'}</button
+		>
 	</div>
 	<div
 		class="fleet-table-scroll"
@@ -318,6 +340,121 @@
 			</tbody>
 		</table>
 	</div>
+	<div
+		class="mobile-fleet"
+		role="region"
+		aria-label={staffView ? 'Staff printer fleet status' : 'Public printer fleet status'}
+	>
+		{#each visible as printer (printer.id)}
+			{@const minutes = remainingMinutes(printer, disconnected)}
+			<article
+				class="mobile-printer"
+				class:row-working={printer.condition === 'working'}
+				class:row-limited={printer.condition === 'limited'}
+				class:row-out={printer.condition === 'out'}
+				class:row-stale={disconnected || printer.stale || printer.condition === 'unknown'}
+			>
+				<div class="mobile-primary">
+					{#if staffView}<button
+							class="printer-expand mobile-printer-expand"
+							type="button"
+							aria-expanded={expandedId === printer.id}
+							aria-controls={`mobile-details-${printer.id}`}
+							aria-label={`${expandedId === printer.id ? 'Close' : 'View'} details for ${printer.name}`}
+							on:click={() => (expandedId = expandedId === printer.id ? null : printer.id)}
+							><span class="chevron" class:expanded={expandedId === printer.id} aria-hidden="true"
+								>›</span
+							><span class="mobile-identity"
+								><strong>{printer.name}</strong><span>{printer.model}</span></span
+							></button
+						>{:else}<div class="mobile-identity public-mobile-identity">
+							<strong>{printer.name}</strong><span>{printer.model}</span>
+						</div>{/if}
+					<span class="condition-badge {printer.condition}"
+						><span aria-hidden="true">{conditionIcon(printer.condition)}</span>{conditionText[
+							printer.condition
+						]}</span
+					>
+				</div>
+				<div class="mobile-secondary">
+					<span
+						class:table-printing={printer.activity === 'printing' &&
+							!disconnected &&
+							!printer.stale}>{activityLabel(printer)}</span
+					>
+					{#if minutes !== null}<span
+							class="table-time"
+							title={`Estimated finish ${finishTime(minutes)}`}>~{duration(minutes)} left</span
+						>{:else if printer.activity === 'printing' && !disconnected && !printer.stale}<span
+							class="table-muted">Estimate unavailable</span
+						>{/if}
+				</div>
+				{#if printer.note || printer.stale}<p class="mobile-note table-note">
+						{printer.note ?? 'No recent update.'}
+					</p>{/if}
+				{#if staffView && expandedId === printer.id}<section
+						id={`mobile-details-${printer.id}`}
+						aria-label={`${printer.name} details`}
+						class="print-details mobile-print-details"
+					>
+						<div class="detail-heading">
+							<strong>{printer.name} · Current print</strong><Button
+								color="none"
+								size="xs"
+								class="close-details"
+								on:click={() => (expandedId = null)}>Close</Button
+							>
+						</div>
+						{#if disconnected || printer.stale}<p class="detail-empty">
+								Current print details are unavailable until the printer reconnects.
+							</p>
+						{:else if printer.job && ['printing', 'paused'].includes(printer.activity)}
+							<dl class="detail-fields">
+								<div>
+									<dt>Printing for</dt>
+									<dd>{printer.job.person}</dd>
+								</div>
+								<div>
+									<dt>File</dt>
+									<dd class="filename">{printer.job.file}</dd>
+								</div>
+								<div>
+									<dt>Material</dt>
+									<dd>{printer.job.material}</dd>
+								</div>
+								<div>
+									<dt>Started</dt>
+									<dd>{printer.job.started}</dd>
+								</div>
+								{#if printer.progress !== undefined}<div>
+										<dt>Progress</dt>
+										<dd class="detail-progress">
+											<progress
+												max="100"
+												value={printer.progress}
+												aria-label={`${printer.name} print progress`}
+											></progress><span>{printer.progress}%</span>
+										</dd>
+									</div>{/if}
+							</dl>
+						{:else if printer.activity === 'unknown'}<p class="detail-empty">
+								Current print details are unavailable.
+							</p>
+						{:else}<p class="detail-empty">No current print.</p>{/if}
+						<p class="machine-reference">Machine ID: {printer.machineId ?? 'Not yet recorded'}</p>
+					</section>{/if}
+			</article>
+		{:else}<div class="mobile-empty">
+				<p>
+					{disconnected && ['printing', 'idle'].includes(filter)
+						? 'Live activity is unavailable while updates are interrupted.'
+						: 'No printers with this status.'}
+				</p>
+				<Button color="alternative" size="xs" on:click={() => (filter = 'all')}
+					>Show all printers</Button
+				>
+			</div>{/each}
+	</div>
 	<footer>
 		<p aria-live="polite">
 			{visible.length} of {printers.length} printers · {disconnected
@@ -432,6 +569,10 @@
 	.fleet-table-scroll {
 		overflow-x: auto;
 		border-top: 1px solid var(--line);
+	}
+	.mobile-fleet,
+	.mobile-sort {
+		display: none;
 	}
 	.fleet-table-scroll:focus-within {
 		outline: 2px solid var(--violet);
@@ -747,26 +888,6 @@
 		}
 	}
 	@media (max-width: 760px) {
-		.printer-column {
-			width: 180px;
-		}
-		.model-column {
-			width: 55px;
-		}
-		.condition-column {
-			width: 125px;
-		}
-		.activity-column {
-			width: 65px;
-		}
-		.time-column {
-			width: 100px;
-		}
-		.fleet-table th,
-		.fleet-table td {
-			padding-left: 7px;
-			padding-right: 7px;
-		}
 		.page-heading {
 			flex-wrap: wrap;
 			gap: 8px;
@@ -780,6 +901,137 @@
 		}
 		.toolbar {
 			gap: 8px;
+		}
+		.fleet-table-scroll {
+			display: none;
+		}
+		.mobile-fleet {
+			display: block;
+			border-top: 1px solid var(--line);
+		}
+		.mobile-sort {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			margin-bottom: 10px;
+			font-size: 11px;
+			color: var(--muted);
+		}
+		.mobile-sort select {
+			min-width: 0;
+			max-width: 150px;
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			background: var(--paper);
+			color: var(--ink);
+			padding: 5px 24px 5px 7px;
+			font-size: 11px;
+		}
+		.mobile-sort-direction {
+			width: 29px;
+			height: 29px;
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			color: var(--violet);
+			font-size: 15px;
+		}
+		.mobile-sort select:focus-visible,
+		.mobile-sort-direction:focus-visible {
+			outline: 2px solid var(--violet);
+			outline-offset: 2px;
+		}
+		.mobile-printer {
+			border-bottom: 1px solid var(--line);
+			border-left: 3px solid transparent;
+			padding: 9px 9px 8px;
+			font-size: 12px;
+		}
+		.mobile-printer.row-working {
+			background: var(--green-row);
+			border-left-color: #3d8a5e;
+		}
+		.mobile-printer.row-limited {
+			background: var(--amber-row);
+			border-left-color: #bf8d2b;
+		}
+		.mobile-printer.row-out {
+			background: var(--red-row);
+			border-left-color: #c06a62;
+		}
+		.mobile-printer.row-stale {
+			background: var(--subtle);
+			border-left-color: #99a1ab;
+		}
+		.mobile-primary {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+		}
+		.mobile-printer-expand {
+			min-width: 0;
+			margin: -4px 0;
+			padding: 4px 0;
+		}
+		.mobile-identity {
+			display: flex;
+			align-items: baseline;
+			gap: 7px;
+			min-width: 0;
+		}
+		.mobile-identity strong {
+			font-weight: 650;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.mobile-identity > span {
+			color: var(--muted);
+			font-size: 10px;
+			white-space: nowrap;
+		}
+		.public-mobile-identity {
+			flex: 1;
+		}
+		.mobile-primary .condition-badge {
+			flex-shrink: 0;
+		}
+		.mobile-secondary {
+			display: flex;
+			gap: 8px;
+			padding-left: 15px;
+			margin-top: 4px;
+			font-size: 11px;
+		}
+		.mobile-note {
+			margin: 5px 0 0;
+			padding-left: 15px;
+			font-size: 11px;
+			line-height: 1.4;
+		}
+		.mobile-printer.row-limited .mobile-note {
+			color: var(--amber);
+			font-weight: 550;
+		}
+		.mobile-printer.row-out .mobile-note {
+			color: var(--red);
+		}
+		.mobile-print-details {
+			margin: 9px -9px -8px -12px;
+			padding: 12px 12px 12px 15px;
+			background: var(--paper);
+		}
+		.mobile-print-details .detail-fields {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px 18px;
+		}
+		.mobile-empty {
+			padding: 14px 9px 18px;
+			font-size: 12px;
+		}
+		.mobile-empty p {
+			margin: 0 0 10px;
 		}
 	}
 	@media (max-width: 470px) {
