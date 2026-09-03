@@ -11,7 +11,7 @@
 			href="/note"
 			class="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-left font-semibold text-gray-950 transition hover:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:border-blue-900 dark:bg-blue-950 dark:text-white dark:focus:ring-blue-900"
 		>
-			<span>Send a note</span><span
+			<span>Send us a note</span><span
 				aria-hidden="true"
 				class="text-xl text-blue-800 dark:text-blue-200">→</span
 			>

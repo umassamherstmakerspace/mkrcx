@@ -2,6 +2,9 @@
 
 Updated: 2026-09-03. Deployed to [staging](https://staging.mkr.cx/printers) and verified ready. Sample-data prototype; not connected to printers.
 
+Follow-up prepared locally: rename the homepage button to `Send us a note` and include Laurie
+Anderson in the sample roster. These edits still need release validation and a staging update.
+
 ## Goal and settled design
 
 Create an anonymous mkr.cx printer dashboard that can stay open on slicing computers, with
@@ -15,7 +18,7 @@ Shira confirmed:
 - Current-print person and job details are staff-only. All Makerspace staff can access them.
 - Build a local prototype first. Staging on mkr.cx is a later step when the design is ready.
 - Shira has now authorized staging the sample-data prototype, plus two compact homepage links
-  (`Send a note` and `3D Printer Status`) and a public `3D Printers` menu link directly below Home.
+  (`Send us a note` and `3D Printer Status`) and a public `3D Printers` menu link directly below Home.
   Production deployment and live printer integration are outside this staging step.
 - Programmatic remote condition updates remain a later phase.
 - Visual feedback: remove repeated Makerspace branding, the introductory slogan and the
@@ -47,8 +50,13 @@ filename, material and job details. Resolve this if Shira intends to hide time e
 
 - Isolated copy of `umassamherstmakerspace/mkrcx`, based on `f45eaeae894846834257cd0c2a3d3c62de1882cc`.
 - `frontend/src/routes/printers/+page.svelte` adds `/printers` within the existing portal layout.
-- `frontend/src/lib/printers/prototype-data.ts` contains 15 real fleet names with entirely
+- `frontend/src/lib/printers/prototype-data.ts` now contains 16 real fleet names with entirely
   invented condition, activity, note, time and person fixtures. No sample status is operational truth.
+- Laurie Anderson was omitted from the initial 15-name prototype. The fleet seed and the design
+  checkout's inventory both identify her as `fdm-k1max-anderson`, a K1 Max; the discovery inventory
+  has no hardware ID for her. The corrected roster uses that inventory key, leaves Machine ID
+  `Not yet recorded`, and shows unknown sample condition/activity. Historical repair notes are
+  not asserted as current status. Row identity and displayed machine ID are now separate fields.
 - Public notes, independent condition/activity, time estimates, status filters, fictional staff
   preview, and interrupted-update preview are implemented. Both views are sortable tables with
   Printer, Model, Status, Activity, Est. time left and Notes columns. Staff details expand inline.
@@ -127,7 +135,18 @@ image above is already verified; this helper is not a deployment or production p
 
 ## Next checkpoint
 
-Shira reviews the staged design and navigation. After prototype review, before any live-data integration:
+Finish validation and stage the small follow-up above on the existing feature branch. Local
+formatting completed, but the sandbox blocked the build's parent-directory access; automatic
+approval review for the build retry returned HTTP 404. Use the existing frontend-only CI release
+gate when available. Staging remains the previously verified 15-printer prototype until a new
+rollout is explicitly recorded here.
+
+The user can select `Staff preview` on `/printers` without login, then select a printer name to
+expand fictional job details. The existing staging `/login` route is separate from this preview;
+signing in does not switch its audience. A requested read-only login redirect check also received
+an automatic approval-service HTTP 404 before execution, so no new login-session test is claimed.
+
+After prototype review, before any live-data integration:
 
 1. Replace fixtures with a read-only server integration to printer condition and active-job sources.
    Confirm current fleet coverage; Shira reports four deployed printer UIs, without identifying the

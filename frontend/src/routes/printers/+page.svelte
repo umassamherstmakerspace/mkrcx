@@ -275,9 +275,12 @@
 													</dd>
 												</div>{/if}
 										</dl>
+									{:else if printer.activity === 'unknown'}<p class="detail-empty">
+											Current print details are unavailable.
+										</p>
 									{:else}<p class="detail-empty">No current print.</p>{/if}
 									<p class="machine-reference">
-										Machine ID: {printer.model === 'K1 Max' ? 'K1MAX' : printer.model}-{printer.id}
+										Machine ID: {printer.machineId ?? 'Not yet recorded'}
 									</p>
 								</section></td
 							></tr

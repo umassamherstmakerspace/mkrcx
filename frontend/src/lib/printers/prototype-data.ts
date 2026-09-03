@@ -3,6 +3,7 @@ export type Condition = 'working' | 'limited' | 'out' | 'unknown';
 export type Activity = 'idle' | 'printing' | 'paused' | 'unknown';
 export type Printer = {
 	id: string;
+	machineId?: string;
 	name: string;
 	model: 'K1' | 'K1C' | 'K1 Max';
 	condition: Condition;
@@ -15,9 +16,17 @@ export type Printer = {
 };
 
 export const printers: Printer[] = [
-	{ id: '1F44', name: 'Doris Salcedo', model: 'K1C', condition: 'working', activity: 'idle' },
+	{
+		id: '1F44',
+		machineId: 'K1C-1F44',
+		name: 'Doris Salcedo',
+		model: 'K1C',
+		condition: 'working',
+		activity: 'idle'
+	},
 	{
 		id: '1F94',
+		machineId: 'K1C-1F94',
 		name: 'Simone Leigh',
 		model: 'K1C',
 		condition: 'working',
@@ -33,6 +42,7 @@ export const printers: Printer[] = [
 	},
 	{
 		id: 'D101',
+		machineId: 'K1MAX-D101',
 		name: 'Arthur Ganson',
 		model: 'K1 Max',
 		condition: 'limited',
@@ -41,6 +51,7 @@ export const printers: Printer[] = [
 	},
 	{
 		id: '1F65',
+		machineId: 'K1C-1F65',
 		name: 'Gabriela Salazar',
 		model: 'K1C',
 		condition: 'out',
@@ -49,6 +60,7 @@ export const printers: Printer[] = [
 	},
 	{
 		id: '30EB',
+		machineId: 'K1-30EB',
 		name: 'Richard Serra',
 		model: 'K1',
 		condition: 'working',
@@ -62,9 +74,17 @@ export const printers: Printer[] = [
 			started: '1:05 PM'
 		}
 	},
-	{ id: '32B8', name: 'Louise Bourgeois', model: 'K1', condition: 'working', activity: 'idle' },
+	{
+		id: '32B8',
+		machineId: 'K1-32B8',
+		name: 'Louise Bourgeois',
+		model: 'K1',
+		condition: 'working',
+		activity: 'idle'
+	},
 	{
 		id: '69BA',
+		machineId: 'K1-69BA',
 		name: 'Julie Mehretu',
 		model: 'K1',
 		condition: 'limited',
@@ -81,6 +101,7 @@ export const printers: Printer[] = [
 	},
 	{
 		id: '791A',
+		machineId: 'K1-791A',
 		name: 'Cai Guo-Qiang',
 		model: 'K1',
 		condition: 'working',
@@ -93,9 +114,17 @@ export const printers: Printer[] = [
 			started: '12:40 PM'
 		}
 	},
-	{ id: '1C58', name: 'Jean Tinguely', model: 'K1C', condition: 'working', activity: 'idle' },
+	{
+		id: '1C58',
+		machineId: 'K1C-1C58',
+		name: 'Jean Tinguely',
+		model: 'K1C',
+		condition: 'working',
+		activity: 'idle'
+	},
 	{
 		id: '1D56',
+		machineId: 'K1C-1D56',
 		name: 'Alexander Calder',
 		model: 'K1C',
 		condition: 'unknown',
@@ -104,6 +133,7 @@ export const printers: Printer[] = [
 	},
 	{
 		id: '2A33',
+		machineId: 'K1MAX-2A33',
 		name: 'Matthew Barney',
 		model: 'K1 Max',
 		condition: 'working',
@@ -117,10 +147,32 @@ export const printers: Printer[] = [
 			started: '12:55 PM'
 		}
 	},
-	{ id: 'D103', name: 'George Rickey', model: 'K1 Max', condition: 'working', activity: 'idle' },
-	{ id: 'D949', name: 'Douglas Tilden', model: 'K1 Max', condition: 'working', activity: 'idle' },
+	{
+		id: 'D103',
+		machineId: 'K1MAX-D103',
+		name: 'George Rickey',
+		model: 'K1 Max',
+		condition: 'working',
+		activity: 'idle'
+	},
+	{
+		id: 'D949',
+		machineId: 'K1MAX-D949',
+		name: 'Douglas Tilden',
+		model: 'K1 Max',
+		condition: 'working',
+		activity: 'idle'
+	},
+	{
+		id: 'fdm-k1max-anderson',
+		name: 'Laurie Anderson',
+		model: 'K1 Max',
+		condition: 'unknown',
+		activity: 'unknown'
+	},
 	{
 		id: 'D973',
+		machineId: 'K1MAX-D973',
 		name: 'Augusta Savage',
 		model: 'K1 Max',
 		condition: 'out',
@@ -129,6 +181,7 @@ export const printers: Printer[] = [
 	},
 	{
 		id: 'FB47',
+		machineId: 'K1MAX-FB47',
 		name: 'Tim Hawkinson',
 		model: 'K1 Max',
 		condition: 'working',
