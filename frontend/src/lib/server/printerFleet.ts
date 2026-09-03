@@ -69,7 +69,8 @@ export function fleetResponse(staff: boolean, now = Date.now()) {
 			activity: reading.activity,
 			note: reading.note,
 			minutes: reading.minutes,
-			progress: reading.progress
+			progress: reading.progress,
+			stale: false
 		};
 		return staff && reading.job ? { ...publicFields, job: reading.job } : publicFields;
 	});

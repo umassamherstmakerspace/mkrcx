@@ -36,7 +36,9 @@ describe('printer fleet server boundary', () => {
 	});
 	it('removes job details from public data and retains them for staff', () => {
 		acceptSnapshot(snapshot(), now);
-		expect(fleetResponse(false, now).printers.some(({ job }) => job)).toBe(false);
+		const publicResponse = fleetResponse(false, now);
+		expect(publicResponse.printers.some(({ job }) => job)).toBe(false);
+		expect(publicResponse.printers.every(({ stale }) => stale === false)).toBe(true);
 		expect(fleetResponse(true, now).printers.find(({ id }) => id === 'k1c-1f44')?.job?.person).toBe(
 			'Student Name'
 		);
