@@ -19,6 +19,7 @@ describe('printer fleet ordering', () => {
 			'Arthur Ganson',
 			'Augusta Savage',
 			'Gabriela Salazar',
+			'Laurie Anderson',
 			'Alexander Calder'
 		]);
 	});
@@ -26,7 +27,7 @@ describe('printer fleet ordering', () => {
 		const original = printers.map((printer) => printer.id);
 		expect(sortFleet(printers, 'name', 'asc')[0].name).toBe('Alexander Calder');
 		expect(sortFleet(printers, 'name', 'desc')[0].name).toBe('Tim Hawkinson');
-		expect(sortFleet(printers, 'condition', 'desc')[0].name).toBe('Alexander Calder');
+		expect(sortFleet(printers, 'condition', 'desc')[0].name).toBe('Laurie Anderson');
 		expect(printers.map((printer) => printer.id)).toEqual(original);
 	});
 	it('sorts known estimates numerically and keeps unavailable estimates last in both directions', () => {
