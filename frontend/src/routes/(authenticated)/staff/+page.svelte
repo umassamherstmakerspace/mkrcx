@@ -13,6 +13,24 @@
 	<section aria-labelledby="staff-tools-heading">
 		<h2 id="staff-tools-heading" class="sr-only">Staff tools</h2>
 		<div class="grid gap-3 md:grid-cols-2">
+			{#if data.user.canReadActivity}
+				<a
+					href="/staff/activity"
+					class="group flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-left transition hover:border-emerald-400 hover:shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-200 dark:border-emerald-900 dark:bg-emerald-950 dark:focus:ring-emerald-900"
+				>
+					<span>
+						<span class="block text-lg font-semibold text-gray-950 dark:text-white">Activity</span>
+						<span class="mt-1 block text-sm text-gray-700 dark:text-gray-200"
+							>See unique visitors, new accounts, trends, and busy arrival times.</span
+						>
+					</span>
+					<span
+						aria-hidden="true"
+						class="text-2xl text-emerald-700 transition group-hover:translate-x-1">→</span
+					>
+				</a>
+			{/if}
+
 			<a
 				href="/staff/schedule"
 				class="group flex items-center justify-between gap-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-left transition hover:border-violet-400 hover:shadow-sm focus:outline-none focus:ring-4 focus:ring-violet-200 dark:border-violet-900 dark:bg-violet-950 dark:focus:ring-violet-900"
