@@ -1,6 +1,6 @@
 # Printer dashboard — active prototype
 
-Updated: 2026-09-03. Staging image built and verified; deployment blocked on VPN access. Not yet staged or connected to printers.
+Updated: 2026-09-03. Deployed to [staging](https://staging.mkr.cx/printers) and verified ready. Sample-data prototype; not connected to printers.
 
 ## Goal and settled design
 
@@ -76,14 +76,12 @@ The local pnpm build approvals are limited to existing locked packages `@parcel/
 `esbuild` and `svelte-preprocess`, recorded by `pnpm approve-builds` in `frontend/pnpm-workspace.yaml`.
 No dependency or lockfile versions were changed.
 
-## Next checkpoint
+## Staging deployment
 
-The immediate next action is the already-authorized **staging-only frontend deployment**, after
-the campus/Makerspace VPN is connected. Two bounded SSH attempts could not resolve
-`spence.infra.mkr.cx`; do not substitute a public server address. No Kubernetes mutation occurred.
-The public `https://staging.mkr.cx/` returned HTTP 200 and did not yet have the printer shortcut.
+The authorized staging-only frontend deployment completed after Shira confirmed VPN access.
+Review the [homepage](https://staging.mkr.cx/) and [printer dashboard](https://staging.mkr.cx/printers).
 
-Prepared artifact (reuse; no new build required):
+Deployed artifact (reuse; no new build required):
 
 - Code commit: `b52bfdb4d4eca8e0a3e32d5a134e6643079d0d41` on pushed branch
   `codex/printer-dashboard-prototype-20260903`.
@@ -95,28 +93,41 @@ Prepared artifact (reuse; no new build required):
   Registry digest matched; `linux/amd64` and `linux/arm64` are available.
 - The full local formatting pass encountered Windows checkout CRLF in unchanged files. The
   actual Linux release lint gate passed; unrelated files were not reformatted.
-- Local `/` and `/printers` return HTTP 200; homepage contains both shortcuts. Browser interaction
-  and visual QA were not run. The existing local preview remains at `http://127.0.0.1:5183/printers`.
+- Local `/` and `/printers` returned HTTP 200; homepage contained both shortcuts. Browser interaction
+  and visual QA were not run.
 
-After VPN access is restored:
+Deployment evidence:
 
-1. Read current staging and production deployment images and readiness via
-   `ssh maker@spence.infra.mkr.cx` and `kubectl --kubeconfig=/home/maker/.kube/config`.
-   Record the live staging frontend container name and image as the rollback point. Confirm the
-   old image remains pullable. Read only selected fields; never print Secret values or full envs.
-2. Compare the proposed image-only change for `deployment/mkrcx-frontend-staging`, dry-run it,
-   apply the pinned image above, and verify rollout/readback. Preserve existing staging config,
-   backend, database, authentication, and production deployments. Use a bounded rollout window
-   with rollback to the measured old frontend image if readiness or page verification fails.
-3. Verify anonymous staging `/` and `/printers`, both homepage links, main-menu placement, sample
-   labeling and the expected public table. Record the outcome here and in the root project index.
-   The design preview switch uses only fictional print data; it is not real staff authentication.
+- Used `ssh maker@spence.infra.mkr.cx` and `kubectl --kubeconfig=/home/maker/.kube/config`.
+  The image-only JSON patch tested the existing container name and old image before replacement.
+  Server dry-run, apply, and bounded rollout all succeeded for `deployment/mkrcx-frontend-staging`,
+  container `mkrcx-frontend`. Readback matched the exact published digest, with ready/updated/available
+  replicas all `1/1/1`.
+- Production frontend and both staging/production backend images were unchanged and ready.
+  Existing staging configuration, database and authentication were preserved.
+- Anonymous staging `/` and `/printers` returned HTTP 200. The homepage contained both compact
+  shortcuts; the printer page contained 15 rows and the sample-data label, omitted the fictional
+  print owner from public HTML, and had no Notes sorting control.
+- One initial assertion incorrectly expected two printer links in homepage HTML. The menu drawer
+  renders its links only when opened, so the one homepage link is correct. Source inspection
+  confirmed the public `3D Printers` menu item directly below Home. No menu interaction test was run.
+  A redundant corrected HTTP recheck was not executed because automatic approval review returned
+  HTTP 404 twice; the earlier successful HTTP results and deployment readback remain the evidence.
+- The staff preview switch uses only fictional print data; it is not real staff authentication.
+
+Rollback point, measured before deployment and verified pullable for both architectures:
+`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:a5569f646c7008551195e54773537649c645e011ecae2ab1fc347c5768c35ed7`.
+The guarded reverse patch is `/tmp/printer-dashboard-staging-rollback.json` on Spence, also saved
+as `Makerspace/.scratch/printer-dashboard-staging-rollback.json`. It tests the deployed candidate
+before replacing only its image; recheck current state before any future rollback.
 
 The local bounded GitHub helper is `Makerspace/.scratch/printer-dashboard-github.py`; it uses the
 configured Git credential helper in memory and prints only selected build metadata. The build
 image above is already verified; this helper is not a deployment or production permission grant.
 
-After prototype review, before any live-data integration:
+## Next checkpoint
+
+Shira reviews the staged design and navigation. After prototype review, before any live-data integration:
 
 1. Replace fixtures with a read-only server integration to printer condition and active-job sources.
    Confirm current fleet coverage; Shira reports four deployed printer UIs, without identifying the
