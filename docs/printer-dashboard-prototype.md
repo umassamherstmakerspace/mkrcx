@@ -13,6 +13,10 @@ from the central printer Pi. Production is unchanged.
   `Unknown / unassigned` when it cannot correlate an exact active file to a user.
 - The fleet is a dense sortable list. Default order is green, yellow, red, unavailable; within
   condition, active precedes idle, then K1 Max precedes K1/K1C, then printer name.
+- On screens 760 px wide or narrower, the desktop table becomes a compact stacked list with no
+  horizontal scrolling. Each row keeps the printer, model, condition, activity, estimate and any
+  public note visible; a compact select and direction button preserve sorting. Staff details expand
+  inside the same row.
 - Notes are visible but not sortable. Search is intentionally absent.
 - The homepage has compact `Send us a note` and `3D Printer Status` links. The public menu has
   `3D Printers` directly below Home.
@@ -44,13 +48,13 @@ from the central printer Pi. Production is unchanged.
 
 ## Verification and deployment
 
-- Deployed source: `518f526813639408f14705de0162c338f2dfefa0` on
+- Deployed source: `412d2934b4ae8ce7db45eed961a2f788736c60b6` on
   `codex/printer-dashboard-prototype-20260903`.
-- Frontend-only [GitHub Actions run 33781974815](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33781974815)
+- Frontend-only [GitHub Actions run 33784601397](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33784601397)
   passed release lint, all unit tests, both native-architecture builds, and manifest publication.
   Backend jobs were skipped. Seven focused local fleet/privacy tests passed.
 - Deployed, independently registry-verified image:
-  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:aab895b67fb252d7eded87529196207f3d3e5819b5ece01ff6baccb305c09b1a`.
+  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:5e65b824931c2e55f83dd21bdb5f9755ea6aafb42f83c11c2213fd66ee8fd63b`.
   Linux amd64 and arm64 are present.
 - Staging rollout completed at ready/updated/available `1/1/1`. Production frontend and both
   staging/production backends retained their prior image digests and readiness.
@@ -67,6 +71,9 @@ from the central printer Pi. Production is unchanged.
   ingest endpoint returned 401 without its credential. Focused tests prove incomplete, duplicate,
   and stale snapshots are rejected; public responses strip jobs; staff responses retain them; and
   expired readings fail closed.
+- At a 390 × 844 browser viewport, the live page displayed all 16 mobile rows, hid the desktop
+  table, showed the mobile sort control, and measured 390 px document width at a 390 px viewport.
+  This proves the staged printer list has no horizontal page overflow at that phone size.
 - A real collector interruption made every condition/activity unavailable after 90 seconds and
   exposed no job fields. Restarting one refresh restored current data. Both existing Pi services
   remained active. A local assertion command returned exit 1 because its PowerShell dictionary
@@ -74,9 +81,9 @@ from the central printer Pi. Production is unchanged.
   confirmed current data; this was a test-command defect, not a product failure.
 
 Rollback frontend image:
-`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:c9dae9fafe1789e58cdc620f6d2c3d258f1acb810d2c0b995ab47413ba0112af`.
-The guarded staging reverse patch is `/tmp/printer-dashboard-live-staging-rollback.json` on Spence
-and `.scratch/printer-dashboard-live-staging-rollback.json` locally. The prepared Pi sidecar
+`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:aab895b67fb252d7eded87529196207f3d3e5819b5ece01ff6baccb305c09b1a`.
+The guarded staging reverse patch is `.scratch/printer-dashboard-mobile-staging-rollback.json`
+locally. The prepared Pi sidecar
 rollback is `.scratch/rollback-printer-fleet-collector.sh`. Recheck live state before rollback.
 
 ## Next checkpoint
