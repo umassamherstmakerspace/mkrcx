@@ -2,9 +2,8 @@
 
 Updated: 2026-09-03. Deployed to [staging](https://staging.mkr.cx/printers) and verified ready. Sample-data prototype; not connected to printers.
 
-Follow-up committed and pushed as `42df017`: rename the homepage button to `Send us a note` and
-include Laurie Anderson in the sample roster. These edits still need release validation and a
-staging update; automatic approval review rejected the build dispatch with a service HTTP 404.
+The staged follow-up includes `Send us a note`, Laurie Anderson in the 16-printer roster, and
+material types without filament colors. The earlier approval-service blocker is resolved.
 
 ## Goal and settled design
 
@@ -94,18 +93,18 @@ Review the [homepage](https://staging.mkr.cx/) and [printer dashboard](https://s
 
 Deployed artifact (reuse; no new build required):
 
-- Code commit: `b52bfdb4d4eca8e0a3e32d5a134e6643079d0d41` on pushed branch
+- Code commit: `bc485873751da587f8fc0e85a76870aadb990e4e` on pushed branch
   `codex/printer-dashboard-prototype-20260903`.
-- GitHub Actions frontend-only dispatch: [run 33767699164](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33767699164).
+- GitHub Actions frontend-only dispatch: [run 33779563235](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33779563235).
   Frontend tests, both native architecture builds, and manifest publication succeeded. Backend
-  jobs were skipped as intended. All 83 local unit tests and changed-file ESLint also passed.
+  jobs were skipped as intended. Release lint, all 83 unit tests, and the frontend build passed.
+  The four focused local fleet tests also passed after updating expectations for Laurie.
 - Published and independently registry-verified image:
-  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:04ec3df5bade2f7104430ca795e4d2990f9b3ed1b2f85c2d4fb97819d95e6395`.
+  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:c9dae9fafe1789e58cdc620f6d2c3d258f1acb810d2c0b995ab47413ba0112af`.
   Registry digest matched; `linux/amd64` and `linux/arm64` are available.
 - The full local formatting pass encountered Windows checkout CRLF in unchanged files. The
   actual Linux release lint gate passed; unrelated files were not reformatted.
-- Local `/` and `/printers` returned HTTP 200; homepage contained both shortcuts. Browser interaction
-  and visual QA were not run.
+- The current release build was validated in CI. Browser interaction and visual QA were not run.
 
 Deployment evidence:
 
@@ -117,19 +116,19 @@ Deployment evidence:
 - Production frontend and both staging/production backend images were unchanged and ready.
   Existing staging configuration, database and authentication were preserved.
 - Anonymous staging `/` and `/printers` returned HTTP 200. The homepage contained both compact
-  shortcuts; the printer page contained 15 rows and the sample-data label, omitted the fictional
-  print owner from public HTML, and had no Notes sorting control.
-- One initial assertion incorrectly expected two printer links in homepage HTML. The menu drawer
-  renders its links only when opened, so the one homepage link is correct. Source inspection
-  confirmed the public `3D Printers` menu item directly below Home. No menu interaction test was run.
-  A redundant corrected HTTP recheck was not executed because automatic approval review returned
-  HTTP 404 twice; the earlier successful HTTP results and deployment readback remain the evidence.
+  shortcuts and `Send us a note`; the printer page contained 16 rows including Laurie Anderson,
+  the sample-data label, and Staff preview control. Public HTML omitted the fictional print owner
+  and had no Notes sorting control. All ten HTTP acceptance checks passed.
+- Source inspection confirmed all six sample jobs contain only `PLA` or `PETG`, without colors.
+  The exact validated source is pinned by the deployed image digest above.
+- The menu drawer renders its links only when opened. Source inspection confirmed the public
+  `3D Printers` menu item directly below Home; no menu interaction test was run.
 - The staff preview switch uses only fictional print data; it is not real staff authentication.
 
 Rollback point, measured before deployment and verified pullable for both architectures:
-`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:a5569f646c7008551195e54773537649c645e011ecae2ab1fc347c5768c35ed7`.
-The guarded reverse patch is `/tmp/printer-dashboard-staging-rollback.json` on Spence, also saved
-as `Makerspace/.scratch/printer-dashboard-staging-rollback.json`. It tests the deployed candidate
+`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:04ec3df5bade2f7104430ca795e4d2990f9b3ed1b2f85c2d4fb97819d95e6395`.
+The guarded reverse patch is `/tmp/printer-dashboard-staging-bc48587-rollback.json` on Spence, also
+saved as `Makerspace/.scratch/printer-dashboard-staging-bc48587-rollback.json`. It tests the deployed candidate
 before replacing only its image; recheck current state before any future rollback.
 
 The local bounded GitHub helper is `Makerspace/.scratch/printer-dashboard-github.py`; it uses the
@@ -138,21 +137,13 @@ image above is already verified; this helper is not a deployment or production p
 
 ## Next checkpoint
 
-Shira explicitly authorized another staging retry and corrected material display to omit colors.
-Finish validation and stage the latest feature-branch commit including that correction and `42df017`.
-Local formatting and
-`git diff --check` completed; the source diff was reviewed. The sandbox blocked the build's
-parent-directory access; automatic approval review for the build retry returned HTTP 404. The
-commit was pushed successfully, but the existing helper's frontend-only workflow dispatch was
-also rejected with an automatic approval-service HTTP 404 before execution. No new build or
-deployment has been initiated. Resume the existing frontend-only CI gate when approval review
-works; staging remains the previously verified 15-printer prototype until a new rollout is
-explicitly recorded here.
+Shira reviews the updated staged prototype. All requested follow-up edits are deployed; there is
+no remaining staging-build or approval-service blocker.
 
 The user can select `Staff preview` on `/printers` without login, then select a printer name to
 expand fictional job details. The existing staging `/login` route is separate from this preview;
-signing in does not switch its audience. A requested read-only login redirect check also received
-an automatic approval-service HTTP 404 before execution, so no new login-session test is claimed.
+signing in does not switch its audience. A read-only check of `/login?return_to=%2Fprinters`
+successfully reached Google's sign-in page (HTTP 200). No account sign-in was performed.
 
 After prototype review, before any live-data integration:
 
