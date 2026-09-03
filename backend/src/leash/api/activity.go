@@ -230,14 +230,24 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		return activityResponse{}, err
 	}
 
-	var links []activityCardLink
+	var linkUpdates []activityCardLink
 	if err := db.Unscoped().Table("user_updates").
-		Select("user_id, MIN(created_at) AS created_at").
+		Select("user_id", "created_at").
 		Where("field = ? AND old_value = ? AND new_value <> ?", "card_id", "", "").
-		Group("user_id").
-		Having("MIN(created_at) >= ? AND MIN(created_at) < ?", comparisonStart.UTC(), rangeEnd.UTC()).
-		Order("created_at ASC").Scan(&links).Error; err != nil {
+		Where("created_at < ?", rangeEnd.UTC()).
+		Order("created_at ASC").Scan(&linkUpdates).Error; err != nil {
 		return activityResponse{}, err
+	}
+	links := make([]activityCardLink, 0, len(linkUpdates))
+	linkedUsers := map[uint]struct{}{}
+	for _, link := range linkUpdates {
+		if _, exists := linkedUsers[link.UserID]; exists {
+			continue
+		}
+		linkedUsers[link.UserID] = struct{}{}
+		if !link.CreatedAt.Before(comparisonStart.UTC()) {
+			links = append(links, link)
+		}
 	}
 
 	response := activityResponse{
