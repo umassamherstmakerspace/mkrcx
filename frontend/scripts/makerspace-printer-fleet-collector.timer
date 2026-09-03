@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh Makerspace printer fleet dashboard
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=20s
+AccuracySec=2s
+RandomizedDelaySec=2s
+Persistent=true
+Unit=makerspace-printer-fleet-collector.service
+
+[Install]
+WantedBy=timers.target
