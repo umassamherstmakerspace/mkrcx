@@ -175,6 +175,10 @@ func SetupCasbin(enforcer *casbin.SyncedEnforcer) error {
 	check(enforcer.AddPermissionForUser(admin, "leash.feeds:manage"))
 	check(enforcer.AddPermissionForUser(admin, "leash.feeds:append"))
 
+	// Aggregate activity reporting contains no member-level records and is
+	// available to the volunteer-and-staff team.
+	check(enforcer.AddPermissionForUser(volunteer, "leash.activity:read"))
+
 	if setupErr != nil {
 		return fmt.Errorf("configure Casbin policy: %w", setupErr)
 	}

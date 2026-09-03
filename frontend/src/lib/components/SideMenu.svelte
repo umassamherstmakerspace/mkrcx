@@ -99,6 +99,9 @@
 								<LockSolid class={iconClass} />
 							</svelte:fragment>
 							<SidebarDropdownItem label="Home" href="/staff" />
+							{#if user.canReadActivity}
+								<SidebarDropdownItem label="Activity" href="/staff/activity" />
+							{/if}
 							<SidebarDropdownItem label="Staff Calendar" href="/staff/schedule" />
 							{#if user.canListFeeds}
 								<SidebarDropdownItem label="Front Desk Check-in HUD" href="/staff/feeds/1" />

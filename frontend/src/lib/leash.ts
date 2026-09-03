@@ -96,7 +96,8 @@ export const allPermissions = [
 	'leash.feeds.signin:read',
 	'leash.feeds.signin:append',
 	'leash.checkins:record',
-	'leash.checkins:export'
+	'leash.checkins:export',
+	'leash.activity:read'
 ];
 
 export const permissionOptions = allPermissions.map((permission) => ({
@@ -361,6 +362,48 @@ export interface LeashFeedItemListOptions {
 	afterId?: number;
 	beforeId?: number;
 	limit?: number;
+}
+
+export type ActivityRangeKey = 'semester' | 'academic_year' | '30_days';
+
+export interface ActivitySummary {
+	visitors: number;
+	unlinked_card_holders: number;
+	checkins: number;
+	new_accounts: number;
+	newly_linked_cards: number;
+}
+
+export interface ActivityPoint extends ActivitySummary {
+	start: string;
+	cumulative_visitors: number;
+}
+
+export interface ActivityResponse {
+	timezone: string;
+	snapshot_at?: string;
+	range: { key: ActivityRangeKey; label: string; start: string; end: string };
+	today: ActivitySummary;
+	week: ActivitySummary;
+	selected: ActivitySummary;
+	daily: ActivityPoint[];
+	weekly: ActivityPoint[];
+	heatmap: { weekday: number; hour: number; members: number }[];
+	academic_years: {
+		label: string;
+		start: string;
+		end: string;
+		new_accounts: number;
+		newly_linked_cards: number;
+		current: boolean;
+	}[];
+	coverage: {
+		identified_checkins: number;
+		total_checkins: number;
+		identified_percent: number;
+		first_checkin?: string;
+		first_card_link?: string;
+	};
 }
 
 export interface LeashFeedReadyEvent {
@@ -698,6 +741,10 @@ export class LeashAPI {
 		return response.data;
 	}
 
+	public async getActivity(range: ActivityRangeKey): Promise<ActivityResponse> {
+		return this.leashGet<ActivityResponse>('/api/activity', { range }, true);
+	}
+
 	public async downloadCheckinCSV(
 		start: Date,
 		end: Date
@@ -989,6 +1036,13 @@ export class User {
 
 	get canExportCheckins(): boolean {
 		return hasCheckinExportAccess(this);
+	}
+
+	get canReadActivity(): boolean {
+		return (
+			this.roleNumber >= Role.USER_ROLE_VOLUNTEER ||
+			this.permissions.includes('leash.activity:read')
+		);
 	}
 
 	async getTrainings(
