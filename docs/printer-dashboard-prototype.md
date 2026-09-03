@@ -2,8 +2,9 @@
 
 Updated: 2026-09-03. Deployed to [staging](https://staging.mkr.cx/printers) and verified ready. Sample-data prototype; not connected to printers.
 
-Follow-up prepared locally: rename the homepage button to `Send us a note` and include Laurie
-Anderson in the sample roster. These edits still need release validation and a staging update.
+Follow-up committed and pushed as `42df017`: rename the homepage button to `Send us a note` and
+include Laurie Anderson in the sample roster. These edits still need release validation and a
+staging update; automatic approval review rejected the build dispatch with a service HTTP 404.
 
 ## Goal and settled design
 
@@ -135,11 +136,14 @@ image above is already verified; this helper is not a deployment or production p
 
 ## Next checkpoint
 
-Finish validation and stage the small follow-up above on the existing feature branch. Local
-formatting completed, but the sandbox blocked the build's parent-directory access; automatic
-approval review for the build retry returned HTTP 404. Use the existing frontend-only CI release
-gate when available. Staging remains the previously verified 15-printer prototype until a new
-rollout is explicitly recorded here.
+Finish validation and stage commit `42df017` on the existing feature branch. Local formatting and
+`git diff --check` completed; the source diff was reviewed. The sandbox blocked the build's
+parent-directory access; automatic approval review for the build retry returned HTTP 404. The
+commit was pushed successfully, but the existing helper's frontend-only workflow dispatch was
+also rejected with an automatic approval-service HTTP 404 before execution. No new build or
+deployment has been initiated. Resume the existing frontend-only CI gate when approval review
+works; staging remains the previously verified 15-printer prototype until a new rollout is
+explicitly recorded here.
 
 The user can select `Staff preview` on `/printers` without login, then select a printer name to
 expand fictional job details. The existing staging `/login` route is separate from this preview;
