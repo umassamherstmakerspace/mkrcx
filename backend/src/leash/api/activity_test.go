@@ -65,8 +65,11 @@ func TestActivityPresetUsesEasternAcademicWindows(t *testing.T) {
 	}
 }
 
-func TestBuildActivityResponseDeduplicatesVisitorsAndKeepsAllCheckinsInHeatmap(t *testing.T) {
+func TestBuildActivityResponseSeparatesLinkedAndUnlinkedMembers(t *testing.T) {
 	db := newCheckinExportTestDB(t)
+	if err := db.AutoMigrate(&models.UserUpdate{}); err != nil {
+		t.Fatal(err)
+	}
 	location, err := time.LoadLocation(activityTimezone)
 	if err != nil {
 		t.Fatal(err)
@@ -74,12 +77,13 @@ func TestBuildActivityResponseDeduplicatesVisitorsAndKeepsAllCheckinsInHeatmap(t
 	now := time.Date(2026, time.September, 3, 14, 0, 0, 0, location)
 
 	events := []models.CheckinEvent{
-		{OccurredAt: time.Date(2026, time.August, 3, 10, 0, 0, 0, location).UTC(), MemberUUID: "member-c", IdempotencyScope: "test", IdempotencyKey: "1"},
-		{OccurredAt: time.Date(2026, time.September, 2, 10, 0, 0, 0, location).UTC(), MemberUUID: "member-a", IdempotencyScope: "test", IdempotencyKey: "2"},
-		{OccurredAt: time.Date(2026, time.September, 2, 10, 15, 0, 0, location).UTC(), MemberUUID: "member-a", IdempotencyScope: "test", IdempotencyKey: "3"},
-		{OccurredAt: time.Date(2026, time.September, 2, 10, 30, 0, 0, location).UTC(), MemberUUID: "member-b", IdempotencyScope: "test", IdempotencyKey: "4"},
+		{OccurredAt: time.Date(2026, time.August, 3, 10, 0, 0, 0, location).UTC(), MemberUUID: "member-c", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "1"},
+		{OccurredAt: time.Date(2026, time.September, 2, 10, 0, 0, 0, location).UTC(), MemberUUID: "member-a", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "2"},
+		{OccurredAt: time.Date(2026, time.September, 2, 10, 15, 0, 0, location).UTC(), MemberUUID: "member-a", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "3"},
+		{OccurredAt: time.Date(2026, time.September, 2, 10, 30, 0, 0, location).UTC(), MemberUUID: "member-b", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "4"},
 		{OccurredAt: time.Date(2026, time.September, 2, 10, 45, 0, 0, location).UTC(), IdempotencyScope: "test", IdempotencyKey: "5"},
-		{OccurredAt: time.Date(2026, time.September, 3, 9, 0, 0, 0, location).UTC(), MemberUUID: "member-a", IdempotencyScope: "test", IdempotencyKey: "6"},
+		{OccurredAt: time.Date(2026, time.September, 3, 9, 0, 0, 0, location).UTC(), MemberUUID: "member-a", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "6"},
+		{OccurredAt: time.Date(2026, time.September, 2, 11, 0, 0, 0, location).UTC(), MemberUUID: "member-d", LinkedAtTap: false, IdempotencyScope: "test", IdempotencyKey: "7"},
 	}
 	if err := db.Create(&events).Error; err != nil {
 		t.Fatal(err)
@@ -92,30 +96,40 @@ func TestBuildActivityResponseDeduplicatesVisitorsAndKeepsAllCheckinsInHeatmap(t
 	if err := db.Create(&accounts).Error; err != nil {
 		t.Fatal(err)
 	}
+	link := models.UserUpdate{
+		Model: models.Model{CreatedAt: time.Date(2026, time.September, 3, 12, 30, 0, 0, location).UTC()},
+		UserID: accounts[1].ID, Field: "card_id", NewValue: "example-card",
+	}
+	if err := db.Create(&link).Error; err != nil {
+		t.Fatal(err)
+	}
 
 	response, err := BuildActivityResponse(db, "semester", now, location)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response.Today.Visitors != 1 || response.Today.Checkins != 1 || response.Today.NewAccounts != 1 {
+	if response.Today.Visitors != 1 || response.Today.Checkins != 1 || response.Today.NewAccounts != 1 || response.Today.NewlyLinkedCards != 1 {
 		t.Fatalf("unexpected today summary: %+v", response.Today)
 	}
-	if response.Week.Visitors != 2 || response.Week.Checkins != 5 || response.Week.NewAccounts != 1 {
+	if response.Week.Visitors != 2 || response.Week.UnlinkedCardHolders != 1 || response.Week.Checkins != 6 || response.Week.NewAccounts != 1 {
 		t.Fatalf("unexpected week summary: %+v", response.Week)
 	}
-	if response.Selected.Visitors != 3 || response.Selected.Checkins != 6 || response.Selected.NewAccounts != 2 {
+	if response.Selected.Visitors != 3 || response.Selected.UnlinkedCardHolders != 1 || response.Selected.Checkins != 7 || response.Selected.NewAccounts != 2 {
 		t.Fatalf("unexpected selected summary: %+v", response.Selected)
 	}
-	if response.Coverage.IdentifiedCheckins != 5 || response.Coverage.TotalCheckins != 6 {
+	if response.Coverage.IdentifiedCheckins != 6 || response.Coverage.TotalCheckins != 7 || response.Coverage.FirstCardLink == "" {
 		t.Fatalf("unexpected coverage: %+v", response.Coverage)
 	}
 	var wednesdayTen int
 	for _, cell := range response.Heatmap {
 		if cell.Weekday == int(time.Wednesday) && cell.Hour == 10 {
-			wednesdayTen = cell.Checkins
+			wednesdayTen = cell.Members
 		}
 	}
-	if wednesdayTen != 4 {
-		t.Fatalf("Wednesday 10am heat cell = %d, want 4", wednesdayTen)
+	if wednesdayTen != 2 {
+		t.Fatalf("Wednesday 10am heat cell = %d, want 2", wednesdayTen)
+	}
+	if len(response.AcademicYears) != 3 || response.AcademicYears[2].Label != "2026–27" || response.AcademicYears[2].NewAccounts != 2 {
+		t.Fatalf("unexpected academic-year comparison: %+v", response.AcademicYears)
 	}
 }
