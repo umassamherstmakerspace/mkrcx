@@ -11,7 +11,7 @@
 		SidebarItem,
 		SidebarWrapper
 	} from 'flowbite-svelte';
-	import { HomeSolid, LockSolid } from 'flowbite-svelte-icons';
+	import { HomeSolid, LockSolid, PrinterOutline } from 'flowbite-svelte-icons';
 	import { sineIn } from 'svelte/easing';
 
 	export let hidden: boolean;
@@ -67,6 +67,11 @@
 				<SidebarItem label="Home" href="/">
 					<svelte:fragment slot="icon">
 						<HomeSolid class={iconClass} />
+					</svelte:fragment>
+				</SidebarItem>
+				<SidebarItem label="3D Printers" href="/printers">
+					<svelte:fragment slot="icon">
+						<PrinterOutline class={iconClass} />
 					</svelte:fragment>
 				</SidebarItem>
 				{#if user}
