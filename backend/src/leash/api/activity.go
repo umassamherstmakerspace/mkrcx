@@ -1,6 +1,8 @@
 package leash_backend_api
 
 import (
+	"encoding/json"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -55,15 +57,36 @@ type activityCoverage struct {
 }
 
 type activityResponse struct {
-	Timezone string                       `json:"timezone"`
-	Range    activityRange                `json:"range"`
-	Today    activitySummary              `json:"today"`
-	Week     activitySummary              `json:"week"`
-	Selected activitySummary              `json:"selected"`
-	Daily    []activityPoint              `json:"daily"`
-	Weekly   []activityPoint              `json:"weekly"`
-	Heatmap  []activityHeatCell           `json:"heatmap"`
-	Coverage activityCoverage             `json:"coverage"`
+	Timezone  string                       `json:"timezone"`
+	SnapshotAt string                       `json:"snapshot_at,omitempty"`
+	Range     activityRange                `json:"range"`
+	Today     activitySummary              `json:"today"`
+	Week      activitySummary              `json:"week"`
+	Selected  activitySummary              `json:"selected"`
+	Daily     []activityPoint              `json:"daily"`
+	Weekly    []activityPoint              `json:"weekly"`
+	Heatmap   []activityHeatCell           `json:"heatmap"`
+	Coverage  activityCoverage             `json:"coverage"`
+}
+
+func loadActivitySnapshot(path, requested string) (activityResponse, error) {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return activityResponse{}, err
+	}
+	responses := map[string]activityResponse{}
+	if err := json.Unmarshal(contents, &responses); err != nil {
+		return activityResponse{}, err
+	}
+	key := strings.TrimSpace(requested)
+	if key == "" {
+		key = "semester"
+	}
+	response, ok := responses[key]
+	if !ok {
+		return activityResponse{}, os.ErrNotExist
+	}
+	return response, nil
 }
 
 type activityEvent struct {
@@ -134,7 +157,7 @@ func summaryFor(events []activityEvent, accounts []activityAccount, start, end t
 	return activitySummary{Visitors: len(visitors), Checkins: checkins, NewAccounts: newAccounts}
 }
 
-func buildActivityResponse(db *gorm.DB, requested string, now time.Time, location *time.Location) (activityResponse, error) {
+func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, location *time.Location) (activityResponse, error) {
 	key, label, rangeStart, rangeEnd := activityPreset(requested, now, location)
 	todayStart := localDayStart(now, location)
 	weekStart := mondayStart(now, location)
@@ -287,7 +310,15 @@ func getActivity(c *fiber.Ctx) error {
 		return fiber.ErrInternalServerError
 	}
 	request := c.Locals("query").(activityRequest)
-	response, err := buildActivityResponse(leash_auth.GetDB(c), request.Range, time.Now(), location)
+	if snapshotPath := strings.TrimSpace(os.Getenv("ACTIVITY_SNAPSHOT_FILE")); snapshotPath != "" {
+		response, err := loadActivitySnapshot(snapshotPath, request.Range)
+		if err != nil {
+			return fiber.ErrInternalServerError
+		}
+		c.Set(fiber.HeaderCacheControl, "no-store")
+		return c.JSON(response)
+	}
+	response, err := BuildActivityResponse(leash_auth.GetDB(c), request.Range, time.Now(), location)
 	if err != nil {
 		return fiber.ErrInternalServerError
 	}
