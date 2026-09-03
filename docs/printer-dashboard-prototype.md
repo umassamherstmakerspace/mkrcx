@@ -1,7 +1,8 @@
-# Printer dashboard — live staging
+# Printer dashboard — live production
 
-Updated: 2026-09-03. [Staging](https://staging.mkr.cx/printers) receives real read-only fleet data
-from the central printer Pi. Production is unchanged.
+Updated: 2026-09-03. [Production](https://mkr.cx/printers) and
+[staging](https://staging.mkr.cx/printers) receive the same real read-only fleet snapshot from the
+central printer Pi.
 
 ## Settled product design
 
@@ -31,8 +32,9 @@ from the central printer Pi. Production is unchanged.
   one printer without a recorded address or hardware ID and is shown unavailable.
 - `frontend/scripts/printer-fleet-collector.py` runs on the central Pi every 20 seconds. It verifies
   each addressable printer's expected MAC and uses only Moonraker GET requests plus read-only SQL
-  against the station database. It sends one complete bounded snapshot outward over HTTPS using a
-  staging-only credential. It holds no printer credential and cannot send a printer command.
+  against the station database. It sends the same complete bounded snapshot to staging and
+  production over HTTPS using separate credentials. It holds no printer credential and cannot send
+  a printer command.
 - `/printers/ingest` authenticates and validates only a complete, current, uniquely identified
   16-printer snapshot. The frontend retains the latest snapshot in memory; a process restart safely
   shows unavailable until the next collector run.
@@ -48,22 +50,25 @@ from the central printer Pi. Production is unchanged.
 
 ## Verification and deployment
 
-- Deployed source: `412d2934b4ae8ce7db45eed961a2f788736c60b6` on
-  `codex/printer-dashboard-prototype-20260903`.
-- Frontend-only [GitHub Actions run 33784601397](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33784601397)
+- Deployed UI source: `81e42ce3314f4ce793a78cbb450c1632c80030e9`; dual-target collector
+  source: `259bd95` on `codex/printer-dashboard-prototype-20260903`.
+- Frontend-only [GitHub Actions run 33787507579](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/33787507579)
   passed release lint, all unit tests, both native-architecture builds, and manifest publication.
-  Backend jobs were skipped. Seven focused local fleet/privacy tests passed.
+  Backend jobs were skipped. The focused fleet/privacy tests and four dual-target collector tests
+  passed.
 - Deployed, independently registry-verified image:
-  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:5e65b824931c2e55f83dd21bdb5f9755ea6aafb42f83c11c2213fd66ee8fd63b`.
+  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:38bff323258e6f0332738aa342cd03abfff0b77e82bc61cd0981460605cbcbe7`.
   Linux amd64 and arm64 are present.
-- Staging rollout completed at ready/updated/available `1/1/1`. Production frontend and both
-  staging/production backends retained their prior image digests and readiness.
-- The staging-only Kubernetes secret reference is committed on k8s branch
-  `codex/printer-dashboard-staging-ingest-20260903` at `6438e47`. No secret value is committed.
+- Staging and production frontends run that digest at ready/updated/available `1/1/1`. Both
+  staging and production backends retained their prior image digests and readiness.
+- The staging and production Kubernetes secret references are committed on k8s branch
+  `codex/printer-dashboard-staging-ingest-20260903`; production configuration is at `7906205`.
+  No secret value is committed.
 - Before installation, the collector produced one valid real read-only fleet snapshot with 15/16
   activity readings. Existing Pi station and identity services stayed active. The installed
   collector source SHA-256 matches the reviewed local source.
-- Anonymous `/printers/data` returned a current 16-printer public response with zero job fields.
+- Anonymous `/printers/data` on both hosts returned the same current 16-printer snapshot with zero
+  job fields and `stale: false`.
   At deployment time, 15 printers supplied current activity and the four installed gating UIs
   supplied condition/notes. The page returned HTTP 200 with 16 rows and no Sample data or Staff
   preview controls.
@@ -71,7 +76,7 @@ from the central printer Pi. Production is unchanged.
   ingest endpoint returned 401 without its credential. Focused tests prove incomplete, duplicate,
   and stale snapshots are rejected; public responses strip jobs; staff responses retain them; and
   expired readings fail closed.
-- At a 390 × 844 browser viewport, the live page displayed all 16 mobile rows, hid the desktop
+- At a 390 × 844 browser viewport, the staged page displayed all 16 mobile rows, hid the desktop
   table, showed the mobile sort control, and measured 390 px document width at a 390 px viewport.
   This proves the staged printer list has no horizontal page overflow at that phone size.
 - A real collector interruption made every condition/activity unavailable after 90 seconds and
@@ -80,18 +85,19 @@ from the central printer Pi. Production is unchanged.
   check was malformed, but its printed values all passed and the independent recovery readback
   confirmed current data; this was a test-command defect, not a product failure.
 
-Rollback frontend image:
-`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:aab895b67fb252d7eded87529196207f3d3e5819b5ece01ff6baccb305c09b1a`.
-The guarded staging reverse patch is `/tmp/printer-dashboard-mobile-staging-rollback.json` on
-Spence and `.scratch/printer-dashboard-mobile-staging-rollback.json` locally. The prepared Pi sidecar
-rollback is `.scratch/rollback-printer-fleet-collector.sh`. Recheck live state before rollback.
+The prior production frontend image is
+`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:557f31e015ad3d898f96da600f48061706a8e7e18ee205a88609dfbd33eeeea7`.
+The guarded production patches are `/tmp/mkr-cx-production-forward.json` and
+`/tmp/mkr-cx-production-rollback.json` on Spence, with matching files in the project `.scratch`
+directory. The prepared Pi rollback is `.scratch/rollback-printer-fleet-production-collector.sh`;
+its pre-production source and environment backups remain on the Pi. Recheck live state before any
+rollback.
 
 ## Next checkpoint
 
-Complete one real logged-in staff check: sign in through Google, return to `/printers`, confirm
-`Staff view`, and expand an active printer's protected details. Anonymous and invalid-token checks
-already pass. Then allow a short staging soak covering a natural print start/finish or pause
-transition before making the separate production decision.
+Complete one real logged-in staff check in production: sign in through Google, return to
+`/printers`, confirm `Staff view`, and expand an active printer's protected details. Anonymous,
+invalid-token, ingest-auth, fresh-feed, and stale/recovery checks already pass.
 
 For local anonymous development, set `PUBLIC_LEASH_ENDPOINT=http://127.0.0.1:9`. Without a collector
 snapshot the fleet correctly displays unavailable.
