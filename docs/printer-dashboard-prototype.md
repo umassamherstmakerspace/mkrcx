@@ -42,6 +42,8 @@ Shira confirmed:
 - The `STAFF` badge next to a current print confused the audience permission with the printer
   user's role. It was removed; `Printing for` labels the fictional person's name without claiming
   that person is staff. Alex Morgan and Jordan Chen are sample users, not actual staff records.
+- Material is known only as a type such as `PLA` or `PETG`; filament color is not available.
+  All sample print details now omit color. Preserve this limit when connecting live data.
 
 Working interpretation announced to Shira: anonymous viewers still see busy/idle and estimated
 time remaining, as originally requested; protected current-print information means identity,
@@ -136,7 +138,9 @@ image above is already verified; this helper is not a deployment or production p
 
 ## Next checkpoint
 
-Finish validation and stage commit `42df017` on the existing feature branch. Local formatting and
+Shira explicitly authorized another staging retry and corrected material display to omit colors.
+Finish validation and stage the latest feature-branch commit including that correction and `42df017`.
+Local formatting and
 `git diff --check` completed; the source diff was reviewed. The sandbox blocked the build's
 parent-directory access; automatic approval review for the build retry returned HTTP 404. The
 commit was pushed successfully, but the existing helper's frontend-only workflow dispatch was

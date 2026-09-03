@@ -36,7 +36,7 @@ export const printers: Printer[] = [
 		job: {
 			person: 'Alex Morgan',
 			file: 'enclosure_v3.3mf',
-			material: 'PLA · Natural',
+			material: 'PLA',
 			started: '1:10 PM'
 		}
 	},
@@ -70,7 +70,7 @@ export const printers: Printer[] = [
 		job: {
 			person: 'Jordan Chen',
 			file: 'gearbox_housing.3mf',
-			material: 'PETG · Black',
+			material: 'PETG',
 			started: '1:05 PM'
 		}
 	},
@@ -95,7 +95,7 @@ export const printers: Printer[] = [
 		job: {
 			person: 'Sam Patel',
 			file: 'mounting_bracket.3mf',
-			material: 'PLA · Blue',
+			material: 'PLA',
 			started: '12:20 PM'
 		}
 	},
@@ -110,7 +110,7 @@ export const printers: Printer[] = [
 		job: {
 			person: 'Taylor Brooks',
 			file: 'lamp_base.3mf',
-			material: 'PLA · White',
+			material: 'PLA',
 			started: '12:40 PM'
 		}
 	},
@@ -143,7 +143,7 @@ export const printers: Printer[] = [
 		job: {
 			person: 'Unknown / unassigned',
 			file: 'display_stand.3mf',
-			material: 'PLA · Gray',
+			material: 'PLA',
 			started: '12:55 PM'
 		}
 	},
@@ -191,7 +191,7 @@ export const printers: Printer[] = [
 		job: {
 			person: 'Casey Rivera',
 			file: 'sculpture_study.3mf',
-			material: 'PLA · Red',
+			material: 'PLA',
 			started: '1:57 PM'
 		}
 	}
