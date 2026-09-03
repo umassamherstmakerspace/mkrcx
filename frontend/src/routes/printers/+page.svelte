@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { Button } from 'flowbite-svelte';
 	import {
-		printers,
+		printers as unavailableFleet,
 		duration,
 		finishTime,
 		type Printer,
@@ -13,9 +14,11 @@
 		type SortKey,
 		type SortDirection
 	} from '$lib/printers/fleet-view';
+	let printers = unavailableFleet;
 	let staffView = false;
 	let filter = 'all';
-	let disconnected = false;
+	let disconnected = true;
+	let fetchedAt: string | null = null;
 	let expandedId: string | null = null;
 	let sortKey: SortKey = 'condition';
 	let sortDirection: SortDirection = 'asc';
@@ -40,6 +43,33 @@
 		{ id: 'limited', label: 'Limited use' },
 		{ id: 'out', label: 'Out of service' }
 	];
+	async function refresh() {
+		try {
+			const response = await fetch('/printers/data');
+			if (!response.ok) throw new Error('fleet request failed');
+			const fleet = (await response.json()) as {
+				audience: 'public' | 'staff';
+				stale: boolean;
+				fetchedAt: string | null;
+				printers: Printer[];
+			};
+			if (fleet.printers.length !== unavailableFleet.length) throw new Error('incomplete fleet');
+			printers = fleet.printers;
+			staffView = fleet.audience === 'staff';
+			disconnected = fleet.stale;
+			fetchedAt = fleet.fetchedAt;
+		} catch {
+			disconnected = true;
+			staffView = false;
+			printers = unavailableFleet;
+			fetchedAt = null;
+		}
+	}
+	onMount(() => {
+		void refresh();
+		const timer = window.setInterval(refresh, 15_000);
+		return () => window.clearInterval(timer);
+	});
 	function matches(printer: Printer, selected: string) {
 		if (selected === 'all') return true;
 		if (selected === 'idle')
@@ -79,6 +109,11 @@
 	function conditionIcon(condition: Condition) {
 		return { working: '✓', limited: '!', out: '×', unknown: '—' }[condition];
 	}
+	function updateTime(value: string | null) {
+		return value
+			? new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+			: 'Unavailable';
+	}
 </script>
 
 <svelte:head>
@@ -94,28 +129,12 @@
 	<header class="page-heading">
 		<div class="title-line">
 			<h1>3D Printer Fleet Status</h1>
-			<span class="sample-label">Sample data</span>
-		</div>
-		<div class="preview-switch" role="group" aria-label="Preview audience">
-			<Button
-				color="none"
-				size="xs"
-				class={staffView ? 'audience-button' : 'audience-button chosen'}
-				aria-pressed={!staffView}
-				on:click={() => (staffView = false)}>Public view</Button
-			>
-			<Button
-				color="none"
-				size="xs"
-				class={staffView ? 'audience-button chosen' : 'audience-button'}
-				aria-pressed={staffView}
-				on:click={() => (staffView = true)}>Staff preview</Button
-			>
+			<span class="sample-label">{staffView ? 'Staff view' : 'Public view'}</span>
 		</div>
 	</header>
 	{#if disconnected}<div class="connection-banner" role="status">
-			<strong>Updates interrupted</strong> Last received at 2:00 PM. Status is last known; current activity
-			and finish estimates are unavailable.
+			<strong>Updates unavailable</strong> Printer condition, activity, and finish estimates cannot be
+			confirmed.
 		</div>{/if}
 	<div class="toolbar">
 		<div class="filters" role="group" aria-label="Filter printers">
@@ -223,9 +242,7 @@
 										: '—'}</span
 								>{/if}</td
 						>
-						<td class="table-note"
-							>{printer.note ?? (printer.stale ? 'Last heard from 8 minutes ago' : '')}</td
-						>
+						<td class="table-note">{printer.note ?? (printer.stale ? 'No recent update.' : '')}</td>
 					</tr>
 					{#if staffView && expandedId === printer.id}
 						<tr class="details-row"
@@ -303,20 +320,10 @@
 	</div>
 	<footer>
 		<p aria-live="polite">
-			{visible.length} of {printers.length} printers · Sample snapshot at 2:00 PM{staffView
-				? ' · Fictional names and jobs'
-				: ''}
+			{visible.length} of {printers.length} printers · {disconnected
+				? 'Updates unavailable'
+				: `Updated ${updateTime(fetchedAt)}`}
 		</p>
-		<div class="prototype-tools">
-			<span>Prototype controls</span><Button
-				color="none"
-				size="xs"
-				class="connection-toggle"
-				aria-pressed={disconnected}
-				on:click={() => (disconnected = !disconnected)}
-				>{disconnected ? 'Restore sample connection' : 'Preview interrupted updates'}</Button
-			>
-		</div>
 	</footer>
 </main>
 
@@ -369,25 +376,6 @@
 		border-radius: 4px;
 		padding: 2px 6px;
 		white-space: nowrap;
-	}
-	.preview-switch {
-		display: flex;
-		background: var(--subtle);
-		padding: 2px;
-		border-radius: 6px;
-		border: 1px solid var(--line);
-		flex-shrink: 0;
-	}
-	:global(.audience-button) {
-		padding: 5px 9px !important;
-		border-radius: 4px !important;
-		color: var(--muted);
-		font-size: 11px;
-	}
-	:global(.audience-button.chosen) {
-		background: var(--paper);
-		color: var(--ink);
-		box-shadow: 0 1px 2px #00000012;
 	}
 	.toolbar {
 		display: flex;
@@ -711,18 +699,6 @@
 		font-size: 10px;
 		color: var(--muted);
 	}
-	.prototype-tools {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-	:global(.connection-toggle) {
-		font-size: 10px !important;
-		color: var(--violet);
-		padding: 0 !important;
-		text-decoration: underline;
-		text-underline-offset: 3px;
-	}
 	.visually-hidden {
 		position: absolute;
 		width: 1px;
@@ -812,9 +788,6 @@
 		}
 		.page-heading {
 			padding-bottom: 10px;
-		}
-		.prototype-tools {
-			flex-wrap: wrap;
 		}
 	}
 </style>
