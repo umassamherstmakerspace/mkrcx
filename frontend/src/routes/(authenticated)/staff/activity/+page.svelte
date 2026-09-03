@@ -11,6 +11,7 @@
 
 	type TrendMode = 'daily' | 'weekly' | 'cumulative';
 	type DisplayPoint = ActivityPoint & { value: number };
+	type HeatPoint = { weekday: number; hour: number; members: number };
 	type SummaryMetric = {
 		label: string;
 		description: string;
@@ -69,22 +70,33 @@
 	];
 	const hours = Array.from({ length: 15 }, (_, index) => index + 8);
 
-	let activity: ActivityResponse = data.activity;
-	let selectedRange: ActivityRangeKey = activity.range.key;
+	const activityCache = new Map<ActivityRangeKey, ActivityResponse>([['semester', data.activity]]);
+	let summaryActivity: ActivityResponse = data.activity;
+	let trendActivity: ActivityResponse = data.activity;
+	let heatActivity: ActivityResponse = data.activity;
+	let selectedTrendRange: ActivityRangeKey = trendActivity.range.key;
+	let selectedHeatRange: ActivityRangeKey = heatActivity.range.key;
 	let trendMode: TrendMode = 'daily';
 	let hoveredPoint = -1;
 	let pinnedPoint = -1;
-	let loading = false;
+	let hoveredHeat: HeatPoint | null = null;
+	let pinnedHeat: HeatPoint | null = null;
+	let trendLoading = false;
+	let heatLoading = false;
 	let failure = '';
 
-	$: points = trendPoints(activity, trendMode);
+	$: points = trendPoints(trendActivity, trendMode);
 	$: chartMax = Math.max(1, ...points.map((point) => point.value));
 	$: highlightedPoint =
 		points[hoveredPoint] || points[pinnedPoint] || points[points.length - 1] || null;
-	$: heatMax = Math.max(1, ...activity.heatmap.map((cell) => cell.members));
+	$: heatMax = Math.max(1, ...heatActivity.heatmap.map((cell) => cell.members));
+	$: highlightedHeat = hoveredHeat || pinnedHeat || busiestHeatPoint(heatActivity);
 	$: comparisonMax = Math.max(
 		1,
-		...activity.academic_years.flatMap((year) => [year.new_accounts, year.newly_linked_cards])
+		...summaryActivity.academic_years.flatMap((year) => [
+			year.new_accounts,
+			year.newly_linked_cards
+		])
 	);
 
 	function trendPoints(response: ActivityResponse, mode: TrendMode): DisplayPoint[] {
@@ -119,7 +131,7 @@
 			year: 'numeric',
 			hour: 'numeric',
 			minute: '2-digit',
-			timeZone: activity.timezone
+			timeZone: summaryActivity.timezone
 		}).format(new Date(value));
 	}
 
@@ -144,10 +156,31 @@
 		pinnedPoint = pinnedPoint === index ? -1 : index;
 	}
 
-	function heatValue(weekday: number, hour: number): number {
+	function heatValue(response: ActivityResponse, weekday: number, hour: number): number {
 		return (
-			activity.heatmap.find((cell) => cell.weekday === weekday && cell.hour === hour)?.members || 0
+			response.heatmap.find((cell) => cell.weekday === weekday && cell.hour === hour)?.members || 0
 		);
+	}
+
+	function busiestHeatPoint(response: ActivityResponse): HeatPoint | null {
+		if (response.heatmap.length === 0) return null;
+		return response.heatmap.reduce((busiest, cell) =>
+			cell.members > busiest.members ? cell : busiest
+		);
+	}
+
+	function heatPoint(weekday: number, hour: number): HeatPoint {
+		return { weekday, hour, members: heatValue(heatActivity, weekday, hour) };
+	}
+
+	function heatPointLabel(point: HeatPoint): string {
+		const day = weekdays.find((weekday) => weekday.value === point.weekday)?.label || '';
+		return `${day} ${hourLabel(point.hour)}–${hourLabel(point.hour + 1)}`;
+	}
+
+	function toggleHeat(point: HeatPoint): void {
+		pinnedHeat =
+			pinnedHeat?.weekday === point.weekday && pinnedHeat.hour === point.hour ? null : point;
 	}
 
 	function heatStyle(value: number): string {
@@ -156,18 +189,44 @@
 		return `background-color: rgba(132, 0, 40, ${opacity.toFixed(2)})`;
 	}
 
-	async function changeRange(): Promise<void> {
-		loading = true;
+	async function loadActivity(range: ActivityRangeKey): Promise<ActivityResponse> {
+		const cached = activityCache.get(range);
+		if (cached) return cached;
+		const response = await data.api.getActivity(range);
+		activityCache.set(range, response);
+		return response;
+	}
+
+	async function changeTrendRange(): Promise<void> {
+		const requestedRange = selectedTrendRange;
+		trendLoading = true;
 		failure = '';
 		hoveredPoint = -1;
 		pinnedPoint = -1;
-		trendMode = selectedRange === 'academic_year' ? 'weekly' : 'daily';
+		trendMode = requestedRange === 'academic_year' ? 'weekly' : 'daily';
 		try {
-			activity = await data.api.getActivity(selectedRange);
+			const response = await loadActivity(requestedRange);
+			if (selectedTrendRange === requestedRange) trendActivity = response;
 		} catch (error) {
 			failure = error instanceof Error ? error.message : 'Unable to load activity.';
 		} finally {
-			loading = false;
+			trendLoading = false;
+		}
+	}
+
+	async function changeHeatRange(): Promise<void> {
+		const requestedRange = selectedHeatRange;
+		heatLoading = true;
+		failure = '';
+		hoveredHeat = null;
+		pinnedHeat = null;
+		try {
+			const response = await loadActivity(requestedRange);
+			if (selectedHeatRange === requestedRange) heatActivity = response;
+		} catch (error) {
+			failure = error instanceof Error ? error.message : 'Unable to load activity.';
+		} finally {
+			heatLoading = false;
 		}
 	}
 </script>
@@ -175,31 +234,16 @@
 <svelte:head><title>Activity · mkr.cx</title></svelte:head>
 
 <main class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-2 pb-8 md:px-6">
-	<header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+	<header>
 		<div>
 			<p class="text-sm font-semibold uppercase tracking-wide text-[#840028] dark:text-[#e07a9a]">
 				Makerspace pulse
 			</p>
 			<h1 class="mt-1 text-3xl font-bold text-gray-950 dark:text-white">Activity</h1>
 			<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-				{dateRange(activity.range.start, activity.range.end)}
+				A current snapshot, two focused explorers, and a fixed academic-year comparison.
 			</p>
 		</div>
-		<label
-			class="flex w-full flex-col gap-1 text-sm font-medium text-gray-700 dark:text-gray-200 sm:w-64"
-		>
-			Time range
-			<select
-				bind:value={selectedRange}
-				on:change={changeRange}
-				disabled={loading}
-				class="rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-gray-950 shadow-sm focus:border-[#840028] focus:ring-[#840028] disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-			>
-				{#each rangeOptions as option}
-					<option value={option.value}>{option.label}</option>
-				{/each}
-			</select>
-		</label>
 	</header>
 
 	{#if failure}
@@ -211,44 +255,61 @@
 		</div>
 	{/if}
 
-	{#if activity.snapshot_at}
+	{#if summaryActivity.snapshot_at}
 		<p
 			class="rounded-xl bg-gray-100 px-4 py-2 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300"
 		>
 			<strong>Real production data</strong> · Snapshot through {snapshotLabel(
-				activity.snapshot_at
+				summaryActivity.snapshot_at
 			)}.
 		</p>
 	{/if}
 
-	<section aria-label="Activity summary" class="grid gap-3 md:grid-cols-2">
-		{#each summaryMetrics as metric}
-			<article
-				class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-			>
-				<div class="flex items-baseline justify-between gap-3">
-					<h2 class="font-semibold text-gray-950 dark:text-white">{metric.label}</h2>
-					{#if metric.minimum}<span class="text-xs font-medium text-[#840028] dark:text-[#e07a9a]"
-							>known minimum</span
-						>{/if}
-				</div>
-				<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{metric.description}</p>
-				<div
-					class="mt-3 grid grid-cols-3 divide-x divide-gray-200 border-t border-gray-100 pt-3 text-center dark:divide-gray-700 dark:border-gray-800"
+	<section aria-labelledby="snapshot-heading">
+		<div class="mb-2 flex flex-wrap items-end justify-between gap-2 px-1">
+			<div>
+				<h2 id="snapshot-heading" class="text-lg font-bold text-gray-950 dark:text-white">
+					At a glance
+				</h2>
+				<p class="text-xs text-gray-500 dark:text-gray-400">
+					Today, this week, and {summaryActivity.range.label}. These figures do not change with the
+					charts below.
+				</p>
+			</div>
+			<span class="text-xs text-gray-500 dark:text-gray-400">
+				{dateRange(summaryActivity.range.start, summaryActivity.range.end)}
+			</span>
+		</div>
+		<div class="grid gap-3 md:grid-cols-2">
+			{#each summaryMetrics as metric}
+				<article
+					class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 				>
-					{#each [{ label: 'Today', value: activity.today }, { label: 'This week', value: activity.week }, { label: activity.range.label, value: activity.selected }] as period}
-						<div class="px-2 first:pl-0 last:pr-0">
-							<strong class="block text-2xl font-bold tabular-nums text-gray-950 dark:text-white"
-								>{metricValue(period.value, metric)}</strong
-							>
-							<span class="mt-0.5 block text-[11px] leading-tight text-gray-500 dark:text-gray-400"
-								>{period.label}</span
-							>
-						</div>
-					{/each}
-				</div>
-			</article>
-		{/each}
+					<div class="flex items-baseline justify-between gap-3">
+						<h2 class="font-semibold text-gray-950 dark:text-white">{metric.label}</h2>
+						{#if metric.minimum}<span class="text-xs font-medium text-[#840028] dark:text-[#e07a9a]"
+								>known minimum</span
+							>{/if}
+					</div>
+					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{metric.description}</p>
+					<div
+						class="mt-3 grid grid-cols-3 divide-x divide-gray-200 border-t border-gray-100 pt-3 text-center dark:divide-gray-700 dark:border-gray-800"
+					>
+						{#each [{ label: 'Today', value: summaryActivity.today }, { label: 'This week', value: summaryActivity.week }, { label: summaryActivity.range.label, value: summaryActivity.selected }] as period}
+							<div class="px-2 first:pl-0 last:pr-0">
+								<strong class="block text-2xl font-bold tabular-nums text-gray-950 dark:text-white"
+									>{metricValue(period.value, metric)}</strong
+								>
+								<span
+									class="mt-0.5 block text-[11px] leading-tight text-gray-500 dark:text-gray-400"
+									>{period.label}</span
+								>
+							</div>
+						{/each}
+					</div>
+				</article>
+			{/each}
+		</div>
 	</section>
 
 	<section
@@ -261,23 +322,42 @@
 					Members with linked cards
 				</h2>
 				<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-					Each person is counted once per period.
+					Explore one period at a time. Each person is counted once per bar.
 				</p>
 			</div>
-			<div
-				class="inline-flex w-fit rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
-				aria-label="Trend grouping"
-			>
-				{#each trendOptions as option}
-					<button
-						type="button"
-						on:click={() => chooseTrend(option.value)}
-						class="rounded-md px-3 py-1.5 text-sm font-medium transition {trendMode === option.value
-							? 'bg-[#840028] text-white shadow-sm'
-							: 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}"
-						aria-pressed={trendMode === option.value}>{option.label}</button
+			<div class="flex flex-wrap items-end gap-3">
+				<label class="flex flex-col gap-1 text-xs font-medium text-gray-600 dark:text-gray-300">
+					Chart period
+					<select
+						bind:value={selectedTrendRange}
+						on:change={changeTrendRange}
+						disabled={trendLoading}
+						class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-950 focus:border-[#840028] focus:ring-[#840028] disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
 					>
-				{/each}
+						{#each rangeOptions as option}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+				</label>
+				<div>
+					<span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">Bars</span>
+					<div
+						class="inline-flex w-fit rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
+						aria-label="Trend grouping"
+					>
+						{#each trendOptions as option}
+							<button
+								type="button"
+								on:click={() => chooseTrend(option.value)}
+								class="rounded-md px-3 py-1 text-sm font-medium transition {trendMode ===
+								option.value
+									? 'bg-[#840028] text-white shadow-sm'
+									: 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}"
+								aria-pressed={trendMode === option.value}>{option.label}</button
+							>
+						{/each}
+					</div>
+				</div>
 			</div>
 		</div>
 
@@ -331,19 +411,52 @@
 		{/if}
 	</section>
 
-	<div class="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.75fr)]">
-		<section
-			class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-			aria-labelledby="heat-heading"
-		>
-			<h2 id="heat-heading" class="text-lg font-bold text-gray-950 dark:text-white">
-				When members arrive
-			</h2>
-			<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-				Distinct identifiable members by weekday and hour; not occupancy.
-			</p>
+	<section
+		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+		aria-labelledby="heat-heading"
+	>
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+			<div>
+				<h2 id="heat-heading" class="text-lg font-bold text-gray-950 dark:text-white">
+					When members arrive
+				</h2>
+				<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+					Choose a period, then hover or select a square. This shows distinct identifiable members,
+					not occupancy.
+				</p>
+			</div>
+			<label class="flex w-fit flex-col gap-1 text-xs font-medium text-gray-600 dark:text-gray-300">
+				Heatmap period
+				<select
+					bind:value={selectedHeatRange}
+					on:change={changeHeatRange}
+					disabled={heatLoading}
+					class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-950 focus:border-[#840028] focus:ring-[#840028] disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+				>
+					{#each rangeOptions as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</label>
+		</div>
+
+		{#if highlightedHeat}
 			<div
-				class="mt-4 grid gap-1"
+				class="mt-3 flex items-baseline justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800"
+			>
+				<span class="text-sm text-gray-600 dark:text-gray-300"
+					>{heatPointLabel(highlightedHeat)}</span
+				>
+				<strong class="text-lg tabular-nums text-gray-950 dark:text-white">
+					{highlightedHeat.members.toLocaleString()}
+					{highlightedHeat.members === 1 ? 'member' : 'members'}
+				</strong>
+			</div>
+		{/if}
+
+		<div class="mt-3 overflow-x-auto pb-1">
+			<div
+				class="grid min-w-[42rem] gap-1"
 				style="grid-template-columns: 2.25rem repeat(15, minmax(1.1rem, 1fr));"
 			>
 				<div></div>
@@ -357,83 +470,101 @@
 						{weekday.label}
 					</div>
 					{#each hours as hour}
-						{@const value = heatValue(weekday.value, hour)}
-						<div
-							class="flex h-7 min-w-0 items-center justify-center rounded text-[9px] font-semibold {value /
+						{@const point = heatPoint(weekday.value, hour)}
+						<button
+							type="button"
+							class="flex h-7 min-w-0 items-center justify-center rounded text-[9px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-[#840028] focus-visible:ring-offset-1 {point.members /
 								heatMax >
 							0.42
 								? 'text-white'
-								: 'text-gray-700 dark:text-gray-200'}"
-							style={heatStyle(value)}
-							title={`${weekday.label} ${hourLabel(hour)}: ${value} identifiable members`}
-							aria-label={`${weekday.label} ${hourLabel(hour)}, ${value} identifiable members`}
+								: 'text-gray-700 dark:text-gray-200'} {pinnedHeat?.weekday === weekday.value &&
+							pinnedHeat.hour === hour
+								? 'ring-2 ring-[#840028] ring-offset-1'
+								: ''}"
+							style={heatStyle(point.members)}
+							on:mouseenter={() => (hoveredHeat = point)}
+							on:mouseleave={() => (hoveredHeat = null)}
+							on:focus={() => (hoveredHeat = point)}
+							on:blur={() => (hoveredHeat = null)}
+							on:click={() => toggleHeat(point)}
+							aria-label={`${heatPointLabel(point)}: ${point.members} identifiable members`}
+							aria-pressed={pinnedHeat?.weekday === weekday.value && pinnedHeat.hour === hour}
 						>
-							{value || ''}
-						</div>
+							{point.members || ''}
+						</button>
 					{/each}
 				{/each}
 			</div>
-		</section>
+		</div>
+	</section>
 
-		<section
-			class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-			aria-labelledby="comparison-heading"
-		>
-			<h2 id="comparison-heading" class="text-lg font-bold text-gray-950 dark:text-white">
-				Academic-year comparison
-			</h2>
-			<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-				Membership activity from existing records.
-			</p>
-			<div class="mt-4 space-y-4">
-				{#each activity.academic_years as year}
-					<div>
-						<div class="flex items-baseline justify-between gap-3">
-							<strong class="text-sm text-gray-900 dark:text-white"
-								>{year.label}{year.current ? ' to date' : ''}</strong
-							>
-							<span class="text-[10px] text-gray-500 dark:text-gray-400"
-								>{dateRange(year.start, year.end)}</span
-							>
-						</div>
-						<div class="mt-1.5 grid grid-cols-[6.5rem_1fr_3rem] items-center gap-2 text-xs">
-							<span class="text-gray-600 dark:text-gray-300">New members</span>
-							<div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
-								<div
-									class="h-2 rounded-full bg-[#840028]"
-									style={`width: ${(year.new_accounts / comparisonMax) * 100}%`}
-								></div>
-							</div>
-							<strong class="text-right tabular-nums text-gray-900 dark:text-white"
-								>{year.new_accounts.toLocaleString()}</strong
-							>
-							<span class="text-gray-600 dark:text-gray-300">New card links</span>
-							<div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
-								<div
-									class="h-2 rounded-full bg-gray-700 dark:bg-gray-300"
-									style={`width: ${(year.newly_linked_cards / comparisonMax) * 100}%`}
-								></div>
-							</div>
-							<strong class="text-right tabular-nums text-gray-900 dark:text-white"
-								>{year.newly_linked_cards.toLocaleString()}</strong
-							>
-						</div>
-					</div>
-				{/each}
-			</div>
-			{#if activity.coverage.first_card_link}
-				<p
-					class="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400"
-				>
-					Recorded card-link history begins {fullDate(activity.coverage.first_card_link)}.
+	<section
+		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+		aria-labelledby="comparison-heading"
+	>
+		<div class="flex flex-wrap items-start justify-between gap-2">
+			<div>
+				<h2 id="comparison-heading" class="text-lg font-bold text-gray-950 dark:text-white">
+					Academic-year comparison
+				</h2>
+				<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+					Membership activity from existing records.
 				</p>
-			{/if}
-		</section>
-	</div>
+			</div>
+			<span
+				class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+			>
+				Fixed comparison
+			</span>
+		</div>
+		<div class="mt-4 grid gap-4 md:grid-cols-3">
+			{#each summaryActivity.academic_years as year}
+				<div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+					<div class="flex flex-wrap items-baseline justify-between gap-2">
+						<strong class="text-sm text-gray-900 dark:text-white">
+							{year.label}{year.current ? ' to date' : ''}
+						</strong>
+						<span class="text-[10px] text-gray-500 dark:text-gray-400">
+							{dateRange(year.start, year.end)}
+						</span>
+					</div>
+					<div class="mt-3 grid grid-cols-[6.5rem_1fr_3rem] items-center gap-2 text-xs">
+						<span class="text-gray-600 dark:text-gray-300">New members</span>
+						<div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
+							<div
+								class="h-2 rounded-full bg-[#840028]"
+								style={`width: ${(year.new_accounts / comparisonMax) * 100}%`}
+							></div>
+						</div>
+						<strong class="text-right tabular-nums text-gray-900 dark:text-white">
+							{year.new_accounts.toLocaleString()}
+						</strong>
+						<span class="text-gray-600 dark:text-gray-300">New card links</span>
+						<div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
+							<div
+								class="h-2 rounded-full bg-gray-700 dark:bg-gray-300"
+								style={`width: ${(year.newly_linked_cards / comparisonMax) * 100}%`}
+							></div>
+						</div>
+						<strong class="text-right tabular-nums text-gray-900 dark:text-white">
+							{year.newly_linked_cards.toLocaleString()}
+						</strong>
+					</div>
+				</div>
+			{/each}
+		</div>
+		{#if summaryActivity.coverage.first_card_link}
+			<p
+				class="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400"
+			>
+				Recorded card-link history begins {fullDate(summaryActivity.coverage.first_card_link)}.
+			</p>
+		{/if}
+	</section>
 
 	<p class="px-1 text-xs text-gray-500 dark:text-gray-400">
-		Linked-member trends use card-tap history beginning {activity.coverage.first_checkin
-			? fullDate(activity.coverage.first_checkin)
+		Linked-member trends use card-tap history beginning {summaryActivity.coverage.first_checkin
+			? fullDate(summaryActivity.coverage.first_checkin)
 			: 'with the current data set'}. Unlinked-card figures are minimums because older unresolved
 		cards cannot be deduplicated.
 	</p>
