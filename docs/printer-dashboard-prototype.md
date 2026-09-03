@@ -82,8 +82,8 @@ from the central printer Pi. Production is unchanged.
 
 Rollback frontend image:
 `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:aab895b67fb252d7eded87529196207f3d3e5819b5ece01ff6baccb305c09b1a`.
-The guarded staging reverse patch is `.scratch/printer-dashboard-mobile-staging-rollback.json`
-locally. The prepared Pi sidecar
+The guarded staging reverse patch is `/tmp/printer-dashboard-mobile-staging-rollback.json` on
+Spence and `.scratch/printer-dashboard-mobile-staging-rollback.json` locally. The prepared Pi sidecar
 rollback is `.scratch/rollback-printer-fleet-collector.sh`. Recheck live state before rollback.
 
 ## Next checkpoint
