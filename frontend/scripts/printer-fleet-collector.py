@@ -114,14 +114,32 @@ def collect():
     return {"fetchedAt": iso_now(), "printers": readings}
 
 
-def publish(snapshot):
-    endpoint = os.environ["PRINTER_FLEET_ENDPOINT"]
-    secret = os.environ["PRINTER_FLEET_INGEST_SECRET"]
+def publish_target(snapshot, endpoint, secret):
     body = json.dumps(snapshot, separators=(",", ":")).encode()
     request = urllib.request.Request(endpoint, data=body, method="POST", headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json", "User-Agent": "Makerspace-printer-fleet-collector/1"})
     with urllib.request.urlopen(request, timeout=12) as response:
         if response.status != 204:
             raise RuntimeError(f"collector publish returned HTTP {response.status}")
+
+
+def publish(snapshot):
+    targets = [("primary", os.environ["PRINTER_FLEET_ENDPOINT"], os.environ["PRINTER_FLEET_INGEST_SECRET"])]
+    secondary_endpoint = os.environ.get("PRINTER_FLEET_SECONDARY_ENDPOINT")
+    secondary_secret = os.environ.get("PRINTER_FLEET_SECONDARY_INGEST_SECRET")
+    if bool(secondary_endpoint) != bool(secondary_secret):
+        raise RuntimeError("secondary collector target is incomplete")
+    if secondary_endpoint and secondary_secret:
+        targets.append(("secondary", secondary_endpoint, secondary_secret))
+
+    failures = []
+    for name, endpoint, secret in targets:
+        try:
+            publish_target(snapshot, endpoint, secret)
+        except Exception as error:
+            failures.append(f"{name}:{type(error).__name__}")
+    if failures:
+        raise RuntimeError("collector publish failed for " + ",".join(failures))
+    return len(targets)
 
 
 if __name__ == "__main__":
@@ -132,9 +150,9 @@ if __name__ == "__main__":
             jobs = sum("job" in item for item in snapshot["printers"])
             print(f"validated printer fleet snapshot: {available}/{len(ALL_IDS)} activity readings, {jobs} active jobs")
             raise SystemExit(0)
-        publish(snapshot)
+        target_count = publish(snapshot)
         available = sum(item["activity"] != "unknown" for item in snapshot["printers"])
-        print(f"published printer fleet snapshot: {available}/{len(ALL_IDS)} activity readings")
+        print(f"published printer fleet snapshot to {target_count} dashboards: {available}/{len(ALL_IDS)} activity readings")
     except Exception as error:
         print(f"printer fleet collector failed: {type(error).__name__}", file=sys.stderr)
         raise SystemExit(1)
