@@ -36,6 +36,38 @@
 	let holds: Promise<Hold[]> =
 		user?.getAllHolds().then((holds) => holds.filter((h) => h.isActive).sort(holdSort)) ??
 		Promise.resolve([]);
+	let refreshingHolds = false;
+	let waiverRefreshMessage = '';
+
+	async function refreshHolds(showResult = false) {
+		if (!user || refreshingHolds) return;
+
+		refreshingHolds = true;
+		waiverRefreshMessage = '';
+		try {
+			user = await user.get({ withNotifications: true, withHolds: true });
+			notifications = user.getAllNotifications();
+			const refreshedHolds = (await user.getAllHolds())
+				.filter((hold) => hold.isActive())
+				.sort(holdSort);
+			holds = Promise.resolve(refreshedHolds);
+			if (showResult && refreshedHolds.some((hold) => hold.name === 'docusign')) {
+				waiverRefreshMessage =
+					'Not confirmed yet. If you just signed, wait a moment and check again—do not sign another copy.';
+			}
+		} catch {
+			if (showResult) {
+				waiverRefreshMessage =
+					"We couldn't check right now. Your signature has not been lost; please try again.";
+			}
+		} finally {
+			refreshingHolds = false;
+		}
+	}
+
+	function refreshWhenVisible() {
+		if (document.visibilityState === 'visible') void refreshHolds();
+	}
 
 	async function clearNotification(notification: Notification) {
 		await notification.delete();
@@ -58,6 +90,9 @@
 		return 'yellow';
 	}
 </script>
+
+<svelte:window on:focus={() => refreshHolds()} />
+<svelte:document on:visibilitychange={refreshWhenVisible} />
 
 <Navbar>
 	<div class="flex flex-1 items-center space-x-6 md:order-1">
@@ -176,7 +211,30 @@
 		{#if holds.length > 0}
 			{@const hold = holds[0]}
 			<Alert border class="text-center" color={holdColor(hold)}>
-				{#if hold.resolutionLink}
+				{#if hold.name === 'docusign' && hold.resolutionLink}
+					<div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+						<span>Your Makerspace participation agreement is awaiting confirmation.</span>
+						<a
+							href={hold.resolutionLink}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="font-medium underline"
+						>
+							Open agreement
+						</a>
+						<button
+							type="button"
+							disabled={refreshingHolds}
+							on:click={() => refreshHolds(true)}
+							class="rounded border border-current px-2 py-1 text-sm font-medium disabled:cursor-wait disabled:opacity-60"
+						>
+							{refreshingHolds ? 'Checking…' : 'I signed—check again'}
+						</button>
+					</div>
+					{#if waiverRefreshMessage}
+						<div class="mt-2 text-sm" aria-live="polite">{waiverRefreshMessage}</div>
+					{/if}
+				{:else if hold.resolutionLink}
 					<a href={hold.resolutionLink} target="_blank" rel="noopener noreferrer">
 						<span class="underline">{hold.reason}</span>
 					</a>
