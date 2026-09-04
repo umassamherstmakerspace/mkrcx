@@ -22,6 +22,7 @@ func RegisterAPIEndpoints(api fiber.Router, feedRuntime ...*FeedRuntime) {
 	// Register only this route before the HTTP authentication middleware; the
 	// endpoint authenticates its first frame before adding the socket to the hub.
 	websocketFeedEndpoint(api.Group("/feeds"), runtime)
+	registerDocusignConnectEndpoint(api)
 	api.Use(leash_auth.AuthenticationMiddleware)
 
 	registerUserEndpoints(api, runtime)
