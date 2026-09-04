@@ -52,13 +52,11 @@
 				.sort(holdSort);
 			holds = Promise.resolve(refreshedHolds);
 			if (showResult && refreshedHolds.some((hold) => hold.name === 'docusign')) {
-				waiverRefreshMessage =
-					'Not confirmed yet. If you just signed, wait a moment and check again—do not sign another copy.';
+				waiverRefreshMessage = 'Still pending. Wait a minute, then check again—don’t re-sign.';
 			}
 		} catch {
 			if (showResult) {
-				waiverRefreshMessage =
-					"We couldn't check right now. Your signature has not been lost; please try again.";
+				waiverRefreshMessage = 'Couldn’t check. Try again—don’t re-sign.';
 			}
 		} finally {
 			refreshingHolds = false;
@@ -213,7 +211,7 @@
 			<Alert border class="text-center" color={holdColor(hold)}>
 				{#if hold.name === 'docusign' && hold.resolutionLink}
 					<div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-						<span>Your Makerspace participation agreement is awaiting confirmation.</span>
+						<span>Participation agreement pending.</span>
 						<a
 							href={hold.resolutionLink}
 							target="_blank"
@@ -228,7 +226,7 @@
 							on:click={() => refreshHolds(true)}
 							class="rounded border border-current px-2 py-1 text-sm font-medium disabled:cursor-wait disabled:opacity-60"
 						>
-							{refreshingHolds ? 'Checking…' : 'I signed—check again'}
+							{refreshingHolds ? 'Checking…' : 'Check status'}
 						</button>
 					</div>
 					{#if waiverRefreshMessage}
