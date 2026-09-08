@@ -1,56 +1,38 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { printers } from '$lib/printers/prototype-data';
-import { acceptSnapshot, fleetResponse, resetForTest, tokenMatches } from './printerFleet';
-
-const now = Date.parse('2026-09-03T17:00:00Z');
-function snapshot() {
-	return {
-		fetchedAt: new Date(now).toISOString(),
-		printers: printers.map(({ id }) => ({
-			id,
-			condition: 'working' as const,
-			activity: 'idle' as const,
-			job:
-				id === 'k1c-1f44'
-					? { person: 'Student Name', file: 'part.gcode', material: 'PLA', started: '12:30 PM' }
-					: undefined
-		}))
-	};
-}
-
-describe('printer fleet server boundary', () => {
-	beforeEach(resetForTest);
-	it('checks collector bearer credentials', () => {
-		expect(tokenMatches('Bearer correct', 'correct')).toBe(true);
-		expect(tokenMatches('Bearer wrong', 'correct')).toBe(false);
-		expect(tokenMatches(null, 'correct')).toBe(false);
+import { describe, expect, it, vi } from 'vitest';
+import { readFleet, tokenMatches } from './printerFleet';
+describe('printer registry proxy', () => {
+	it('rejects absent and wrong collector credentials', () => {
+		expect(tokenMatches(null, 'secret')).toBe(false);
+		expect(tokenMatches('Bearer wrong', 'secret')).toBe(false);
+		expect(tokenMatches('Bearer secret', 'secret')).toBe(true);
 	});
-	it('accepts only a complete, current, uniquely identified fleet', () => {
-		expect(() => acceptSnapshot(snapshot(), now)).not.toThrow();
-		expect(() =>
-			acceptSnapshot({ ...snapshot(), printers: snapshot().printers.slice(1) }, now)
-		).toThrow();
-		expect(() =>
-			acceptSnapshot({ ...snapshot(), fetchedAt: '2026-09-03T16:00:00Z' }, now)
-		).toThrow();
+	it('falls back to public data for an invalid session without forwarding credentials', async () => {
+		const fetch = vi
+			.fn()
+			.mockResolvedValueOnce(new Response(null, { status: 401 }))
+			.mockResolvedValueOnce(Response.json({ audience: 'public', printers: [] }));
+		expect(await readFleet(fetch, 'https://leash.example', 'expired')).toEqual({
+			audience: 'public',
+			printers: []
+		});
+		expect(fetch.mock.calls[1][1].headers).toBeUndefined();
 	});
-	it('removes job details from public data and retains them for staff', () => {
-		acceptSnapshot(snapshot(), now);
-		const publicResponse = fleetResponse(false, now);
-		expect(publicResponse.printers.some(({ job }) => job)).toBe(false);
-		expect(publicResponse.printers.every(({ stale }) => stale === false)).toBe(true);
-		expect(fleetResponse(true, now).printers.find(({ id }) => id === 'k1c-1f44')?.job?.person).toBe(
-			'Student Name'
-		);
-	});
-	it('fails stale readings closed', () => {
-		acceptSnapshot(snapshot(), now);
-		const result = fleetResponse(true, now + 90_001);
-		expect(result.stale).toBe(true);
+	it('accepts a changing roster and retains durable notes in the response', async () => {
+		const response = {
+			audience: 'public',
+			stale: true,
+			printers: [{ id: 'new-printer', note: 'Awaiting thermistor', condition: 'out' }]
+		};
 		expect(
-			result.printers.every(
-				({ condition, activity, job }) => condition === 'unknown' && activity === 'unknown' && !job
+			await readFleet(vi.fn().mockResolvedValue(Response.json(response)), 'https://leash.example')
+		).toEqual(response);
+	});
+	it('does not turn backend failure into an empty successful fleet', async () => {
+		await expect(
+			readFleet(
+				vi.fn().mockResolvedValue(new Response(null, { status: 503 })),
+				'https://leash.example'
 			)
-		).toBe(true);
+		).rejects.toThrow();
 	});
 });

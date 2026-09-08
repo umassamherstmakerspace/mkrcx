@@ -4,7 +4,7 @@ export type SortKey = 'name' | 'model' | 'condition' | 'activity' | 'remaining';
 export type SortDirection = 'asc' | 'desc';
 
 const conditionRank = { working: 0, limited: 1, out: 2, unknown: 3 };
-const modelRank = { 'K1 Max': 0, K1: 1, K1C: 1 };
+const modelRank: Record<string, number> = { 'K1 Max': 0, K1: 1, K1C: 1 };
 
 function activityRank(printer: Printer, disconnected: boolean) {
 	if (disconnected || printer.stale || printer.activity === 'unknown') return 2;
@@ -25,7 +25,7 @@ function defaultOrder(a: Printer, b: Printer, disconnected: boolean): number {
 	return (
 		conditionRank[a.condition] - conditionRank[b.condition] ||
 		activityRank(a, disconnected) - activityRank(b, disconnected) ||
-		modelRank[a.model] - modelRank[b.model] ||
+		(modelRank[a.model] ?? 2) - (modelRank[b.model] ?? 2) ||
 		a.name.localeCompare(b.name) ||
 		a.id.localeCompare(b.id)
 	);
@@ -40,7 +40,7 @@ export function sortFleet(
 	return [...printers].sort((a, b) => {
 		let primary = 0;
 		if (key === 'name') primary = a.name.localeCompare(b.name);
-		if (key === 'model') primary = modelRank[a.model] - modelRank[b.model];
+		if (key === 'model') primary = (modelRank[a.model] ?? 2) - (modelRank[b.model] ?? 2);
 		if (key === 'condition') primary = conditionRank[a.condition] - conditionRank[b.condition];
 		if (key === 'activity') primary = activityRank(a, disconnected) - activityRank(b, disconnected);
 		if (key === 'remaining') {

@@ -23,6 +23,7 @@ func RegisterAPIEndpoints(api fiber.Router, feedRuntime ...*FeedRuntime) {
 	// endpoint authenticates its first frame before adding the socket to the hub.
 	websocketFeedEndpoint(api.Group("/feeds"), runtime)
 	registerDocusignConnectEndpoint(api)
+	registerPrinterPublicEndpoints(api)
 	api.Use(leash_auth.AuthenticationMiddleware)
 
 	registerUserEndpoints(api, runtime)
@@ -33,4 +34,5 @@ func RegisterAPIEndpoints(api fiber.Router, feedRuntime ...*FeedRuntime) {
 	registerFeedEndpoints(api, runtime)
 	registerCheckinEndpoints(api, runtime)
 	registerNoteEndpoints(api)
+	registerPrinterEndpoints(api)
 }

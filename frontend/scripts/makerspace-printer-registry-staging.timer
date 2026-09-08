@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the staging printer registry
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=20s
+AccuracySec=2s
+Unit=makerspace-printer-registry-staging.service
+
+[Install]
+WantedBy=timers.target

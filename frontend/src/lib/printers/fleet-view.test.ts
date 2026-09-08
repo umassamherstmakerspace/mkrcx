@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { printers, type Printer } from './prototype-data';
+import { type Printer } from './prototype-data';
 import { remainingMinutes, sortFleet } from './fleet-view';
 
 const printer = (
@@ -10,12 +10,13 @@ const printer = (
 ): Printer => ({ id: name, name, model, condition, activity });
 
 describe('printer fleet ordering', () => {
-	it('contains the complete 16-printer roster without invented runtime state', () => {
-		expect(printers).toHaveLength(16);
-		expect(printers.find(({ name }) => name === 'Laurie Anderson')?.machineId).toBeUndefined();
+	it('sorts newly registered printer models without a code change', () => {
 		expect(
-			printers.every(({ condition, activity }) => condition === 'unknown' && activity === 'unknown')
-		).toBe(true);
+			sortFleet([
+				printer('new', 'working', 'idle', 'New model'),
+				printer('max', 'working', 'idle', 'K1 Max')
+			]).map((p) => p.name)
+		).toEqual(['max', 'new']);
 	});
 	it('groups status first, active before idle, then Max before K1/K1C', () => {
 		const input = [
