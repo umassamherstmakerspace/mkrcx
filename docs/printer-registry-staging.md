@@ -12,7 +12,20 @@ Implementation lives on `codex/printer-registry-staging`, based on `d6a4532` of 
 The local backend and frontend builds pass, along with 96 frontend unit tests, the complete Go
 suite, and nine Python collector tests. Staging is **not yet deployed**: SSH to
 `maker@spence.infra.mkr.cx` is refused before authentication with `Not allowed at this time`.
-The GitHub build and immutable image receipts will be recorded here when available.
+The complete initial release build passed in [run 34291964679](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/34291964679).
+Browser QA then corrected six timestamp separators; the final frontend build is
+[run 34292367134](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/34292367134),
+source `7a415b0c3c6370815984cf8678fcf8520ce65f10`; the final release checks and publication passed.
+
+The backend image is registry-verified and contains linux/amd64 and linux/arm64:
+`ghcr.io/umassamherstmakerspace/mkrcx-leash@sha256:b425a0b089c8806db3394c385f4d4b5f8c196a5e6b2035a9dad1fa13efeb5448`.
+The final frontend image is registry-verified for both architectures:
+`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:a8eb527ce9b471e435b0af01b21d7fbad1fa98716e4d1d962ee2e53b6b1cdaa3`.
+
+Local Chrome checks with synthetic records proved that an offline repair note survives a failed
+refresh, the printer list and editor both fit a 390 px viewport without horizontal overflow,
+and editing the note/lineup submits the expected record version and shows the saved readback.
+These are local UI checks, not a claim of live staging verification.
 
 ## Behavior
 
@@ -62,7 +75,7 @@ uses `leash.printers:read`. API keys require their own matching scope as well as
    branch with `component=both`. Verify each manifest digest and amd64/arm64 platform before use.
 2. On Spence, use `scripts/deploy-printer-registry-staging.py --frontend <digest-image>
    --backend <digest-image>` to prepare patches. It checks the staging DB name, references only
-   the existing staging ingest secret, and creates guarded rollback patches. Add `--apply` to
+   the existing staging ingest secret, and creates guarded rollback patches in a fresh private directory for each run, preserving prior rollback points. Add `--apply` to
    roll out the staged pair. It checks production specs remained unchanged.
 3. Initially keep the legacy collector bridge enabled (the default). The existing Pi upload to
    staging will seed observed conditions/notes while production continues its existing feed.
@@ -91,5 +104,5 @@ alter production's collector to roll back staging.
 
 ## Next action
 
-Finish the published build receipt, restore authorized SSH access, and execute the staged
+Restore authorized SSH access and execute the staged
 rollout/verification above. Do not call this deployed based on local or GitHub build success.

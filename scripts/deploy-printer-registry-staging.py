@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 KUBECTL = ["kubectl", "--kubeconfig=/home/maker/.kube/config", "-n", "default"]
@@ -54,8 +55,7 @@ def main():
         reverse = [{"op": "test", "path": path + "/image", "value": image}, {"op": "replace", "path": path, "value": old}]
         plans.append((name, forward, reverse))
     os.umask(0o077)
-    directory = Path("/tmp/mkrcx-printer-registry-staging")
-    directory.mkdir(mode=0o700, exist_ok=True)
+    directory = Path(tempfile.mkdtemp(prefix="mkrcx-printer-registry-staging-", dir="/tmp"))
     for name, forward, reverse in plans:
         (directory / (name + "-forward.json")).write_text(json.dumps(forward))
         (directory / (name + "-rollback.json")).write_text(json.dumps(reverse))
