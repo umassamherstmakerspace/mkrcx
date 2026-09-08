@@ -276,13 +276,13 @@
 							>{printer.note ?? ''}
 							<small class="record-context"
 								>{printer.lifecycle === 'testing'
-									? 'Testing � '
+									? 'Testing · '
 									: printer.lifecycle === 'repair'
-										? 'In repair � '
+										? 'In repair · '
 										: ''}{printer.conditionSource === 'record'
 									? 'Saved record'
 									: 'Last reported condition'}{printer.conditionUpdatedAt
-									? ` � ${new Date(printer.conditionUpdatedAt).toLocaleString()}`
+									? ` · ${new Date(printer.conditionUpdatedAt).toLocaleString()}`
 									: ''}</small
 							>
 							{#if printer.lastSeen && (!printer.connected || printer.stale)}<small
@@ -419,13 +419,13 @@
 					</p>{/if}
 				<small class="record-context"
 					>{printer.lifecycle === 'testing'
-						? 'Testing � '
+						? 'Testing · '
 						: printer.lifecycle === 'repair'
-							? 'In repair � '
+							? 'In repair · '
 							: ''}{printer.conditionSource === 'record'
 						? 'Saved record'
 						: 'Last reported condition'}{printer.conditionUpdatedAt
-						? ` � ${new Date(printer.conditionUpdatedAt).toLocaleString()}`
+						? ` · ${new Date(printer.conditionUpdatedAt).toLocaleString()}`
 						: ''}</small
 				>
 				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"
