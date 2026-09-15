@@ -1,20 +1,13 @@
 import { env } from '$env/dynamic/public';
-import { fleetResponse } from '$lib/server/printerFleet';
-import { requireStaffCalendarAccess } from '$lib/server/staffCalendarAccess';
+import { readFleet } from '$lib/server/printerFleet';
 import type { RequestHandler } from './$types';
-
 export const GET: RequestHandler = async ({ cookies, fetch }) => {
-	let staff = false;
-	const token = cookies.get('token');
-	if (token) {
-		try {
-			await requireStaffCalendarAccess({ token, leashURL: env.PUBLIC_LEASH_ENDPOINT, fetch });
-			staff = true;
-		} catch {
-			staff = false;
-		}
+	try {
+		if (!env.PUBLIC_LEASH_ENDPOINT) throw new Error('Missing registry endpoint');
+		return Response.json(await readFleet(fetch, env.PUBLIC_LEASH_ENDPOINT, cookies.get('token')), {
+			headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }
+		});
+	} catch {
+		return new Response('Printer registry unavailable', { status: 503 });
 	}
-	return Response.json(fleetResponse(staff), {
-		headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }
-	});
 };

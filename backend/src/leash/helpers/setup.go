@@ -45,6 +45,8 @@ func SetupCasbin(enforcer *casbin.SyncedEnforcer) error {
 	check(enforcer.AddRoleForUser("role:member", "leash:member"))
 
 	// User Target Permissions
+	check(enforcer.AddPermissionForUser(volunteer, "leash.printers:read"))
+	check(enforcer.AddPermissionForUser(admin, "leash.printers:manage"))
 	check(enforcer.AddPermissionForUser(member, "leash.users:target_self"))
 	check(enforcer.AddPermissionForUser(volunteer, "leash.users:target_others"))
 
@@ -183,6 +185,9 @@ func SetupCasbin(enforcer *casbin.SyncedEnforcer) error {
 }
 
 func MigrateSchema(db *gorm.DB) error {
+	if err := models.MigratePrinterRegistry(db); err != nil {
+		return err
+	}
 	err := models.SetupValidator()
 	if err != nil {
 		return err

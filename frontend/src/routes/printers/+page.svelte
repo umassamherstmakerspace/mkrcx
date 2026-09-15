@@ -1,20 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Button } from 'flowbite-svelte';
-	import {
-		printers as unavailableFleet,
-		duration,
-		finishTime,
-		type Printer,
-		type Condition
-	} from '$lib/printers/prototype-data';
+	import { duration, finishTime, type Printer, type Condition } from '$lib/printers/prototype-data';
 	import {
 		sortFleet,
 		remainingMinutes,
 		type SortKey,
 		type SortDirection
 	} from '$lib/printers/fleet-view';
-	let printers = unavailableFleet;
+	let printers: Printer[] = [];
 	let staffView = false;
 	let filter = 'all';
 	let disconnected = true;
@@ -41,7 +35,9 @@
 		{ id: 'idle', label: 'Idle' },
 		{ id: 'printing', label: 'Printing' },
 		{ id: 'limited', label: 'Limited use' },
-		{ id: 'out', label: 'Out of service' }
+		{ id: 'out', label: 'Out of service' },
+		{ id: 'testing', label: 'Testing' },
+		{ id: 'repair', label: 'In repair' }
 	];
 	async function refresh() {
 		try {
@@ -53,7 +49,7 @@
 				fetchedAt: string | null;
 				printers: Printer[];
 			};
-			if (fleet.printers.length !== unavailableFleet.length) throw new Error('incomplete fleet');
+			if (!Array.isArray(fleet.printers)) throw new Error('invalid fleet');
 			printers = fleet.printers;
 			staffView = fleet.audience === 'staff';
 			disconnected = fleet.stale;
@@ -61,7 +57,15 @@
 		} catch {
 			disconnected = true;
 			staffView = false;
-			printers = unavailableFleet;
+			printers = printers.map((p) => ({
+				...p,
+				activity: 'unknown',
+				stale: true,
+				connected: false,
+				job: undefined,
+				progress: undefined,
+				minutes: undefined
+			}));
 			fetchedAt = null;
 		}
 	}
@@ -72,12 +76,14 @@
 	});
 	function matches(printer: Printer, selected: string) {
 		if (selected === 'all') return true;
+		if (selected === 'testing' || selected === 'repair') return printer.lifecycle === selected;
 		if (selected === 'idle')
 			return (
 				!disconnected &&
 				!printer.stale &&
 				printer.activity === 'idle' &&
-				['working', 'limited'].includes(printer.condition)
+				['working', 'limited'].includes(printer.condition) &&
+				(!printer.lifecycle || printer.lifecycle === 'active')
 			);
 		if (selected === 'printing')
 			return !disconnected && !printer.stale && printer.activity === 'printing';
@@ -103,7 +109,8 @@
 		sortDirection = 'asc';
 	}
 	function activityLabel(printer: Printer) {
-		if (disconnected || printer.stale || printer.activity === 'unknown') return 'Unknown';
+		if (disconnected || printer.stale) return 'Live status unavailable';
+		if (printer.activity === 'unknown') return 'Offline';
 		return printer.activity === 'printing'
 			? 'Printing'
 			: printer.activity === 'paused'
@@ -136,9 +143,10 @@
 			<span class="sample-label">{staffView ? 'Staff view' : 'Public view'}</span>
 		</div>
 	</header>
+	{#if staffView}<a href="/printers/manage">Manage printer records</a>{/if}
 	{#if disconnected}<div class="connection-banner" role="status">
-			<strong>Updates unavailable</strong> Printer condition, activity, and finish estimates cannot be
-			confirmed.
+			<strong>Updates unavailable</strong> Live activity and finish estimates cannot be confirmed. Saved
+			conditions and notes remain visible.
 		</div>{/if}
 	<div class="toolbar">
 		<div class="filters" role="group" aria-label="Filter printers">
@@ -264,7 +272,24 @@
 										: '—'}</span
 								>{/if}</td
 						>
-						<td class="table-note">{printer.note ?? (printer.stale ? 'No recent update.' : '')}</td>
+						<td class="table-note"
+							>{printer.note ?? ''}
+							<small class="record-context"
+								>{printer.lifecycle === 'testing'
+									? 'Testing · '
+									: printer.lifecycle === 'repair'
+										? 'In repair · '
+										: ''}{printer.conditionSource === 'record'
+									? 'Saved record'
+									: 'Last reported condition'}{printer.conditionUpdatedAt
+									? ` · ${new Date(printer.conditionUpdatedAt).toLocaleString()}`
+									: ''}</small
+							>
+							{#if printer.lastSeen && (!printer.connected || printer.stale)}<small
+									class="record-context"
+									>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
+								>{/if}
+						</td>
 					</tr>
 					{#if staffView && expandedId === printer.id}
 						<tr class="details-row"
@@ -390,8 +415,22 @@
 						>{/if}
 				</div>
 				{#if printer.note || printer.stale}<p class="mobile-note table-note">
-						{printer.note ?? 'No recent update.'}
+						{printer.note ?? ''}
 					</p>{/if}
+				<small class="record-context"
+					>{printer.lifecycle === 'testing'
+						? 'Testing · '
+						: printer.lifecycle === 'repair'
+							? 'In repair · '
+							: ''}{printer.conditionSource === 'record'
+						? 'Saved record'
+						: 'Last reported condition'}{printer.conditionUpdatedAt
+						? ` · ${new Date(printer.conditionUpdatedAt).toLocaleString()}`
+						: ''}</small
+				>
+				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"
+						>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
+					>{/if}
 				{#if staffView && expandedId === printer.id}<section
 						id={`mobile-details-${printer.id}`}
 						aria-label={`${printer.name} details`}
@@ -465,6 +504,12 @@
 </main>
 
 <style>
+	.record-context {
+		display: block;
+		font-size: 0.72rem;
+		opacity: 0.75;
+		margin-top: 0.35rem;
+	}
 	.printer-dashboard {
 		--ink: #252b35;
 		--muted: #66707c;
