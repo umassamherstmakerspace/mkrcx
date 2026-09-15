@@ -101,6 +101,7 @@
 		disconnected
 	);
 	$: if (!staffView) expandedId = null;
+	$: if (!staffView && ['shelved', 'retired'].includes(filter)) filter = 'all';
 	function changeSort(key: SortKey) {
 		sortDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
 		sortKey = key;
@@ -443,7 +444,7 @@
 						class="print-details mobile-print-details"
 					>
 						<div class="detail-heading">
-							<strong>{printer.name} · Current print</strong><Button
+							<strong>{printer.name} · Details</strong><Button
 								color="none"
 								size="xs"
 								class="close-details"
@@ -487,6 +488,7 @@
 							</p>
 						{:else}<p class="detail-empty">No current print.</p>{/if}
 						<p class="machine-reference">Machine ID: {printer.machineId ?? 'Not yet recorded'}</p>
+						<PrinterHistory id={printer.id} />
 					</section>{/if}
 			</article>
 		{:else}<div class="mobile-empty">
