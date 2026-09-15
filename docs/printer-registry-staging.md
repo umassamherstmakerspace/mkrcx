@@ -14,8 +14,13 @@ with the earlier registry candidate `2e89e373e169a0aba1b3882b14b0f792614cb1f1`.
 Shira approved the proposed scope: persistent offline conditions, editable lineup, and a bounded
 staff history view, tested on staging. Production and print-gating behavior remain outside scope.
 
-Local complete Go suite and 11 collector tests pass. Current frontend checks and staging release
-are in progress. Do not interpret the earlier candidate's images as this release.
+The release is deployed to [staging](https://staging.mkr.cx/printers), including the separate
+roster-driven collector. Production remains on the approved registration release.
+The complete Go suite, 11 collector tests, 96 frontend unit tests, frontend lint/build, and local
+Svelte checks pass. Desktop and 390 px phone review used explicitly synthetic local records:
+offline history, shelving, retaining the condition source during lineup edits, switching to a
+manual note when edited, save/readback, readable edit history and no horizontal overflow all pass.
+The phone review caught and corrected a missing history panel before deployment.
 Cluster access works through `maker@armengaud.infra.mkr.cx` using its established host-key alias
 and `sudo k3s kubectl`; the previous Spence access blocker is obsolete.
 
@@ -25,6 +30,47 @@ condition edits; it never exports raw event payloads or access credentials. Olde
 have no stored error text, which the UI states explicitly. Future observed `print_stats.message`
 errors are retained with their observation time. Full historical backfill, quota/statistics work,
 and recovery/authentication logs are deferred.
+
+## Deployed release and verification
+
+- Backend source `fc794a8c5747473a0bec109ac4849c3a8bce39d5`, [successful build](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/35024149727):
+  `ghcr.io/umassamherstmakerspace/mkrcx-leash@sha256:f1124bd2c821a49eb6b2da8daf2e4d350bc7e572cad8c4e26d98174ae7758c15`.
+- Frontend source `f299fe459d9c349b48e5051f760659431e34538f`, [successful final build](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/35024633856):
+  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:3dccc57aabc29b5426c73490ba46de43c9031c7e4504995cdfe1f678770364d1`.
+  Both image digests were verified as pullable for amd64 and arm64. The later operator-script
+  and collector-count logging changes do not alter either deployed application image.
+- Shira explicitly approved installing the separate 20-second collector on the central Pi and
+  sending status, saved notes and recent job/error history to `leash.staging.mkr.cx`.
+  The installed collector's normalized source SHA-256 is
+  `f5551e3630201f579dd752c7e8f0e1cce37a5ae807958fc988fce2937a188816`.
+  Installation checked the written bytes; service exits successfully. The timer, existing
+  production collector timer and print-station service remain active.
+- Successful collection reported 15 configured network printers and 274 history events. The
+  registry contains 16 records, including the existing unconfigured Laurie placeholder.
+  The frontend uses `PRINTER_REGISTRY_DEDICATED_COLLECTOR=true`; legacy staging uploads are
+  acknowledged without applying their fixed roster.
+- Public feed is HTTP 200 with no-store caching, eight saved notes at final readback, and no
+  job, error detail, history, actor, hardware address or progress fields. Anonymous and invalid
+  credential checks for history and management are denied. Registration landing still passes.
+- The staging backend was restarted. Seven saved notes had condition timestamps preceding the
+  new pod's `2026-09-15T21:24:53Z` start, proving stored conditions survived. An immediate ingress
+  read briefly returned 502; the subsequent readback succeeded. All four staging/production
+  deployments are ready and updated at 1/1. Production deployment specs were unchanged by both
+  staging rollouts and its image pins remain unchanged.
+- Signed-in staging editor/history review remains Shira's checkpoint: she chose to sign in in
+  her external browser, which this task's browser tools cannot inspect. Authenticated editor
+  behavior was exercised with the synthetic UI fixture and backend API tests; do not describe
+  that as a completed signed-in staging browser test.
+
+Original image-guarded rollback patches are in the workstation directory
+`C:\Users\shira\AppData\Local\Temp\mkrcx-printer-registry-staging-5_3q0ubd`.
+They restore frontend
+`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:193ea13e37898b7c8213a16b08a724bd14a867cdfac25103323eef8cd4aa220b`
+and backend
+`ghcr.io/umassamherstmakerspace/mkrcx-leash@sha256:fffa8d662946a70c69751ac2a5350409f7c523b419a4478290356d17fec11a0f`.
+The later collector-mode rollback is in `mkrcx-printer-registry-staging-mmw0_xnw` alongside it;
+that later patch does not restore the original application images. For a full rollback, stop the
+separate staging timer/service, then apply the original image-guarded patches. Retain the tables.
 
 ## Behavior
 
@@ -77,10 +123,11 @@ uses `leash.printers:read`. API keys require their own matching scope as well as
 
 1. Publish both components with the existing `Docker` workflow, using workflow dispatch on this
    branch with `component=both`. Verify each manifest digest and amd64/arm64 platform before use.
-2. On Armengaud, use `scripts/deploy-printer-registry-staging.py --frontend <digest-image>
+2. From this Windows workstation, use `scripts/deploy-printer-registry-staging.py --frontend <digest-image>
    --backend <digest-image>` to prepare patches. It checks the staging DB name, references only
    the existing staging ingest secret, and creates guarded rollback patches in a fresh private directory for each run, preserving prior rollback points. Add `--apply` to
-   roll out the staged pair. It checks production specs remained unchanged.
+   roll out the staged pair. It sends kubectl operations through Armengaud because that host
+   has no Python interpreter, retains patches locally, and checks production specs remained unchanged.
 3. Initially keep the legacy collector bridge enabled (the default). The existing Pi upload to
    staging will seed observed conditions/notes while production continues its existing feed.
    Confirm staging `/printers/data` is fresh and notes match the current source. The dedicated
@@ -108,5 +155,7 @@ alter production's collector to roll back staging.
 
 ## Next action
 
-Finish the current frontend checks, publish both images, and execute the authorized staging
-rollout/verification above. Record exact release and rollback pins here after verification.
+Shira reviews the signed-in staging History and Manage printer records views, including the
+desired actual lineup choices. Production promotion and merging this feature into main require
+her subsequent instruction. The statistics page, quotas and touchscreen/gating changes are outside
+this release.

@@ -137,7 +137,8 @@ def main():
         headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json"})
     with opener.open(req, timeout=15) as response:
         if response.status != 204: raise RuntimeError("Staging ingest failed")
-    print(f"Staging printer registry: {len(snapshot['printers'])} observations")
+    history_count = len(snapshot['history']) if 'history' in snapshot else 'unavailable'
+    print(f"Staging printer registry: {len(snapshot['printers'])} observations; history events: {history_count}")
 
 
 if __name__ == "__main__":

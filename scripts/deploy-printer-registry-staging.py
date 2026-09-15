@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import tempfile
 from pathlib import Path
@@ -12,7 +13,14 @@ KUBECTL = ["sudo", "-n", "k3s", "kubectl", "-n", "default"]
 
 
 def kube(*args):
-    return subprocess.check_output(KUBECTL + list(args), text=True)
+    command = KUBECTL + list(args)
+    if os.name == 'nt':
+        # The cluster host has kubectl but no Python. Prepare and retain plans locally.
+        command = ['C:/Windows/System32/OpenSSH/ssh.exe', '-T', '-o', 'BatchMode=yes',
+            '-o', 'ConnectTimeout=12', '-o', 'StrictHostKeyChecking=yes',
+            '-o', 'Hostname=172.24.123.102', '-o', 'HostKeyAlias=armengaud.infra.mkr.cx',
+            'maker@armengaud.infra.mkr.cx', shlex.join(command)]
+    return subprocess.check_output(command, text=True, timeout=200)
 
 
 def get(kind, name):
@@ -55,15 +63,15 @@ def main():
         reverse = [{"op": "test", "path": path + "/image", "value": image}, {"op": "replace", "path": path, "value": old}]
         plans.append((name, forward, reverse))
     os.umask(0o077)
-    directory = Path(tempfile.mkdtemp(prefix="mkrcx-printer-registry-staging-", dir="/tmp"))
+    directory = Path(tempfile.mkdtemp(prefix="mkrcx-printer-registry-staging-"))
     for name, forward, reverse in plans:
         (directory / (name + "-forward.json")).write_text(json.dumps(forward))
         (directory / (name + "-rollback.json")).write_text(json.dumps(reverse))
-    print("Prepared staging-only patches and rollback in " + str(directory))
+    print("Prepared staging-only patches and rollback in " + str(directory), flush=True)
     if args.apply:
         for name, _, _ in plans:
-            kube("patch", "deployment", name, "--type=json", "--patch-file=" + str(directory / (name + "-forward.json")))
-            subprocess.run(KUBECTL + ["rollout", "status", "deployment/" + name, "--timeout=180s"], check=True)
+            kube("patch", "deployment", name, "--type=json", "--patch", (directory / (name + "-forward.json")).read_text())
+            print(kube("rollout", "status", "deployment/" + name, "--timeout=180s"), flush=True)
         for name, spec in production.items():
             if get("deployment", name)["spec"] != spec:
                 raise RuntimeError("Production spec changed during the staging rollout; investigate before continuing")
