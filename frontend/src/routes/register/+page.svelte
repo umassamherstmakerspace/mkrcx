@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { base } from '$app/paths';
 	import { registrationAccountChooserUrl } from '$lib/registration';
 </script>
 
@@ -18,7 +17,7 @@
 		</h2>
 		<p class="mt-2 text-gray-600 dark:text-gray-300">You only need to register once.</p>
 		<a
-			href={`${base}/login?return_to=${encodeURIComponent(base || '/')}`}
+			href="/login?return_to=%2F"
 			class="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
 		>
 			Log in
@@ -39,7 +38,7 @@
 	</section>
 
 	<a
-		href={base || '/'}
+		href="/"
 		class="mt-8 inline-block rounded text-blue-700 underline underline-offset-4 hover:text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:text-blue-400 dark:hover:text-blue-300 dark:focus:ring-blue-800"
 	>
 		Go to the homepage
