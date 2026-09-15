@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-KUBECTL = ["kubectl", "--kubeconfig=/home/maker/.kube/config", "-n", "default"]
+KUBECTL = ["sudo", "-n", "k3s", "kubectl", "-n", "default"]
 
 
 def kube(*args):

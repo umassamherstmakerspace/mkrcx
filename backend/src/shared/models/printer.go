@@ -26,6 +26,7 @@ type PrinterRecord struct {
 	ObservedNote        string     `gorm:"type:text" json:"-"`
 	ConditionObservedAt *time.Time `json:"-"`
 	LastSeen            *time.Time `json:"lastSeen"`
+	HistorySyncedAt     *time.Time `json:"-"`
 	FetchedAt           *time.Time `json:"-"`
 	Telemetry           string     `gorm:"type:text" json:"-"`
 }
@@ -37,4 +38,15 @@ type PrinterRecordEvent struct {
 	Actor     string    `gorm:"size:160" json:"actor"`
 	CreatedAt time.Time `json:"createdAt"`
 	Record    string    `gorm:"type:text" json:"record"`
+}
+
+// A projection of an immutable station event, retained independently of live telemetry.
+type PrinterHistoryEvent struct {
+	SourceID   string    `gorm:"primaryKey;size:160" json:"sourceId"`
+	PrinterID  string    `gorm:"size:80;index" json:"printerId"`
+	RecordedAt time.Time `gorm:"index" json:"recordedAt"`
+	EventType  string    `gorm:"size:80" json:"eventType"`
+	Detail     string    `gorm:"type:text" json:"detail"`
+	File       string    `gorm:"size:1000" json:"file,omitempty"`
+	Material   string    `gorm:"size:120" json:"material,omitempty"`
 }

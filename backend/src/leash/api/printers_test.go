@@ -33,6 +33,7 @@ func printerTestApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	registerPrinterPublicEndpoints(app)
 	app.Put("/records/:id", savePrinterRecord)
 	app.Get("/staff", func(c *fiber.Ctx) error { return respondPrinterFleet(c, true) })
+	app.Get("/history/:id", printerStaffHistory)
 	app.Get("/denied", func(c *fiber.Ctx) error {
 		c.Locals("auth", leash_auth.Authentication{Authenticator: leash_auth.AUTHENTICATOR_LOGGED_OUT})
 		return c.Next()
@@ -70,6 +71,66 @@ func printerItem(t *testing.T, result map[string]interface{}, id string) map[str
 }
 func editFor(name string) printerEdit {
 	return printerEdit{Name: name, Model: "New model", Lifecycle: "testing", Condition: "out", Note: "Awaiting thermistor", Manual: true}
+}
+
+func TestPrinterShelvingAndHistorySurviveOffline(t *testing.T) {
+	app, db := printerTestApp(t)
+	edit := editFor("History fixture")
+	if status, _ := printerRequest(t, app, "PUT", "/records/history-fixture", edit, ""); status != 200 {
+		t.Fatal(status)
+	}
+	now := time.Now().UTC()
+	snapshot := printerSnapshot{FetchedAt: now, Printers: []printerReading{{ID: "history-fixture", Condition: "working", Activity: "idle", Fault: "Heater not heating"}}, History: []models.PrinterHistoryEvent{{SourceID: "station:job:10", PrinterID: "history-fixture", RecordedAt: now.Add(-time.Hour), EventType: "printer_failed", Detail: "Recorded failure", File: "staff-only.gcode"}}}
+	for i := 0; i < 2; i++ {
+		snapshot.FetchedAt = now.Add(time.Duration(i) * time.Millisecond)
+		if status, _ := printerRequest(t, app, "POST", "/printer-fleet/ingest", snapshot, "test-collector"); status != 204 {
+			t.Fatal(status)
+		}
+	}
+	var count int64
+	db.Model(&models.PrinterHistoryEvent{}).Count(&count)
+	if count != 2 {
+		t.Fatalf("duplicate fault or imported event: %d", count)
+	}
+	_, public := printerRequest(t, app, "GET", "/printer-fleet", nil, "")
+	p := printerItem(t, public, "history-fixture")
+	if p["fault"] != nil || p["history"] != nil || p["activity"] != "unknown" {
+		t.Fatalf("unsafe public fault: %#v", p)
+	}
+	edit.Version = 1
+	edit.Lifecycle = "shelved"
+	if status, _ := printerRequest(t, app, "PUT", "/records/history-fixture", edit, ""); status != 200 {
+		t.Fatal(status)
+	}
+	_, public = printerRequest(t, app, "GET", "/printer-fleet", nil, "")
+	for _, item := range public["printers"].([]interface{}) {
+		if item.(map[string]interface{})["id"] == "history-fixture" {
+			t.Fatal("shelved printer public")
+		}
+	}
+	_, staff := printerRequest(t, app, "GET", "/staff", nil, "")
+	if printerItem(t, staff, "history-fixture")["note"] != edit.Note {
+		t.Fatal("shelved note lost")
+	}
+	snapshot.FetchedAt = now.Add(2 * time.Millisecond)
+	snapshot.History = nil
+	snapshot.Printers[0] = printerReading{ID: "history-fixture", Condition: "unknown", Activity: "unknown"}
+	printerRequest(t, app, "POST", "/printer-fleet/ingest", snapshot, "test-collector")
+	if err := models.MigratePrinterRegistry(db); err != nil {
+		t.Fatal(err)
+	}
+	status, history := printerRequest(t, app, "GET", "/history/history-fixture", nil, "")
+	if status != 200 || len(history["events"].([]interface{})) != 2 || len(history["edits"].([]interface{})) != 2 || history["lastSync"] == nil {
+		t.Fatalf("history missing: %#v", history)
+	}
+	serialized, _ := json.Marshal(history)
+	if bytes.Contains(serialized, []byte("host")) || bytes.Contains(serialized, []byte("mac")) {
+		t.Fatal("connection details leaked in history")
+	}
+	snapshot.History = []models.PrinterHistoryEvent{{SourceID: "station:job:11", PrinterID: "another-printer", RecordedAt: now, EventType: "printer_failed"}}
+	if status, _ := printerRequest(t, app, "POST", "/printer-fleet/ingest", snapshot, "test-collector"); status != 400 {
+		t.Fatal("accepted mismatched event", status)
+	}
 }
 
 func TestPrinterNotesSurviveOfflineRestartAndStaleTelemetry(t *testing.T) {

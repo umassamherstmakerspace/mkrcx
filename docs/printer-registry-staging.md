@@ -1,6 +1,6 @@
 # Persistent printer registry — staging rollout
 
-Updated: 2026-09-08
+Updated: 2026-09-15
 
 ## Scope and current boundary
 
@@ -8,24 +8,23 @@ Shira authorized building and deploying to staging first. Production deployment 
 live printer gating are outside this release. Staff editing is optional; management from an
 authorized operator's tooling is the primary requirement.
 
-Implementation lives on `codex/printer-registry-staging`, based on `d6a4532` of `mkrcx` main.
-The local backend and frontend builds pass, along with 96 frontend unit tests, the complete Go
-suite, and nine Python collector tests. Staging is **not yet deployed**: SSH to
-`maker@spence.infra.mkr.cx` is refused before authentication with `Not allowed at this time`.
-The complete initial release build passed in [run 34291964679](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/34291964679).
-Browser QA then corrected six timestamp separators; the final frontend build is
-[run 34292367134](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/34292367134),
-source `7a415b0c3c6370815984cf8678fcf8520ce65f10`; the final release checks and publication passed.
+Implementation now lives on `codex/printer-records-history-20260915`. It combines current main
+`a7893b8309e3ec74ae2edd103d63192e2204fc6c` (including the approved registration landing page)
+with the earlier registry candidate `2e89e373e169a0aba1b3882b14b0f792614cb1f1`.
+Shira approved the proposed scope: persistent offline conditions, editable lineup, and a bounded
+staff history view, tested on staging. Production and print-gating behavior remain outside scope.
 
-The backend image is registry-verified and contains linux/amd64 and linux/arm64:
-`ghcr.io/umassamherstmakerspace/mkrcx-leash@sha256:b425a0b089c8806db3394c385f4d4b5f8c196a5e6b2035a9dad1fa13efeb5448`.
-The final frontend image is registry-verified for both architectures:
-`ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:a8eb527ce9b471e435b0af01b21d7fbad1fa98716e4d1d962ee2e53b6b1cdaa3`.
+Local complete Go suite and 11 collector tests pass. Current frontend checks and staging release
+are in progress. Do not interpret the earlier candidate's images as this release.
+Cluster access works through `maker@armengaud.infra.mkr.cx` using its established host-key alias
+and `sudo k3s kubectl`; the previous Spence access blocker is obsolete.
 
-Local Chrome checks with synthetic records proved that an offline repair note survives a failed
-refresh, the printer list and editor both fit a 390 px viewport without horizontal overflow,
-and editing the note/lineup submits the expected record version and shows the saved readback.
-These are local UI checks, not a claim of live staging verification.
+The live central station was read with SQLite `mode=ro` and `query_only=ON`. It retains job events,
+condition edits and recovery events. The first history view imports recent starts, outcomes, and
+condition edits; it never exports raw event payloads or access credentials. Older failures may
+have no stored error text, which the UI states explicitly. Future observed `print_stats.message`
+errors are retained with their observation time. Full historical backfill, quota/statistics work,
+and recovery/authentication logs are deferred.
 
 ## Behavior
 
@@ -35,8 +34,8 @@ These are local UI checks, not a claim of live staging verification.
   an edited or retired record. New records appear without a frontend or collector code change.
 - Live readings cannot overwrite a manually maintained note. Offline/stale readings preserve
   the last known condition and explanation but remove live activity/estimates and job details.
-- Testing and repair are lineup states separate from condition. Retired records remain in
-  management/history but are omitted from the public list. Testing/repair printers are excluded
+- Testing, repair, shelving and retirement are lineup states separate from condition. Shelved and
+  retired records remain in staff views/history but are omitted from the public list and polling roster. Testing/repair printers are excluded
   from the available-idle filter.
 - IDs follow physical machines. MAC identity cannot be reassigned. Clear an old printer's host
   to release its address; keep its MAC and repair record, then register the replacement separately.
@@ -47,6 +46,11 @@ These are local UI checks, not a claim of live staging verification.
 - A manual dashboard edit does **not** update the station database or local gating. The editor
   explicitly states this. Returning a record to station-reported mode is an explicit edit.
   Bidirectional station synchronization is a later, separately tested phase.
+- Lineup-only edits preserve the selected condition source. Editing a note or condition explicitly
+  selects the saved dashboard record. Staff details also show the station's last saved condition.
+- History returns the latest 100 station/observed events and 50 dashboard edits. Each collection
+  reads up to 30 job events and 20 condition events per polled printer, capped at 1,000 total;
+  previously imported events remain durable. Failed collection leaves stored history intact.
 
 ## Operator and portal access
 
@@ -73,16 +77,16 @@ uses `leash.printers:read`. API keys require their own matching scope as well as
 
 1. Publish both components with the existing `Docker` workflow, using workflow dispatch on this
    branch with `component=both`. Verify each manifest digest and amd64/arm64 platform before use.
-2. On Spence, use `scripts/deploy-printer-registry-staging.py --frontend <digest-image>
+2. On Armengaud, use `scripts/deploy-printer-registry-staging.py --frontend <digest-image>
    --backend <digest-image>` to prepare patches. It checks the staging DB name, references only
    the existing staging ingest secret, and creates guarded rollback patches in a fresh private directory for each run, preserving prior rollback points. Add `--apply` to
    roll out the staged pair. It checks production specs remained unchanged.
 3. Initially keep the legacy collector bridge enabled (the default). The existing Pi upload to
    staging will seed observed conditions/notes while production continues its existing feed.
-   Confirm staging `/printers/data` is fresh and notes match the current source. Existing offline
-   printers whose old feed already erased their notes require an explicit operator note; do not
-   invent or backfill those from guesses.
-4. Install `printer-registry-collector.py` plus the unchanged `printer-fleet-collector.py` in
+   Confirm staging `/printers/data` is fresh and notes match the current source. The dedicated
+   collector also reads retained station conditions for offline machines; never infer a working
+   condition from an unreported default.
+4. Install `printer-registry-collector.py` plus its companion `printer-fleet-collector.py` in
    `/opt/makerspace-printer-registry-staging` on the Pi. Install the separate `makerspace-printer-
    registry-staging.service` and `.timer`. Its owner-only environment file is
    `/etc/makerspace-printer-registry-staging.env` with only the staging ingest token and, if needed,
@@ -104,5 +108,5 @@ alter production's collector to roll back staging.
 
 ## Next action
 
-Restore authorized SSH access and execute the staged
-rollout/verification above. Do not call this deployed based on local or GitHub build success.
+Finish the current frontend checks, publish both images, and execute the authorized staging
+rollout/verification above. Record exact release and rollback pins here after verification.

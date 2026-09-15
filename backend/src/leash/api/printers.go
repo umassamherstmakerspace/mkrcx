@@ -18,6 +18,7 @@ import (
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const printerFreshness = 90 * time.Second
@@ -51,10 +52,12 @@ type printerReading struct {
 	Minutes   *float64    `json:"minutes,omitempty"`
 	Progress  *float64    `json:"progress,omitempty"`
 	Job       *printerJob `json:"job,omitempty"`
+	Fault     string      `json:"fault,omitempty"`
 }
 type printerSnapshot struct {
-	FetchedAt time.Time        `json:"fetchedAt"`
-	Printers  []printerReading `json:"printers"`
+	FetchedAt time.Time                    `json:"fetchedAt"`
+	Printers  []printerReading             `json:"printers"`
+	History   []models.PrinterHistoryEvent `json:"history,omitempty"`
 }
 
 func printerChoice(value string, choices ...string) bool {
@@ -117,10 +120,43 @@ func registerPrinterPublicEndpoints(api fiber.Router) {
 	api.Get("/printer-fleet/roster", printerCollectorAuth, printerRoster)
 }
 func registerPrinterEndpoints(api fiber.Router) {
+	api.Get("/printer-fleet/history/:id", printerPermission("leash.printers:read"), printerStaffHistory)
 	api.Get("/printer-fleet/staff", printerPermission("leash.printers:read"), func(c *fiber.Ctx) error { return respondPrinterFleet(c, true) })
 	api.Get("/printer-fleet/records", printerPermission("leash.printers:manage"), listPrinterRecords)
 	api.Put("/printer-fleet/records/:id", printerPermission("leash.printers:manage"), savePrinterRecord)
 	api.Get("/printer-fleet/records/:id/history", printerPermission("leash.printers:manage"), printerHistory)
+}
+
+func printerStaffHistory(c *fiber.Ctx) error {
+	if !printerIDPattern.MatchString(c.Params("id")) {
+		return fiber.ErrBadRequest
+	}
+	db := leash_auth.GetDB(c)
+	var record models.PrinterRecord
+	if err := db.First(&record, "id = ?", c.Params("id")).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fiber.ErrNotFound
+		}
+		return fiber.ErrInternalServerError
+	}
+	var events []models.PrinterHistoryEvent
+	var edits []models.PrinterRecordEvent
+	if err := db.Where("printer_id = ?", record.ID).Order("recorded_at DESC, source_id DESC").Limit(100).Find(&events).Error; err != nil {
+		return fiber.ErrInternalServerError
+	}
+	if err := db.Where("printer_id = ?", record.ID).Order("id DESC").Limit(50).Find(&edits).Error; err != nil {
+		return fiber.ErrInternalServerError
+	}
+	changes := make([]fiber.Map, 0, len(edits))
+	for _, edit := range edits {
+		var saved models.PrinterRecord
+		if json.Unmarshal([]byte(edit.Record), &saved) != nil {
+			continue
+		}
+		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "lifecycle": saved.Lifecycle, "name": saved.Name})
+	}
+	c.Set("Cache-Control", "private, no-store")
+	return c.JSON(fiber.Map{"events": events, "edits": changes, "lastSync": record.HistorySyncedAt, "stationCondition": record.ObservedCondition, "stationNote": record.ObservedNote, "stationReportedAt": record.ConditionObservedAt})
 }
 
 func listPrinterRecords(c *fiber.Ctx) error {
@@ -159,7 +195,7 @@ func savePrinterRecord(c *fiber.Ctx) error {
 	edit.MAC = strings.ToLower(strings.TrimSpace(edit.MAC))
 	if !printerIDPattern.MatchString(id) || edit.Name == "" || edit.Model == "" ||
 		!printerText(edit.Name, 120) || !printerText(edit.Model, 80) || !printerText(edit.Location, 120) || !printerText(edit.MachineID, 120) || !printerText(edit.Note, 2000) ||
-		!printerChoice(edit.Lifecycle, "active", "testing", "repair", "retired") || !printerChoice(edit.Condition, "working", "limited", "out", "unknown") {
+		!printerChoice(edit.Lifecycle, "active", "testing", "repair", "shelved", "retired") || !printerChoice(edit.Condition, "working", "limited", "out", "unknown") {
 		return fiber.NewError(400, "Invalid printer record")
 	}
 	// Only a verified LAN IPv4 target and a unicast hardware identity can be polled.
@@ -258,7 +294,7 @@ func savePrinterRecord(c *fiber.Ctx) error {
 
 func printerRoster(c *fiber.Ctx) error {
 	var records []models.PrinterRecord
-	if err := leash_auth.GetDB(c).Where("lifecycle <> ? AND host <> ''", "retired").Order("id").Find(&records).Error; err != nil {
+	if err := leash_auth.GetDB(c).Where("lifecycle NOT IN ? AND host <> ''", []string{"shelved", "retired"}).Order("id").Find(&records).Error; err != nil {
 		return fiber.ErrInternalServerError
 	}
 	roster := make([]fiber.Map, 0, len(records))
@@ -279,8 +315,16 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 		return fiber.NewError(400, "Invalid snapshot timestamp or size")
 	}
 	seen := map[string]bool{}
+	if len(snapshot.History) > 1000 {
+		return fiber.ErrRequestEntityTooLarge
+	}
+	for _, event := range snapshot.History {
+		if !printerIDPattern.MatchString(event.PrinterID) || !printerText(event.SourceID, 160) || !strings.HasPrefix(event.SourceID, "station:") || !printerText(event.EventType, 80) || event.EventType == "" || !printerText(event.Detail, 4000) || !printerText(event.File, 1000) || !printerText(event.Material, 120) || event.RecordedAt.IsZero() || event.RecordedAt.After(now.Add(5*time.Second)) {
+			return fiber.NewError(400, "Invalid printer history event")
+		}
+	}
 	for _, p := range snapshot.Printers {
-		if seen[p.ID] || !printerIDPattern.MatchString(p.ID) || !printerChoice(p.Condition, "working", "limited", "out", "unknown") || !printerChoice(p.Activity, "idle", "printing", "paused", "unknown") || !printerText(p.Note, 2000) {
+		if seen[p.ID] || !printerIDPattern.MatchString(p.ID) || !printerChoice(p.Condition, "working", "limited", "out", "unknown") || !printerChoice(p.Activity, "idle", "printing", "paused", "unknown") || !printerText(p.Note, 2000) || !printerText(p.Fault, 4000) {
 			return fiber.NewError(400, "Invalid printer reading")
 		}
 		seen[p.ID] = true
@@ -304,18 +348,41 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 				continue
 			}
 			body, _ := json.Marshal(p)
+			var previous printerReading
+			_ = json.Unmarshal([]byte(record.Telemetry), &previous)
+			if p.Fault != "" && previous.Fault != p.Fault {
+				event := models.PrinterHistoryEvent{SourceID: fmt.Sprintf("observer:%s:%d", p.ID, snapshot.FetchedAt.UnixNano()), PrinterID: p.ID, RecordedAt: snapshot.FetchedAt, EventType: "printer_error", Detail: p.Fault}
+				if err := tx.Create(&event).Error; err != nil {
+					return err
+				}
+			}
 			updates := map[string]interface{}{"fetched_at": snapshot.FetchedAt, "telemetry": string(body)}
 			if p.Activity != "unknown" {
 				updates["last_seen"] = snapshot.FetchedAt
 			}
 			// Connectivity failures are observations, never instructions to clear a repair record.
-			if p.Condition != "unknown" {
+			if p.Condition != "unknown" && (p.Condition != record.ObservedCondition || p.Note != record.ObservedNote || record.ConditionObservedAt == nil) {
 				updates["observed_condition"] = p.Condition
 				updates["observed_note"] = p.Note
 				updates["condition_observed_at"] = snapshot.FetchedAt
 			}
 			if err := tx.Model(&models.PrinterRecord{}).Where("id = ? AND (fetched_at IS NULL OR fetched_at < ?)", p.ID, snapshot.FetchedAt).UpdateColumns(updates).Error; err != nil {
 				return err
+			}
+		}
+		for _, event := range snapshot.History {
+			if !seen[event.PrinterID] {
+				return fiber.NewError(400, "History must belong to an observed printer")
+			}
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&event).Error; err != nil {
+				return err
+			}
+		}
+		if snapshot.History != nil {
+			for id := range seen {
+				if err := tx.Model(&models.PrinterRecord{}).Where("id = ? AND (history_synced_at IS NULL OR history_synced_at < ?)", id, snapshot.FetchedAt).UpdateColumn("history_synced_at", snapshot.FetchedAt).Error; err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -331,7 +398,11 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 
 func respondPrinterFleet(c *fiber.Ctx, staff bool) error {
 	var records []models.PrinterRecord
-	if err := leash_auth.GetDB(c).Where("lifecycle <> ?", "retired").Order("name").Find(&records).Error; err != nil {
+	query := leash_auth.GetDB(c).Order("name")
+	if !staff {
+		query = query.Where("lifecycle NOT IN ?", []string{"shelved", "retired"})
+	}
+	if err := query.Find(&records).Error; err != nil {
 		return fiber.ErrInternalServerError
 	}
 	now := time.Now().UTC()
@@ -361,6 +432,9 @@ func respondPrinterFleet(c *fiber.Ctx, staff bool) error {
 		activity := "unknown"
 		if fresh && reading.Activity != "" {
 			activity = reading.Activity
+		}
+		if reading.Fault != "" {
+			activity = "unknown"
 		}
 		item := fiber.Map{"id": p.ID, "name": p.Name, "model": p.Model, "machineId": p.MachineID, "location": p.Location, "lifecycle": p.Lifecycle, "condition": condition, "note": note, "conditionSource": source, "conditionUpdatedAt": updated, "lastSeen": p.LastSeen, "activity": activity, "stale": !fresh, "connected": fresh && activity != "unknown"}
 		if fresh && printerChoice(activity, "printing", "paused") {

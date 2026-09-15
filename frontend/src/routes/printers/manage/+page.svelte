@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import PrinterHistory from '$lib/printers/PrinterHistory.svelte';
 	type Record = {
 		id: string;
 		name: string;
@@ -39,7 +40,7 @@
 	function select(record?: Record) {
 		isNew = !record;
 		edit = record
-			? { ...record, manual: true }
+			? { ...record }
 			: {
 					id: '',
 					name: '',
@@ -167,13 +168,18 @@
 					<label
 						>Lineup<select disabled={saving} bind:value={edit.lifecycle}
 							><option value="active">Active lineup</option><option value="testing">Testing</option
-							><option value="repair">In repair</option><option value="retired"
-								>Retired — hidden from public list</option
-							></select
+							><option value="repair">In repair</option><option value="shelved"
+								>Shelved — hidden from public list</option
+							><option value="retired">Retired — hidden from public list</option></select
 						></label
 					>
 					<label
-						>Known condition<select disabled={saving} bind:value={edit.condition}
+						>Known condition<select
+							disabled={saving}
+							bind:value={edit.condition}
+							on:change={() => {
+								if (edit) edit.manual = true;
+							}}
 							><option value="working">Working</option><option value="limited">Limited use</option
 							><option value="out">Out of service</option><option value="unknown"
 								>Not yet known</option
@@ -182,7 +188,14 @@
 					>
 				</div>
 				<label
-					>Public note<textarea maxlength="2000" rows="4" disabled={saving} bind:value={edit.note}
+					>Public note<textarea
+						maxlength="2000"
+						rows="4"
+						disabled={saving}
+						bind:value={edit.note}
+						on:input={() => {
+							if (edit) edit.manual = true;
+						}}
 					></textarea></label
 				>
 				<label class="check"
@@ -214,6 +227,7 @@
 					on:click={() => (edit = null)}>Cancel</button
 				>
 			</form>
+			{#if !isNew}{#key edit.id}<PrinterHistory id={edit.id} />{/key}{/if}
 		{/if}
 		<ul>
 			{#each records as record}<li>

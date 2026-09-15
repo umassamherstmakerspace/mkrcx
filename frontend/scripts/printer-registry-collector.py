@@ -5,6 +5,8 @@ import ipaddress
 import json
 import os
 import re
+import sqlite3
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -63,7 +65,67 @@ def collect(roster):
         runtime, active = {}, {}
     with OBSERVER.concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         readings = list(executor.map(lambda entry: OBSERVER.read_printer(entry, runtime, active), roster))
-    return {"fetchedAt": OBSERVER.iso_now(), "printers": readings}
+    # The saved station condition remains meaningful even when its machine is off.
+    for reading in readings:
+        row = runtime.get(reading['id'], {})
+        condition = {'available':'working','needs_attention':'limited','out_of_service':'out'}.get(row.get('condition'))
+        if condition and (row.get('reported_at') or row.get('problem_note') or row.get('system_status') == 'available'):
+            reading['condition'] = condition
+            reading['note'] = row.get('problem_note') or ''
+    snapshot = {"fetchedAt": OBSERVER.iso_now(), "printers": readings}
+    try:
+        snapshot['history'] = read_history([entry[0] for entry in roster])
+    except (sqlite3.Error, OSError, ValueError):
+        # A missing history source must not wipe stored history or stop status updates.
+        print('Staging history source unavailable; retaining previously collected records')
+    return snapshot
+
+
+def clean_text(value, limit):
+    if not isinstance(value, str): return ''
+    return ''.join(c for c in value if ord(c) >= 32 or c in '\n\t')[:limit]
+
+
+def read_history(ids, path=None):
+    path = path or os.environ.get('PRINTER_STATION_DB', '/var/lib/makerspace-print-station/station.sqlite')
+    db = sqlite3.connect(f'file:{urllib.parse.quote(str(path))}?mode=ro', uri=True)
+    db.row_factory = sqlite3.Row
+    db.execute('PRAGMA query_only=ON')
+    result = []
+    try:
+        for printer_id in ids:
+            jobs = db.execute('''SELECT e.id,e.event_type,e.created_at,e.payload_json,r.file_name,r.filament_type
+                FROM events e JOIN requests r ON r.id=e.request_id
+                WHERE r.printer_id=? AND e.event_type IN ('started','printer_completed','printer_cancelled','printer_failed')
+                ORDER BY e.id DESC LIMIT 30''', (printer_id,)).fetchall()
+            changes = db.execute('''SELECT id,event_type,created_at,payload_json FROM printer_runtime_events
+                WHERE printer_id=? AND event_type IN ('staff_runtime_changed','printer_runtime_changed')
+                ORDER BY id DESC LIMIT 20''', (printer_id,)).fetchall()
+            for source, rows in [('job', jobs), ('condition', changes)]:
+                for row in rows:
+                    payload = json.loads(row['payload_json'])
+                    if not isinstance(payload, dict): continue
+                    details = []
+                    if source == 'condition':
+                        for key, label in [('newCondition','Condition'),('newNote','Note')]:
+                            if key in payload: details.append(label + ': ' + clean_text(payload[key], 2000))
+                    else:
+                        for key in ('message','error','detail'):
+                            value = clean_text(payload.get(key), 2000)
+                            if value: details.append(value)
+                        duration = payload.get('printDurationSeconds')
+                        if isinstance(duration, (int,float)) and 0 <= duration <= 31536000:
+                            details.append(f'Print duration: {round(duration / 60)} min')
+                        if row['event_type'] == 'printer_failed' and not any(clean_text(payload.get(k),2000) for k in ('message','error','detail')):
+                            details.append('The station recorded a failed print without an error message.')
+                    event = {'sourceId':f'station:{source}:{row["id"]}', 'printerId':printer_id,
+                        'recordedAt':row['created_at'],'eventType':row['event_type'],'detail':clean_text('\n'.join(details),4000)}
+                    if source == 'job':
+                        event.update(file=clean_text(row['file_name'],1000),material=clean_text(row['filament_type'],120))
+                    result.append(event)
+    finally:
+        db.close()
+    return sorted(result, key=lambda event: event['recordedAt'], reverse=True)[:1000]
 
 
 def main():

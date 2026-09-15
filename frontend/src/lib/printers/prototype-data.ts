@@ -6,7 +6,7 @@ export type Printer = {
 	machineId?: string;
 	name: string;
 	model: string;
-	lifecycle?: 'active' | 'testing' | 'repair' | 'retired';
+	lifecycle?: 'active' | 'testing' | 'repair' | 'shelved' | 'retired';
 	location?: string;
 	conditionSource?: 'record' | 'station';
 	conditionUpdatedAt?: string | null;

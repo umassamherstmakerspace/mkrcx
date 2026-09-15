@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import tempfile
+import sqlite3
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -11,6 +12,31 @@ SPEC.loader.exec_module(COLLECTOR)
 
 
 class RegistryCollectorTests(unittest.TestCase):
+    def test_saved_station_note_is_collected_when_printer_is_offline(self):
+        with patch.object(COLLECTOR.OBSERVER,'read_runtime',return_value=({'replacement':{'condition':'out_of_service','problem_note':'Waiting for fan','system_status':'unavailable'}},{})), patch.object(COLLECTOR.OBSERVER,'read_printer',return_value={'id':'replacement','condition':'unknown','activity':'unknown'}), patch.object(COLLECTOR,'read_history',return_value=[]):
+            snapshot=COLLECTOR.collect([('replacement','192.168.1.160','fc:ee:28:00:30:aa')])
+            self.assertEqual(snapshot['printers'][0]['condition'],'out')
+            self.assertEqual(snapshot['printers'][0]['note'],'Waiting for fan')
+            self.assertEqual(snapshot['printers'][0]['activity'],'unknown')
+
+    def test_history_projection_excludes_credentials_and_preserves_failure_details(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'station.sqlite'
+            db=sqlite3.connect(path)
+            db.executescript('''CREATE TABLE requests(id TEXT,printer_id TEXT,file_name TEXT,filament_type TEXT);
+                CREATE TABLE events(id INTEGER,request_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);
+                CREATE TABLE printer_runtime_events(id INTEGER,printer_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);''')
+            db.execute('INSERT INTO requests VALUES (?,?,?,?)',('job','replacement','part.gcode','PLA'))
+            db.execute('INSERT INTO events VALUES (?,?,?,?,?)',(10,'job','printer_failed','2026-09-15T12:00:00Z',json.dumps({'message':'Heater fault','accessRef':'secret-access','token':'secret-token'})))
+            db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)',(20,'replacement','staff_runtime_changed','2026-09-15T12:01:00Z',json.dumps({'newCondition':'out_of_service','newNote':'Fan failed','accessRef':'secret-access'})))
+            db.commit(); db.close()
+            history=COLLECTOR.read_history(['replacement'],path)
+            self.assertEqual(len(history),2)
+            self.assertIn('Heater fault',json.dumps(history))
+            self.assertIn('Fan failed',json.dumps(history))
+            self.assertNotIn('secret-',json.dumps(history))
+            self.assertEqual(history,COLLECTOR.read_history(['replacement'],path))
+
     def setUp(self):
         self.record = {"id": "replacement", "host": "192.168.1.160", "mac": "fc:ee:28:00:30:aa"}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Button } from 'flowbite-svelte';
+	import PrinterHistory from '$lib/printers/PrinterHistory.svelte';
 	import { duration, finishTime, type Printer, type Condition } from '$lib/printers/prototype-data';
 	import {
 		sortFleet,
@@ -31,13 +32,15 @@
 		{ key: null, label: 'Notes', className: 'note-column' }
 	];
 	const filters = [
-		{ id: 'all', label: 'All printers' },
+		{ id: 'all', label: 'Current lineup' },
 		{ id: 'idle', label: 'Idle' },
 		{ id: 'printing', label: 'Printing' },
 		{ id: 'limited', label: 'Limited use' },
 		{ id: 'out', label: 'Out of service' },
 		{ id: 'testing', label: 'Testing' },
-		{ id: 'repair', label: 'In repair' }
+		{ id: 'repair', label: 'In repair' },
+		{ id: 'shelved', label: 'Shelved' },
+		{ id: 'retired', label: 'Retired' }
 	];
 	async function refresh() {
 		try {
@@ -75,6 +78,8 @@
 		return () => window.clearInterval(timer);
 	});
 	function matches(printer: Printer, selected: string) {
+		if (selected === 'shelved' || selected === 'retired') return printer.lifecycle === selected;
+		if (printer.lifecycle === 'shelved' || printer.lifecycle === 'retired') return false;
 		if (selected === 'all') return true;
 		if (selected === 'testing' || selected === 'repair') return printer.lifecycle === selected;
 		if (selected === 'idle')
@@ -150,7 +155,7 @@
 		</div>{/if}
 	<div class="toolbar">
 		<div class="filters" role="group" aria-label="Filter printers">
-			{#each filters as item}<Button
+			{#each filters.filter((item) => staffView || !['shelved', 'retired'].includes(item.id)) as item}<Button
 					color="none"
 					size="sm"
 					class={filter === item.id ? 'filter-button selected' : 'filter-button'}
@@ -300,7 +305,7 @@
 									class="print-details"
 								>
 									<div class="detail-heading">
-										<strong>{printer.name} · Current print</strong><Button
+										<strong>{printer.name} · Details</strong><Button
 											color="none"
 											size="xs"
 											class="close-details"
@@ -346,6 +351,7 @@
 									<p class="machine-reference">
 										Machine ID: {printer.machineId ?? 'Not yet recorded'}
 									</p>
+									<PrinterHistory id={printer.id} />
 								</section></td
 							></tr
 						>

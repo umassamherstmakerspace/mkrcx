@@ -80,6 +80,8 @@ def read_printer(entry, runtime, active):
         stats = get_json(host, "/printer/objects/query?print_stats&virtual_sdcard").get("result", {}).get("status", {})
         print_stats = stats.get("print_stats", {})
         state = print_stats.get("state")
+        if state == 'error' and isinstance(print_stats.get('message'), str):
+            base['fault'] = ''.join(c for c in print_stats['message'] if ord(c) >= 32 or c in '\n\t')[:4000]
         base["activity"] = "paused" if state == "paused" else "printing" if state == "printing" else "idle"
         if base["activity"] in ("printing", "paused") and print_stats.get("filename"):
             filename = print_stats["filename"]
