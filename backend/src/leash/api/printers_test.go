@@ -232,7 +232,9 @@ func TestPrinterNotesSurviveOfflineRestartAndStaleTelemetry(t *testing.T) {
 	}
 }
 func TestPrinterObservedNoteSurvivesOfflineWithoutManualOverride(t *testing.T) {
-	app, _ := printerTestApp(t)
+	app, db := printerTestApp(t)
+	// A legacy row before its assessment baseline is initialized.
+	db.Model(&models.PrinterRecord{}).Where("id = ?", "k1c-1f44").UpdateColumn("manual", false)
 	now := time.Now().UTC()
 	for i, p := range []printerReading{{ID: "k1c-1f44", Condition: "limited", Activity: "idle", Note: "No lights"}, {ID: "k1c-1f44", Condition: "unknown", Activity: "unknown", Note: "Printer status unavailable."}} {
 		status, _ := printerRequest(t, app, "POST", "/printer-fleet/ingest", printerSnapshot{FetchedAt: now.Add(time.Duration(i) * time.Millisecond), Printers: []printerReading{p}}, "test-collector")

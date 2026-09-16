@@ -83,6 +83,10 @@
 				<FleetStamp lifecycle={printer.lifecycle} />
 			</div>
 			{#if printer.location}<p class="location">{printer.location}</p>{/if}
+			{#if printer.nextAction}<p class="next-action">
+					<strong>Next:</strong>
+					{printer.nextAction}
+				</p>{/if}
 			{#if ['offline', 'unavailable'].includes(activityState(printer))}
 				<p class="last-seen">
 					{activityState(printer) === 'offline'
@@ -188,7 +192,8 @@
 		font-size: 1rem;
 		font-weight: 600;
 	}
-	.location {
+	.location,
+	.next-action {
 		margin-top: 0.4rem;
 		font-size: 0.9rem;
 	}

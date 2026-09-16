@@ -38,6 +38,7 @@ type printerEdit struct {
 	MAC         string  `json:"mac"`
 	Condition   string  `json:"condition"`
 	Note        string  `json:"note"`
+	NextAction  *string `json:"nextAction,omitempty"`
 	Manual      bool    `json:"manual"`
 }
 type printerJob struct {
@@ -191,7 +192,7 @@ func printerStaffHistory(c *fiber.Ctx) error {
 		if actorName == "" {
 			actorName = names[actorIDs[edit.Actor]]
 		}
-		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "actorName": actorName, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "lifecycle": lifecycle, "maintenance": maintenance, "location": saved.Location, "name": saved.Name})
+		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "actorName": actorName, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "nextAction": saved.NextAction, "manual": saved.Manual, "lifecycle": lifecycle, "maintenance": maintenance, "location": saved.Location, "name": saved.Name})
 	}
 	c.Set("Cache-Control", "private, no-store")
 	return c.JSON(fiber.Map{"events": events, "edits": changes, "lastSync": record.HistorySyncedAt, "stationCondition": record.ObservedCondition, "stationNote": record.ObservedNote, "stationReportedAt": record.ConditionObservedAt})
@@ -242,6 +243,7 @@ func savePrinterRecord(c *fiber.Ctx) error {
 	}
 	if !printerIDPattern.MatchString(id) || edit.Name == "" || edit.Model == "" ||
 		!printerText(edit.Name, 120) || !printerText(edit.Model, 80) || !printerText(edit.Location, 120) || !printerText(edit.MachineID, 120) || !printerText(edit.Note, 2000) ||
+		(edit.NextAction != nil && !printerText(*edit.NextAction, 2000)) ||
 		!printerChoice(edit.Lifecycle, "active", "shelved", "retired") || !printerChoice(edit.Condition, "working", "limited", "out", "unknown") ||
 		(edit.Maintenance != nil && !printerChoice(*edit.Maintenance, "none", "diagnosis", "repair", "testing")) {
 		return fiber.NewError(400, "Invalid printer record")
@@ -302,7 +304,10 @@ func savePrinterRecord(c *fiber.Ctx) error {
 		saved.MAC = edit.MAC
 		saved.Condition = edit.Condition
 		saved.Note = edit.Note
-		saved.Manual = edit.Manual
+		if edit.NextAction != nil {
+			saved.NextAction = *edit.NextAction
+		}
+		saved.Manual = true
 		saved.Version = edit.Version + 1
 		saved.UpdatedAt = time.Now().UTC()
 		saved.UpdatedBy = actor
@@ -322,7 +327,7 @@ func savePrinterRecord(c *fiber.Ctx) error {
 			// Explicit fields prevent telemetry ingest and record edits from overwriting one another.
 			result := tx.Model(&models.PrinterRecord{}).Where("id = ? AND version = ?", id, edit.Version).Updates(map[string]interface{}{
 				"name": saved.Name, "model": saved.Model, "machine_id": saved.MachineID, "location": saved.Location, "lifecycle": saved.Lifecycle, "maintenance": saved.Maintenance,
-				"host": saved.Host, "mac": saved.MAC, "host_key": saved.HostKey, "mac_key": saved.MACKey, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "version": saved.Version, "updated_at": saved.UpdatedAt, "updated_by": actor,
+				"host": saved.Host, "mac": saved.MAC, "host_key": saved.HostKey, "mac_key": saved.MACKey, "condition": saved.Condition, "note": saved.Note, "next_action": saved.NextAction, "manual": saved.Manual, "version": saved.Version, "updated_at": saved.UpdatedAt, "updated_by": actor,
 			})
 			if result.Error != nil {
 				return result.Error
@@ -372,6 +377,10 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 		return fiber.ErrRequestEntityTooLarge
 	}
 	for _, event := range snapshot.History {
+		if !printerText(event.PreviousCondition, 80) ||
+			((event.NoteChanged != nil || event.ConditionChanged != nil || event.PreviousCondition != "") && !printerChoice(event.EventType, "staff_runtime_changed", "printer_runtime_changed", "system_runtime_changed")) {
+			return fiber.NewError(400, "Invalid printer change details")
+		}
 		if !printerText(event.ActorName, 200) || !printerChoice(event.ActorMethod, "", "ucard", "local_pin", "printer_api") || (event.ActorName != "" && event.ActorMethod != "ucard") {
 			return fiber.NewError(400, "Invalid printer event attribution")
 		}
@@ -458,6 +467,16 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 					return err
 				}
 			}
+			if event.NoteChanged != nil {
+				if err := match().Where("note_changed IS NULL").UpdateColumn("note_changed", *event.NoteChanged).Error; err != nil {
+					return err
+				}
+			}
+			if event.ConditionChanged != nil {
+				if err := match().Where("condition_changed IS NULL").UpdateColumns(map[string]interface{}{"condition_changed": *event.ConditionChanged, "previous_condition": event.PreviousCondition}).Error; err != nil {
+					return err
+				}
+			}
 		}
 		if snapshot.History != nil {
 			for id := range seen {
@@ -519,6 +538,9 @@ func respondPrinterFleet(c *fiber.Ctx, staff bool) error {
 		}
 		lifecycle, maintenance := models.PrinterStates(p.Lifecycle, p.Maintenance)
 		item := fiber.Map{"id": p.ID, "name": p.Name, "model": p.Model, "machineId": p.MachineID, "location": p.Location, "lifecycle": lifecycle, "maintenance": maintenance, "condition": condition, "note": note, "conditionSource": source, "conditionUpdatedAt": updated, "lastSeen": p.LastSeen, "activity": activity, "stale": !fresh, "connected": fresh && activity != "unknown"}
+		if staff {
+			item["nextAction"] = p.NextAction
+		}
 		if fresh && printerChoice(activity, "printing", "paused") {
 			if reading.Minutes != nil {
 				item["minutes"] = reading.Minutes

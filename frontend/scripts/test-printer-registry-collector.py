@@ -30,7 +30,7 @@ class RegistryCollectorTests(unittest.TestCase):
             db.execute('INSERT INTO events VALUES (?,?,?,?,?)',(10,'job','printer_failed','2026-09-15T12:00:00Z',json.dumps({'message':'Heater fault','printDurationSeconds':7510,'accessRef':'secret-access','token':'secret-token'})))
             db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)',(20,'replacement','staff_runtime_changed','2026-09-15T12:01:00Z',json.dumps({'newCondition':'out_of_service','newNote':'Fan failed','accessRef':'secret-access'})))
             db.commit(); db.close()
-            history=COLLECTOR.read_history(['replacement'],path)
+            history=COLLECTOR.read_history(['replacement'],path,include_identity=True)
             self.assertEqual(len(history),2)
             self.assertIn('Heater fault',json.dumps(history))
             self.assertIn('Fan failed',json.dumps(history))
@@ -39,7 +39,25 @@ class RegistryCollectorTests(unittest.TestCase):
             self.assertEqual(job['person'],'Fixture user')
             self.assertEqual(job['durationSeconds'],7510)
             self.assertEqual(job['detail'],'Heater fault')
-            self.assertEqual(history,COLLECTOR.read_history(['replacement'],path))
+            self.assertEqual(history,COLLECTOR.read_history(['replacement'],path,include_identity=True))
+            with patch.dict(COLLECTOR.os.environ, {}, clear=True):
+                private_off=COLLECTOR.read_history(['replacement'],path)
+            self.assertTrue(all('person' not in event and 'actorName' not in event and 'actorMethod' not in event for event in private_off))
+
+    def test_change_projection_handles_independent_edits_clear_and_unknown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'station.sqlite'; db=sqlite3.connect(path)
+            db.executescript("CREATE TABLE requests(id TEXT,printer_id TEXT,file_name TEXT,filament_type TEXT,user_display TEXT); CREATE TABLE events(id INTEGER,request_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT); CREATE TABLE printer_runtime_events(id INTEGER,printer_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);")
+            changes=[('working','working','old','new'),('working','out_of_service','same','same'),('working','out_of_service','old','new'),('working','working','old',''),('working','working','','')]
+            for i,(before,after,old_note,new_note) in enumerate(changes):
+                payload={'oldCondition':before,'newCondition':after,'oldNote':old_note,'newNote':new_note}
+                db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)',(i,'replacement','staff_runtime_changed','2026-09-16T12:00:00Z',json.dumps(payload)))
+            db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)',(5,'replacement','staff_runtime_changed','2026-09-16T12:00:00Z','{"newCondition":"working","newNote":"legacy"}'))
+            db.commit();db.close()
+            events={e['sourceId']:e for e in COLLECTOR.read_history(['replacement'],path,include_identity=False)}
+            self.assertEqual([(events[f'station:condition:{i}']['noteChanged'],events[f'station:condition:{i}']['conditionChanged']) for i in range(5)],[(True,False),(False,True),(True,True),(True,False),(False,False)])
+            self.assertNotIn('noteChanged',events['station:condition:5'])
+            self.assertNotIn('conditionChanged',events['station:condition:5'])
 
     def test_shutdown_message_survives_unavailable_print_stats(self):
         def get(host, route):
@@ -61,25 +79,58 @@ class RegistryCollectorTests(unittest.TestCase):
                 CREATE TABLE events(id INTEGER,request_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);
                 CREATE TABLE printer_runtime_events(id INTEGER,printer_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);''')
             for i,method in enumerate(('ucard','local_pin',None,'unknown','printer_api')):
-                payload={'newCondition':'working','newNote':'Fan replaced','displayIdentity':'Fixture staff','method':method,
+                payload={'oldCondition':'working','newCondition':'working','oldNote':'Fan broken','newNote':'Fan replaced','displayIdentity':'Fixture staff','method':method,
                     'actorId':'private-user-id','accessRef':'secret-access','cardCsn':'secret-card','pin':'secret-pin'}
                 kind='system_runtime_changed' if method=='printer_api' else 'staff_runtime_changed'
                 db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)',(i,'replacement',kind,'2026-09-15T12:00:00Z',json.dumps(payload)))
             db.commit(); db.close()
-            events={event['sourceId']:event for event in COLLECTOR.read_history(['replacement'],path)}
+            events={event['sourceId']:event for event in COLLECTOR.read_history(['replacement'],path,include_identity=True)}
             self.assertEqual(len(events),5)
+            self.assertTrue(all(event['noteChanged'] is True and event['conditionChanged'] is False for event in events.values()))
             self.assertEqual(events['station:condition:0']['actorName'],'Fixture staff')
             self.assertEqual(events['station:condition:0']['actorMethod'],'ucard')
             self.assertEqual(events['station:condition:1']['actorMethod'],'local_pin')
             for i in (1,2,3,4): self.assertNotIn('actorName',events[f'station:condition:{i}'])
             for i in (2,3): self.assertNotIn('actorMethod',events[f'station:condition:{i}'])
             self.assertEqual(events['station:condition:4']['actorMethod'],'printer_api')
+            with patch.dict(COLLECTOR.os.environ, {}, clear=True):
+                redacted=COLLECTOR.read_history(['replacement'],path)
+            self.assertTrue(all('actorName' not in event and 'actorMethod' not in event for event in redacted))
             serialized=json.dumps(events)
             for private in ('secret-','private-user-id','accessRef','cardCsn','pin"'):
                 self.assertNotIn(private,serialized.replace('local_pin"',''))
 
     def setUp(self):
         self.record = {"id": "replacement", "host": "192.168.1.160", "mac": "fc:ee:28:00:30:aa"}
+
+    def test_backfill_expands_retained_window_without_changing_normal_polling(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'station.sqlite'
+            db = sqlite3.connect(path)
+            db.executescript('''CREATE TABLE requests(id TEXT,printer_id TEXT,file_name TEXT,filament_type TEXT,user_display TEXT);
+                CREATE TABLE events(id INTEGER,request_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);
+                CREATE TABLE printer_runtime_events(id INTEGER,printer_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);''')
+            db.execute('INSERT INTO requests VALUES (?,?,?,?,?)', ('job','replacement','part.gcode','PLA','Fixture user'))
+            for i in range(35):
+                db.execute('INSERT INTO events VALUES (?,?,?,?,?)', (i,'job','printer_completed',f'2026-09-15T12:00:{i:02d}Z','{}'))
+            for i in range(25):
+                db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)', (i,'replacement','staff_runtime_changed',f'2026-09-15T12:01:{i:02d}Z','{"method":"local_pin"}'))
+            db.commit(); db.close()
+            normal = COLLECTOR.read_history(['replacement'], path)
+            expanded = COLLECTOR.read_history(['replacement'], path, job_limit=1000, condition_limit=1000)
+            self.assertEqual(len(normal), 50)
+            self.assertEqual(len(expanded), 60)
+            self.assertNotIn('station:job:0', [event['sourceId'] for event in normal])
+            self.assertIn('station:job:0', [event['sourceId'] for event in expanded])
+            self.assertEqual(COLLECTOR.read_history(['unmapped'], path, job_limit=1000, condition_limit=1000), [])
+            self.assertEqual(normal, COLLECTOR.read_history(['replacement'], path))
+
+    def test_history_limits_are_bounded(self):
+        for invalid in (0, 1001, True, '100', 1.5):
+            with self.assertRaises(ValueError):
+                COLLECTOR.read_history([], job_limit=invalid)
+            with self.assertRaises(ValueError):
+                COLLECTOR.read_history([], condition_limit=invalid)
 
     def test_accepts_new_identity_without_source_edit(self):
         self.assertEqual(COLLECTOR.validate_roster({"printers": [self.record]}), [("replacement", "192.168.1.160", "fc:ee:28:00:30:aa")])

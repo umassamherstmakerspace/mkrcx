@@ -140,7 +140,9 @@ describe('printer timeline', () => {
 		)[0];
 		expect(item).toMatchObject({
 			kind: 'note',
-			source: 'Staff identity not recorded · Printer',
+			source: 'Printer',
+			user: 'Unavailable',
+			title: 'Status recorded',
 			text: 'Fan broken.\nReplacement ordered.',
 			changes: ['Condition: Out of service']
 		});
@@ -177,19 +179,19 @@ describe('printer timeline', () => {
 			detail: 'Condition: working\nNote: Fan replaced'
 		};
 		expect(
-			historyItems(history([], [{ ...base, actorMethod: 'ucard', actorName: 'Alex' }]))[0].source
-		).toBe('Alex · Printer');
-		expect(historyItems(history([], [{ ...base, actorMethod: 'local_pin' }]))[0].source).toBe(
-			'Local PIN · Printer'
+			historyItems(history([], [{ ...base, actorMethod: 'ucard', actorName: 'Alex' }]))[0]
+		).toMatchObject({ source: 'Printer', user: 'Alex' });
+		expect(historyItems(history([], [{ ...base, actorMethod: 'local_pin' }]))[0].user).toBe(
+			'Staff PIN'
 		);
-		expect(historyItems(history([], [base]))[0].source).toBe(
-			'Staff identity not recorded · Printer'
-		);
-		expect(historyItems(history([{ ...edit, actorName: 'Alex' }]))[0].source).toBe('Alex · mkr.cx');
+		expect(historyItems(history([], [base]))[0].user).toBe('Unavailable');
+		expect(historyItems(history([{ ...edit, actorName: 'Alex' }]))[0]).toMatchObject({
+			source: 'mkr.cx',
+			user: 'Alex'
+		});
 		expect(
 			historyItems(history([{ ...edit, actor: 'service-user:4', actorName: 'Import account' }]))[0]
-				.source
-		).toBe('Import account · API · mkr.cx');
+		).toMatchObject({ source: 'mkr.cx', user: 'Import account' });
 	});
 	it('accepts an empty collected history', () => {
 		expect(historyItems({ events: null, edits: null, lastSync: null })).toEqual([]);
@@ -226,5 +228,81 @@ describe('printer timeline', () => {
 			])
 		);
 		expect(items[0].changes).toEqual([]);
+	});
+});
+
+describe('independent history changes', () => {
+	const base = {
+		sourceId: 'condition:1',
+		recordedAt: edit.recordedAt,
+		eventType: 'staff_runtime_changed',
+		detail: 'Condition: out_of_service\nNote: Waiting for fan',
+		previousCondition: 'available'
+	};
+	it('shows only a changed note, without an unchanged condition', () => {
+		expect(
+			historyItems(history([], [{ ...base, noteChanged: true, conditionChanged: false }]))[0]
+		).toMatchObject({ kind: 'note', title: 'Note updated', text: 'Waiting for fan', changes: [] });
+	});
+	it('shows a condition-only transition without repeating a saved note', () => {
+		const item = historyItems(
+			history([], [{ ...base, noteChanged: false, conditionChanged: true }])
+		)[0];
+		expect(item).toMatchObject({
+			title: 'Condition changed',
+			changes: ['Condition: Available → Out of service']
+		});
+		expect(item.text).toBeUndefined();
+	});
+	it('groups only changes from the same event and handles a cleared note', () => {
+		expect(
+			historyItems(history([], [{ ...base, noteChanged: true, conditionChanged: true }]))[0].title
+		).toBe('Note and condition updated');
+		expect(
+			historyItems(
+				history(
+					[],
+					[
+						{
+							...base,
+							detail: 'Condition: working\nNote: ',
+							noteChanged: true,
+							conditionChanged: false
+						}
+					]
+				)
+			)[0]
+		).toMatchObject({ kind: 'note', title: 'Note cleared', changes: [] });
+		expect(
+			historyItems(history([], [{ ...base, noteChanged: false, conditionChanged: false }]))
+		).toEqual([]);
+	});
+	it('does not infer which field changed when either comparison is missing', () => {
+		expect(historyItems(history([], [{ ...base, noteChanged: false }]))[0].title).toBe(
+			'Status recorded'
+		);
+	});
+	it('shows website condition changes and next actions independently', () => {
+		expect(
+			historyItems(
+				history([
+					edit,
+					{ ...edit, version: 2, condition: 'working', recordedAt: '2026-09-16T12:00:00Z' }
+				])
+			)[0]
+		).toMatchObject({ title: 'Condition changed', changes: ['Condition: Broken → Working'] });
+		const next = historyItems(
+			history([
+				edit,
+				{
+					...edit,
+					version: 2,
+					nextAction: 'Verify cable repair',
+					recordedAt: '2026-09-16T12:00:00Z'
+				}
+			])
+		)[0];
+		expect(next.changes).toEqual(['Next: Verify cable repair']);
+		expect(next.text).toBeUndefined();
 	});
 });

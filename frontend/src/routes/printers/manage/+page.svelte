@@ -15,6 +15,7 @@
 		mac: string;
 		condition: string;
 		note: string;
+		nextAction?: string;
 		manual: boolean;
 		version: number;
 	};
@@ -49,7 +50,7 @@
 	function select(record?: Record) {
 		isNew = !record;
 		edit = record
-			? { ...record, ...printerStates(record) }
+			? { ...record, ...printerStates(record), nextAction: record.nextAction ?? '', manual: true }
 			: {
 					id: '',
 					name: '',
@@ -62,6 +63,7 @@
 					mac: '',
 					condition: 'unknown',
 					note: '',
+					nextAction: '',
 					manual: true,
 					version: 0
 				};
@@ -84,6 +86,7 @@
 				mac,
 				condition,
 				note,
+				nextAction,
 				manual,
 				version
 			} = edit;
@@ -101,6 +104,7 @@
 					mac,
 					condition,
 					note,
+					nextAction,
 					manual,
 					version
 				})
@@ -192,13 +196,12 @@
 								if (edit) edit.manual = true;
 							}}
 							><option value="working">Working</option><option value="limited">Limited use</option
-							><option value="out">Out of service</option><option value="unknown"
-								>Not yet known</option
+							><option value="out">Broken</option><option value="unknown">Not yet known</option
 							></select
 						></label
 					>
 				</div>
-				<p class="hint">Doesn’t change printer controls.</p>
+				<p class="hint">Staff assessment. Test prints won’t change it.</p>
 				<label
 					>Note (public)<textarea
 						maxlength="2000"
@@ -210,11 +213,14 @@
 						}}
 					></textarea></label
 				>
-				<label class="check"
-					><input type="checkbox" disabled={saving} bind:checked={edit.manual} />Keep this condition
-					and note.</label
+				<label
+					>Next action (staff)<textarea
+						maxlength="2000"
+						rows="2"
+						disabled={saving}
+						bind:value={edit.nextAction}
+					></textarea></label
 				>
-				<p class="hint">Uncheck to use printer reports.</p>
 				<details>
 					<summary>Printer connection</summary>
 					<p>
@@ -304,13 +310,6 @@
 		border: 1px solid #999;
 		border-radius: 0.25rem;
 		padding: 0.5rem;
-	}
-	.check {
-		display: flex;
-		align-items: center;
-	}
-	.check input {
-		width: auto;
 	}
 	.hint {
 		font-size: 0.85rem;

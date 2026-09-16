@@ -18,7 +18,8 @@ type PrinterRecord struct {
 	MACKey      *string `gorm:"uniqueIndex;size:17" json:"-"`
 	Condition   string  `gorm:"size:24" json:"condition"`
 	Note        string  `gorm:"type:text" json:"note"`
-	// Manual condition/note edits remain authoritative until explicitly returned to station reports.
+	NextAction  string  `gorm:"type:text" json:"nextAction"`
+	// Website assessments are independent of printer permission and test-print telemetry.
 	Manual              bool       `json:"manual"`
 	Version             uint64     `gorm:"not null" json:"version"`
 	UpdatedAt           time.Time  `json:"updatedAt"`
@@ -55,15 +56,18 @@ type PrinterRecordEvent struct {
 
 // A projection of an immutable station event, retained independently of live telemetry.
 type PrinterHistoryEvent struct {
-	SourceID        string    `gorm:"primaryKey;size:160" json:"sourceId"`
-	PrinterID       string    `gorm:"size:80;index" json:"printerId"`
-	RecordedAt      time.Time `gorm:"index" json:"recordedAt"`
-	EventType       string    `gorm:"size:80" json:"eventType"`
-	Detail          string    `gorm:"type:text" json:"detail"`
-	File            string    `gorm:"size:1000" json:"file,omitempty"`
-	Material        string    `gorm:"size:120" json:"material,omitempty"`
-	Person          string    `gorm:"size:200" json:"person,omitempty"`
-	ActorName       string    `gorm:"size:200" json:"actorName,omitempty"`
-	ActorMethod     string    `gorm:"size:24" json:"actorMethod,omitempty"`
-	DurationSeconds *float64  `json:"durationSeconds,omitempty"`
+	SourceID          string    `gorm:"primaryKey;size:160" json:"sourceId"`
+	PrinterID         string    `gorm:"size:80;index" json:"printerId"`
+	RecordedAt        time.Time `gorm:"index" json:"recordedAt"`
+	EventType         string    `gorm:"size:80" json:"eventType"`
+	Detail            string    `gorm:"type:text" json:"detail"`
+	File              string    `gorm:"size:1000" json:"file,omitempty"`
+	Material          string    `gorm:"size:120" json:"material,omitempty"`
+	Person            string    `gorm:"size:200" json:"person,omitempty"`
+	ActorName         string    `gorm:"size:200" json:"actorName,omitempty"`
+	ActorMethod       string    `gorm:"size:24" json:"actorMethod,omitempty"`
+	DurationSeconds   *float64  `json:"durationSeconds,omitempty"`
+	NoteChanged       *bool     `json:"noteChanged,omitempty"`
+	ConditionChanged  *bool     `json:"conditionChanged,omitempty"`
+	PreviousCondition string    `gorm:"size:80" json:"previousCondition,omitempty"`
 }

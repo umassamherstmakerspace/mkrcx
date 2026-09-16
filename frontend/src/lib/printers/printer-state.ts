@@ -10,7 +10,7 @@ export const maintenanceLabels = {
 export const conditionLabels = {
 	working: 'Working',
 	limited: 'Limited use',
-	out: 'Out of service',
+	out: 'Broken',
 	unknown: 'Unknown'
 };
 export const activityLabels = {

@@ -18,6 +18,7 @@ export type Printer = {
 	condition: Condition;
 	activity: Activity;
 	note?: string;
+	nextAction?: string;
 	minutes?: number;
 	progress?: number;
 	stale?: boolean;

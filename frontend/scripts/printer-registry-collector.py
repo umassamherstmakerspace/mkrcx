@@ -86,7 +86,12 @@ def clean_text(value, limit):
     return ''.join(c for c in value if ord(c) >= 32 or c in '\n\t')[:limit]
 
 
-def read_history(ids, path=None):
+def read_history(ids, path=None, *, job_limit=30, condition_limit=20, include_identity=None):
+    if include_identity is None:
+        include_identity = os.environ.get("PRINTER_HISTORY_IDENTITY_ENABLED") == "true"
+    # Normal polling stays small; a one-time backfill can read a larger retained window.
+    if any(type(limit) is not int or not 1 <= limit <= 1000 for limit in (job_limit, condition_limit)):
+        raise ValueError('History limits must be integers from 1 to 1000')
     path = path or os.environ.get('PRINTER_STATION_DB', '/var/lib/makerspace-print-station/station.sqlite')
     db = sqlite3.connect(f'file:{urllib.parse.quote(str(path))}?mode=ro', uri=True)
     db.row_factory = sqlite3.Row
@@ -97,10 +102,10 @@ def read_history(ids, path=None):
             jobs = db.execute('''SELECT e.id,e.event_type,e.created_at,e.payload_json,r.file_name,r.filament_type,r.user_display
                 FROM events e JOIN requests r ON r.id=e.request_id
                 WHERE r.printer_id=? AND e.event_type IN ('printer_completed','printer_cancelled','printer_failed')
-                ORDER BY e.id DESC LIMIT 30''', (printer_id,)).fetchall()
+                ORDER BY e.id DESC LIMIT ?''', (printer_id, job_limit)).fetchall()
             changes = db.execute('''SELECT id,event_type,created_at,payload_json FROM printer_runtime_events
                 WHERE printer_id=? AND event_type IN ('staff_runtime_changed','printer_runtime_changed','system_runtime_changed')
-                ORDER BY id DESC LIMIT 20''', (printer_id,)).fetchall()
+                ORDER BY id DESC LIMIT ?''', (printer_id, condition_limit)).fetchall()
             for source, rows in [('job', jobs), ('condition', changes)]:
                 for row in rows:
                     payload = json.loads(row['payload_json'])
@@ -118,13 +123,19 @@ def read_history(ids, path=None):
                     event = {'sourceId':f'station:{source}:{row["id"]}', 'printerId':printer_id,
                         'recordedAt':row['created_at'],'eventType':row['event_type'],'detail':clean_text('\n'.join(details),4000)}
                     if source == 'condition':
+                        for field in ('Note', 'Condition'):
+                            before, after = payload.get('old' + field), payload.get('new' + field)
+                            if isinstance(before, str) and isinstance(after, str):
+                                event[field.lower() + 'Changed'] = before != after
+                                if field == 'Condition': event['previousCondition'] = clean_text(before, 80)
                         method = payload.get('method')
-                        if method in ('ucard', 'local_pin', 'printer_api'):
+                        if include_identity and method in ('ucard', 'local_pin', 'printer_api'):
                             event['actorMethod'] = method
                             if method == 'ucard':
                                 event['actorName'] = clean_text(payload.get('displayIdentity'),200)
                     if source == 'job':
-                        event.update(file=clean_text(row['file_name'],1000),material=clean_text(row['filament_type'],120),person=clean_text(row['user_display'],200))
+                        event.update(file=clean_text(row['file_name'],1000),material=clean_text(row['filament_type'],120))
+                        if include_identity: event['person'] = clean_text(row['user_display'],200)
                         duration = payload.get('printDurationSeconds')
                         if isinstance(duration, (int,float)) and not isinstance(duration,bool) and 0 <= duration <= 31536000:
                             event['durationSeconds'] = duration

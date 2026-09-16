@@ -87,15 +87,18 @@
 					<article>
 						<div class="entry-heading">
 							<time datetime={item.recordedAt}>{date(item.recordedAt)}</time>
+							{#if item.source}<span class="source">{item.source}</span>{/if}
 							<h3>{item.title}</h3>
-							{#if item.source}<span class="source" title={item.actor}>{item.source}</span>{/if}
 						</div>
+						{#if item.user}<p class="entry-user">User: {item.user}</p>{/if}
 						{#if item.file || item.person || item.material || item.duration}<p class="job-details">
 								{[item.file, item.person || 'User unavailable', item.material, item.duration]
 									.filter(Boolean)
 									.join(' · ')}
 							</p>{/if}
-						{#if item.text}<p class="text">{item.text}</p>{/if}
+						{#if item.text}<p class="text">
+								{#if item.kind === 'note'}“{item.text}”{:else}{item.text}{/if}
+							</p>{/if}
 						{#each item.changes ?? [] as change}<p class="change-line">{change}</p>{/each}
 					</article>
 				</li>
@@ -164,17 +167,22 @@
 	}
 	h3 {
 		font-size: 0.9rem;
-		font-weight: 650;
+		font-weight: 500;
 	}
 	time {
 		color: #66707c;
 		font-size: 0.8rem;
-		font-weight: 500;
+		font-weight: 650;
 	}
 	.source {
 		color: #66707c;
 		font-size: 0.75rem;
+		font-weight: 650;
 		overflow-wrap: anywhere;
+	}
+	.entry-user {
+		font-size: 0.8rem;
+		margin-top: 0.15rem;
 	}
 	.job-details {
 		font-size: 0.8rem;

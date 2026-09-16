@@ -32,7 +32,7 @@
 	const conditionText: Record<Condition, string> = {
 		working: 'Working',
 		limited: 'Limited use',
-		out: 'Out of service',
+		out: 'Broken',
 		unknown: 'Unknown'
 	};
 	const columns: { key: SortKey | null; label: string; className: string }[] = [
@@ -176,9 +176,9 @@
 	>
 		<table class="fleet-table">
 			<caption class="visually-hidden"
-				>Default order: working, limited use, out of service, then unavailable. Within each status,
-				printing and paused come before idle, then K1 Max before K1 and K1C. Select a column heading
-				to change sort order. {staffView
+				>Default order: working, limited use, broken, then unavailable. Within each status, printing
+				and paused come before idle, then K1 Max before K1 and K1C. Select a column heading to
+				change sort order. {staffView
 					? 'Select a printer name for details and history.'
 					: ''}</caption
 			>
@@ -265,6 +265,10 @@
 						>
 						<td class="table-note"
 							>{printer.note ?? ''}
+							{#if staffView && printer.nextAction}<p class="next-action">
+									<strong>Next:</strong>
+									{printer.nextAction}
+								</p>{/if}
 
 							{#if printer.lastSeen && (!printer.connected || printer.stale)}<small
 									class="record-context"
@@ -348,6 +352,10 @@
 				</div>
 				{#if printer.note || printer.stale}<p class="mobile-note table-note">
 						{printer.note ?? ''}
+					</p>{/if}
+				{#if staffView && printer.nextAction}<p class="mobile-note table-note">
+						<strong>Next:</strong>
+						{printer.nextAction}
 					</p>{/if}
 
 				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"

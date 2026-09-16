@@ -10,6 +10,9 @@ export type PrinterEvent = {
 	durationSeconds?: number;
 	actorName?: string;
 	actorMethod?: 'ucard' | 'local_pin' | 'printer_api';
+	noteChanged?: boolean;
+	conditionChanged?: boolean;
+	previousCondition?: string;
 };
 export type PrinterEdit = {
 	recordedAt: string;
@@ -18,6 +21,7 @@ export type PrinterEdit = {
 	version: number;
 	condition: string;
 	note: string;
+	nextAction?: string;
 	manual: boolean;
 	lifecycle: string;
 	maintenance?: string;
@@ -36,6 +40,7 @@ export type HistoryItem = {
 	title: string;
 	source: string;
 	actor?: string;
+	user?: string;
 	text?: string;
 	changes?: string[];
 	file?: string;
@@ -57,9 +62,11 @@ export function printDuration(seconds: number | undefined): string | undefined {
 
 const labels: Record<string, string> = {
 	working: 'Working',
+	available: 'Available',
+	needs_attention: 'Limited use',
 	limited: 'Limited use',
 	limited_use: 'Limited use',
-	out: 'Out of service',
+	out: 'Broken',
 	out_of_service: 'Out of service',
 	unknown: 'Unknown',
 	active: 'In fleet',
@@ -79,7 +86,7 @@ const eventLabels: Record<string, string> = {
 	printer_error: 'Printer error'
 };
 
-function eventItem(event: PrinterEvent): HistoryItem {
+function eventItem(event: PrinterEvent): HistoryItem | null {
 	const legacyDuration = event.detail.match(/(?:^|\n)Print duration: (\d+) min(?:\n|$)/);
 	const detail = event.detail.replace(/(?:^|\n)Print duration: \d+ min(?=\n|$)/, '').trim();
 	const item: HistoryItem = {
@@ -113,15 +120,36 @@ function eventItem(event: PrinterEvent): HistoryItem {
 	) {
 		const condition = event.detail.match(/^Condition: ([^\n]*)/);
 		const note = event.detail.match(/(?:^|\n)Note: ([\s\S]*)/);
-		item.kind = note?.[1] ? 'note' : 'change';
-		item.title = note?.[1] ? 'Note & condition' : 'Condition updated';
-		item.source =
+		if (event.noteChanged === false && event.conditionChanged === false) return null;
+		const known = event.noteChanged !== undefined && event.conditionChanged !== undefined;
+		const showNote = known ? event.noteChanged : !!note;
+		const showCondition = known ? event.conditionChanged : !!condition;
+		item.kind = showNote ? 'note' : 'change';
+		item.title = !known
+			? 'Status recorded'
+			: event.noteChanged
+				? event.conditionChanged
+					? 'Note and condition updated'
+					: note?.[1]
+						? 'Note updated'
+						: 'Note cleared'
+				: 'Condition changed';
+		item.source = 'Printer';
+		item.user =
 			event.eventType === 'staff_runtime_changed'
-				? `${event.actorMethod === 'local_pin' ? 'Local PIN' : event.actorName || (event.actorMethod === 'ucard' ? 'Staff card · Name not recorded' : 'Staff identity not recorded')} · Printer`
-				: 'Printer station';
+				? event.actorMethod === 'local_pin'
+					? 'Staff PIN'
+					: event.actorName || 'Unavailable'
+				: undefined;
 		item.icon = undefined;
-		item.text = note ? note[1] : condition ? undefined : event.detail;
-		item.changes = condition ? [`Condition: ${label(condition[1])}`] : [];
+		item.text =
+			showNote && note ? note[1] || undefined : !note && !condition ? event.detail : undefined;
+		item.changes =
+			showCondition && condition
+				? [
+						`Condition: ${known && event.previousCondition ? label(event.previousCondition) + ' → ' : ''}${label(condition[1])}`
+					]
+				: [];
 	}
 	return item;
 }
@@ -132,7 +160,8 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 		.sort((a, b) => a.version - b.version);
 	const items = (history.events ?? [])
 		.filter((event) => event.eventType !== 'started')
-		.map(eventItem);
+		.map(eventItem)
+		.filter((item): item is HistoryItem => item !== null);
 	for (let i = 0; i < edits.length; i++) {
 		const edit = edits[i];
 		// The API returns a bounded window. Only compare consecutive saved versions.
@@ -148,19 +177,29 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 				changes.push(`Maintenance: ${label(previous.maintenance)} → ${label(edit.maintenance)}`);
 			if ((previous.location ?? '') !== (edit.location ?? ''))
 				changes.push(`Location: ${previous.location || 'Not set'} → ${edit.location || 'Not set'}`);
+			if ((previous.nextAction ?? '') !== (edit.nextAction ?? ''))
+				changes.push(edit.nextAction ? `Next: ${edit.nextAction}` : 'Next action cleared');
 			if (previous.manual !== edit.manual)
-				changes.push(
-					edit.manual ? 'Condition & note saved here' : 'Using printer condition & note'
-				);
+				changes.push(edit.manual ? 'Assessment saved' : 'Using printer condition & note');
 			if (edit.manual && previous.condition !== edit.condition)
 				changes.push(`Condition: ${label(previous.condition)} → ${label(edit.condition)}`);
 			if (edit.manual && previous.note !== edit.note) {
-				title = edit.note ? 'Note updated' : 'Note cleared';
+				title =
+					previous.condition !== edit.condition
+						? 'Note and condition updated'
+						: edit.note
+							? 'Note updated'
+							: 'Note cleared';
 				text = edit.note || undefined;
-			} else if (changes.length) title = 'Printer updated';
+			} else if (changes.length)
+				title =
+					changes.length === 1 && changes[0].startsWith('Condition:')
+						? 'Condition changed'
+						: 'Printer updated';
 		} else {
 			// A saved snapshot is not evidence that its note was changed at this time.
 			changes.push(`Fleet: ${label(edit.lifecycle)}`);
+			if (edit.nextAction) changes.push(`Next: ${edit.nextAction}`);
 			if (edit.maintenance !== 'none') changes.push(`Maintenance: ${label(edit.maintenance)}`);
 			if (edit.manual) {
 				changes.push(`Condition: ${label(edit.condition)}`);
@@ -170,13 +209,10 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 		items.push({
 			id: `edit:${edit.version}`,
 			recordedAt: edit.recordedAt,
-			kind: text ? 'note' : 'change',
+			kind: text || title.startsWith('Note') ? 'note' : 'change',
 			title,
-			source: edit.actor.startsWith('user:')
-				? `${edit.actorName || 'Staff name not recorded'} · mkr.cx`
-				: edit.actorName
-					? `${edit.actorName} · API · mkr.cx`
-					: 'mkr.cx',
+			source: 'mkr.cx',
+			user: edit.actorName || (edit.actor.startsWith('user:') ? 'Unavailable' : undefined),
 			actor: edit.actor,
 			text,
 			changes

@@ -20,6 +20,7 @@ func MigratePrinterRegistry(db *gorm.DB) error {
 		return err
 	}
 	for i := range records {
+		records[i].Manual = true
 		records[i].UpdatedAt = time.Now().UTC()
 		if records[i].Host != "" {
 			records[i].HostKey = &records[i].Host
@@ -35,6 +36,25 @@ func MigratePrinterRegistry(db *gorm.DB) error {
 			if err := tx.Model(&PrinterRecord{}).Where("lifecycle = ?", legacy).UpdateColumns(map[string]interface{}{
 				"lifecycle": "active", "maintenance": legacy,
 			}).Error; err != nil {
+				return err
+			}
+		}
+		// Carry existing visible conditions/notes into the independent website assessment.
+		// This is a baseline, not a new staff verification or a change to printer controls.
+		var legacy []PrinterRecord
+		if err := tx.Where("manual = ?", false).Find(&legacy).Error; err != nil {
+			return err
+		}
+		for _, record := range legacy {
+			condition := record.ObservedCondition
+			if condition == "" {
+				condition = "unknown"
+			}
+			updates := map[string]interface{}{"condition": condition, "note": record.ObservedNote, "manual": true}
+			if record.ConditionObservedAt != nil {
+				updates["updated_at"] = *record.ConditionObservedAt
+			}
+			if err := tx.Model(&PrinterRecord{}).Where("id = ? AND manual = ?", record.ID, false).UpdateColumns(updates).Error; err != nil {
 				return err
 			}
 		}
