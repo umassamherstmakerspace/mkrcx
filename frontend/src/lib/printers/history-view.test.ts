@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	historyItems,
+	filterHistoryItems,
 	printDuration,
 	type PrinterEdit,
 	type PrinterHistoryData
@@ -218,7 +219,7 @@ describe('printer timeline', () => {
 		expect(item).toMatchObject({
 			kind: 'note',
 			source: 'Printer',
-			user: 'Unavailable',
+			user: 'Attribution not recorded',
 			title: 'Status recorded',
 			text: 'Fan broken.\nReplacement ordered.',
 			changes: ['Condition: Out of service']
@@ -257,11 +258,19 @@ describe('printer timeline', () => {
 		};
 		expect(
 			historyItems(history([], [{ ...base, actorMethod: 'ucard', actorName: 'Alex' }]))[0]
-		).toMatchObject({ source: 'Printer', user: 'Alex' });
+		).toMatchObject({ source: 'Printer', user: 'Alex · Card tap' });
 		expect(historyItems(history([], [{ ...base, actorMethod: 'local_pin' }]))[0].user).toBe(
 			'Staff PIN'
 		);
-		expect(historyItems(history([], [base]))[0].user).toBe('Unavailable');
+		expect(historyItems(history([], [base]))[0].user).toBe('Attribution not recorded');
+		expect(historyItems(history([], [{ ...base, actorMethod: 'ucard' }]))[0].user).toBe(
+			'Attribution not recorded · Card tap'
+		);
+		for (const eventType of ['printer_runtime_changed', 'system_runtime_changed']) {
+			const automatic = historyItems(history([], [{ ...base, eventType }]))[0];
+			expect(automatic.automatic).toBe(true);
+			expect(automatic.user).toBeUndefined();
+		}
 		expect(historyItems(history([{ ...edit, actorName: 'Alex' }]))[0]).toMatchObject({
 			source: 'mkr.cx',
 			user: 'Alex'
@@ -272,6 +281,67 @@ describe('printer timeline', () => {
 	});
 	it('accepts an empty collected history', () => {
 		expect(historyItems({ events: null, edits: null, lastSync: null })).toEqual([]);
+	});
+	it('keeps routine condition changes and reconnects out of notes and errors without losing the full log', () => {
+		const base = { recordedAt: edit.recordedAt, detail: '' };
+		const items = historyItems({
+			...history(
+				[],
+				[
+					{
+						...base,
+						sourceId: 'condition',
+						eventType: 'staff_runtime_changed',
+						detail: 'Condition: working\nNote: Existing note',
+						conditionChanged: true,
+						noteChanged: false
+					},
+					{
+						...base,
+						sourceId: 'note',
+						eventType: 'staff_runtime_changed',
+						detail: 'Condition: working\nNote: Fan replaced',
+						conditionChanged: false,
+						noteChanged: true
+					},
+					{
+						...base,
+						sourceId: 'cleared',
+						eventType: 'staff_runtime_changed',
+						detail: 'Condition: working\nNote: ',
+						conditionChanged: false,
+						noteChanged: true
+					},
+					{ ...base, sourceId: 'reconnect', eventType: 'printer_responding' },
+					{ ...base, sourceId: 'error', eventType: 'printer_error', detail: 'Heater fault' },
+					{ ...base, sourceId: 'complete', eventType: 'printer_completed' },
+					{ ...base, sourceId: 'failed', eventType: 'printer_failed', detail: 'Heater fault' }
+				]
+			),
+			summaries: [
+				{
+					sourceId: 'review',
+					reportDate: '2026-09-16',
+					body: 'Test still pending.',
+					preparedBy: 'Codex',
+					importedAt: edit.recordedAt
+				}
+			]
+		});
+		expect(
+			filterHistoryItems(items, 'updates')
+				.map((item) => item.id)
+				.sort()
+		).toEqual(
+			['event:note', 'event:cleared', 'event:error', 'event:failed', 'summary:review'].sort()
+		);
+		expect(
+			filterHistoryItems(items, 'prints')
+				.map((item) => item.id)
+				.sort()
+		).toEqual(['event:complete', 'event:failed']);
+		expect(filterHistoryItems(items, 'all')).toEqual(items);
+		expect(items.find((item) => item.id === 'event:reconnect')).toMatchObject({ automatic: true });
 	});
 	it('does not mistake an imported human note for an automatic event', () => {
 		const item = historyItems(history([{ ...edit, actor: 'service-user:7' }]))[0];

@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { historyItems, printDuration, type PrinterHistoryData } from './history-view';
+	import {
+		historyItems,
+		filterHistoryItems,
+		printDuration,
+		type HistoryFilter,
+		type PrinterHistoryData
+	} from './history-view';
 	export let id: string;
 	let history: PrinterHistoryData | null = null;
 	let error = '';
@@ -8,10 +14,10 @@
 	let mounted = false;
 	let request: AbortController | null = null;
 	let shown = 10;
-	let filter = 'all';
+	let filter: HistoryFilter = 'updates';
 	let results: HTMLOListElement;
 	let minResultsHeight = 0;
-	function selectFilter(next: string) {
+	function selectFilter(next: HistoryFilter) {
 		if (next === filter) return;
 		let scroller: HTMLElement | null = results.parentElement;
 		while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
@@ -24,9 +30,12 @@
 		shown = 10;
 	}
 	$: items = history ? historyItems(history) : [];
-	$: visible = items.filter(
-		(item) => filter === 'all' || (filter === 'prints' ? item.printOutcome : item.kind !== 'job')
-	);
+	$: visible = filterHistoryItems(items, filter);
+	const views: { id: HistoryFilter; label: string }[] = [
+		{ id: 'all', label: 'All' },
+		{ id: 'updates', label: 'Notes & errors' },
+		{ id: 'prints', label: 'Prints' }
+	];
 	const date = (value: string) =>
 		new Date(value).toLocaleString(undefined, {
 			year: 'numeric',
@@ -97,7 +106,7 @@
 			</p>
 		{/if}
 		<div class="history-filters" aria-label="History views">
-			{#each [{ id: 'all', label: 'All' }, { id: 'updates', label: 'Notes & errors' }, { id: 'prints', label: 'Prints' }] as view}<button
+			{#each views as view}<button
 					class:active={filter === view.id}
 					type="button"
 					aria-pressed={filter === view.id}
@@ -139,7 +148,9 @@
 							{#if item.source}<span class="source">{item.source}</span>{/if}
 							<h3>{item.title}</h3>
 						</div>
-						{#if item.user}<p class="entry-user">User: {item.user}</p>{/if}
+						{#if item.user || item.automatic}<p class="entry-user">
+								{item.automatic ? 'Automatic' : item.user}
+							</p>{/if}
 						{#if item.file || item.person || item.material || item.duration}<p class="job-details">
 								{[item.person || 'User not recorded', item.material, item.duration, item.file]
 									.filter(Boolean)
@@ -158,7 +169,13 @@
 							</p>{/if}
 					</article>
 				</li>
-			{:else}<li class="empty">No history yet.</li>{/each}
+			{:else}<li class="empty">
+					{filter === 'updates'
+						? 'No notes or errors recorded.'
+						: filter === 'prints'
+							? 'No prints recorded.'
+							: 'No history yet.'}
+				</li>{/each}
 		</ol>
 		{#if visible.length > shown}<button class="more" type="button" on:click={() => (shown += 10)}
 				>Load more</button

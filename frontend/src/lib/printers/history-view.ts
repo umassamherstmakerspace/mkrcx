@@ -56,6 +56,7 @@ export type HistoryItem = {
 	source: string;
 	actor?: string;
 	user?: string;
+	automatic?: boolean;
 	text?: string;
 	changes?: string[];
 	file?: string;
@@ -110,6 +111,7 @@ function eventItem(event: PrinterEvent): HistoryItem | null {
 			event.eventType
 		),
 		id: `event:${event.sourceId}`,
+		automatic: ['printer_error', 'printer_responding'].includes(event.eventType),
 		recordedAt: event.recordedAt,
 		kind:
 			event.eventType === 'printer_error' || event.eventType === 'printer_failed' ? 'error' : 'job',
@@ -158,12 +160,15 @@ function eventItem(event: PrinterEvent): HistoryItem | null {
 						: 'Note cleared'
 				: 'Condition changed';
 		item.source = 'Printer';
-		item.user =
-			event.eventType === 'staff_runtime_changed'
-				? event.actorMethod === 'local_pin'
-					? 'Staff PIN'
-					: event.actorName || 'Unavailable'
-				: undefined;
+		item.automatic =
+			event.eventType !== 'staff_runtime_changed' || event.actorMethod === 'printer_api';
+		item.user = item.automatic
+			? undefined
+			: event.actorMethod === 'local_pin'
+				? 'Staff PIN'
+				: event.actorMethod === 'ucard'
+					? `${event.actorName || 'Attribution not recorded'} · Card tap`
+					: event.actorName || 'Attribution not recorded';
 		item.icon = undefined;
 		item.text =
 			showNote && note ? note[1] || undefined : !note && !condition ? event.detail : undefined;
@@ -254,7 +259,8 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			kind: text || title.startsWith('Note') ? 'note' : 'change',
 			title,
 			source: 'mkr.cx',
-			user: edit.actorName || (edit.actor.startsWith('user:') ? 'Unavailable' : undefined),
+			user:
+				edit.actorName || (edit.actor.startsWith('user:') ? 'Attribution not recorded' : undefined),
 			actor: edit.actor,
 			text,
 			changes
@@ -262,5 +268,17 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 	}
 	return items.sort(
 		(a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt) || a.id.localeCompare(b.id)
+	);
+}
+
+export type HistoryFilter = 'all' | 'updates' | 'prints';
+
+export function filterHistoryItems(items: HistoryItem[], filter: HistoryFilter): HistoryItem[] {
+	return items.filter((item) =>
+		filter === 'all'
+			? true
+			: filter === 'prints'
+				? item.printOutcome
+				: ['note', 'error', 'summary'].includes(item.kind)
 	);
 }
