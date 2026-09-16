@@ -1,47 +1,47 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Button } from 'flowbite-svelte';
+	import PrinterQuickView from '$lib/printers/PrinterQuickView.svelte';
 	import {
-		printers as unavailableFleet,
-		duration,
-		finishTime,
-		type Printer,
-		type Condition
-	} from '$lib/printers/prototype-data';
+		activityLabels,
+		activityState,
+		fleetViews,
+		matchesFleetView,
+		type FleetView
+	} from '$lib/printers/printer-state';
+	import FleetStamp from '$lib/printers/FleetStamp.svelte';
+	import { Button } from 'flowbite-svelte';
+	import { duration, finishTime, type Printer, type Condition } from '$lib/printers/prototype-data';
 	import {
 		sortFleet,
 		remainingMinutes,
 		type SortKey,
 		type SortDirection
 	} from '$lib/printers/fleet-view';
-	let printers = unavailableFleet;
+	let printers: Printer[] = [];
 	let staffView = false;
-	let filter = 'all';
+	let expandedId: string | null = null;
+	function toggle(id: string) {
+		expandedId = expandedId === id ? null : id;
+	}
+	$: if (!staffView) expandedId = null;
+	let filter: FleetView = 'active';
 	let disconnected = true;
 	let fetchedAt: string | null = null;
-	let expandedId: string | null = null;
 	let sortKey: SortKey = 'condition';
 	let sortDirection: SortDirection = 'asc';
 	const conditionText: Record<Condition, string> = {
 		working: 'Working',
 		limited: 'Limited use',
-		out: 'Out of service',
-		unknown: 'Status unavailable'
+		out: 'Broken',
+		unknown: 'Unknown'
 	};
 	const columns: { key: SortKey | null; label: string; className: string }[] = [
 		{ key: 'name', label: 'Printer', className: 'printer-column' },
 		{ key: 'model', label: 'Model', className: 'model-column' },
-		{ key: 'condition', label: 'Status', className: 'condition-column' },
+		{ key: 'condition', label: 'Condition', className: 'condition-column' },
 		{ key: 'activity', label: 'Activity', className: 'activity-column' },
 		{ key: 'remaining', label: 'Est. time left', className: 'time-column' },
 		{ key: null, label: 'Notes', className: 'note-column' }
-	];
-	const filters = [
-		{ id: 'all', label: 'All printers' },
-		{ id: 'idle', label: 'Idle' },
-		{ id: 'printing', label: 'Printing' },
-		{ id: 'limited', label: 'Limited use' },
-		{ id: 'out', label: 'Out of service' }
 	];
 	async function refresh() {
 		try {
@@ -53,7 +53,7 @@
 				fetchedAt: string | null;
 				printers: Printer[];
 			};
-			if (fleet.printers.length !== unavailableFleet.length) throw new Error('incomplete fleet');
+			if (!Array.isArray(fleet.printers)) throw new Error('invalid fleet');
 			printers = fleet.printers;
 			staffView = fleet.audience === 'staff';
 			disconnected = fleet.stale;
@@ -61,7 +61,15 @@
 		} catch {
 			disconnected = true;
 			staffView = false;
-			printers = unavailableFleet;
+			printers = printers.map((p) => ({
+				...p,
+				activity: 'unknown',
+				stale: true,
+				connected: false,
+				job: undefined,
+				progress: undefined,
+				minutes: undefined
+			}));
 			fetchedAt = null;
 		}
 	}
@@ -70,26 +78,13 @@
 		const timer = window.setInterval(refresh, 15_000);
 		return () => window.clearInterval(timer);
 	});
-	function matches(printer: Printer, selected: string) {
-		if (selected === 'all') return true;
-		if (selected === 'idle')
-			return (
-				!disconnected &&
-				!printer.stale &&
-				printer.activity === 'idle' &&
-				['working', 'limited'].includes(printer.condition)
-			);
-		if (selected === 'printing')
-			return !disconnected && !printer.stale && printer.activity === 'printing';
-		return printer.condition === selected;
-	}
 	$: visible = sortFleet(
-		printers.filter((printer) => matches(printer, filter)),
+		printers.filter((printer) => matchesFleetView(printer, filter)),
 		sortKey,
 		sortDirection,
 		disconnected
 	);
-	$: if (!staffView) expandedId = null;
+	$: if (!staffView && filter === 'shelved') filter = 'active';
 	function changeSort(key: SortKey) {
 		sortDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
 		sortKey = key;
@@ -101,14 +96,6 @@
 	function selectMobileSort(event: Event) {
 		sortKey = (event.currentTarget as HTMLSelectElement).value as SortKey;
 		sortDirection = 'asc';
-	}
-	function activityLabel(printer: Printer) {
-		if (disconnected || printer.stale || printer.activity === 'unknown') return 'Unknown';
-		return printer.activity === 'printing'
-			? 'Printing'
-			: printer.activity === 'paused'
-				? 'Paused'
-				: 'Idle';
 	}
 	function conditionIcon(condition: Condition) {
 		return { working: '✓', limited: '!', out: '×', unknown: '—' }[condition];
@@ -137,21 +124,24 @@
 		</div>
 	</header>
 	{#if disconnected}<div class="connection-banner" role="status">
-			<strong>Updates unavailable</strong> Printer condition, activity, and finish estimates cannot be
-			confirmed.
+			<strong>Updates unavailable</strong> Live activity and finish estimates cannot be confirmed. Saved
+			conditions and notes remain visible.
 		</div>{/if}
 	<div class="toolbar">
 		<div class="filters" role="group" aria-label="Filter printers">
-			{#each filters as item}<Button
+			{#each fleetViews.filter((view) => staffView || view.id !== 'shelved') as view}
+				<Button
 					color="none"
 					size="sm"
-					class={filter === item.id ? 'filter-button selected' : 'filter-button'}
-					aria-pressed={filter === item.id}
-					on:click={() => (filter = item.id)}
-					>{item.label}<span class="filter-count"
-						>{printers.filter((printer) => matches(printer, item.id)).length}</span
-					></Button
-				>{/each}
+					class={filter === view.id ? 'filter-button selected' : 'filter-button'}
+					aria-pressed={filter === view.id}
+					on:click={() => (filter = view.id)}
+				>
+					{view.label}<span class="filter-count"
+						>{printers.filter((printer) => matchesFleetView(printer, view.id)).length}</span
+					>
+				</Button>
+			{/each}
 		</div>
 		{#if sortKey !== 'condition' || sortDirection !== 'asc'}<Button
 				color="none"
@@ -163,7 +153,7 @@
 	<div class="mobile-sort">
 		<label for="mobile-sort-key">Sort</label>
 		<select id="mobile-sort-key" value={sortKey} on:change={selectMobileSort}>
-			<option value="condition">Status</option>
+			<option value="condition">Condition</option>
 			<option value="name">Printer</option>
 			<option value="model">Model</option>
 			<option value="activity">Activity</option>
@@ -185,10 +175,10 @@
 	>
 		<table class="fleet-table">
 			<caption class="visually-hidden"
-				>Default order: working, limited use, out of service, then unavailable. Within each status,
-				printing and paused come before idle, then K1 Max before K1 and K1C. Select a column heading
-				to change sort order. {staffView
-					? 'Select a printer name to expand its details.'
+				>Default order: working, limited use, broken, then unavailable. Within each status, printing
+				and paused come before idle, then K1 Max before K1 and K1C. Select a column heading to
+				change sort order. {staffView
+					? 'Select a printer name for details and history.'
 					: ''}</caption
 			>
 			<colgroup
@@ -228,19 +218,27 @@
 						class:row-stale={disconnected || printer.stale || printer.condition === 'unknown'}
 					>
 						<th scope="row">
-							{#if staffView}<button
-									class="printer-expand"
-									type="button"
-									aria-expanded={expandedId === printer.id}
-									aria-controls={`details-${printer.id}`}
-									aria-label={`${expandedId === printer.id ? 'Close' : 'View'} details for ${printer.name}`}
-									on:click={() => (expandedId = expandedId === printer.id ? null : printer.id)}
-									><span
-										class="chevron"
-										class:expanded={expandedId === printer.id}
-										aria-hidden="true">›</span
-									><span class="table-name">{printer.name}</span></button
-								>{:else}<span class="table-name">{printer.name}</span>{/if}
+							<div class="identity-row">
+								{#if staffView}<button
+										class="expand"
+										type="button"
+										aria-label={`Quick view: ${printer.name}`}
+										aria-expanded={expandedId === printer.id}
+										aria-controls={`quick-view-${printer.id}`}
+										on:click={() => toggle(printer.id)}
+										><span
+											class="chevron"
+											class:expanded={expandedId === printer.id}
+											aria-hidden="true">›</span
+										></button
+									>{/if}
+								{#if staffView}<a
+										class="printer-link"
+										href={`/printers/${encodeURIComponent(printer.id)}`}
+										><span class="table-name">{printer.name}</span></a
+									>{:else}<span class="table-name">{printer.name}</span>{/if}
+								{#if staffView}<FleetStamp lifecycle={printer.lifecycle} />{/if}
+							</div>
 						</th>
 						<td class="table-model">{printer.model}</td>
 						<td
@@ -253,7 +251,7 @@
 						<td
 							class:table-printing={printer.activity === 'printing' &&
 								!disconnected &&
-								!printer.stale}>{activityLabel(printer)}</td
+								!printer.stale}>{activityLabels[activityState(printer, disconnected)]}</td
 						>
 						<td class="table-time"
 							>{#if minutes !== null}<span title={`Estimated finish ${finishTime(minutes)}`}
@@ -264,76 +262,32 @@
 										: '—'}</span
 								>{/if}</td
 						>
-						<td class="table-note">{printer.note ?? (printer.stale ? 'No recent update.' : '')}</td>
+						<td class="table-note"
+							>{printer.note ?? ''}
+							{#if staffView && printer.printerNoteAt}<p class="next-action">
+									{printer.printerNote || 'Cleared at printer.'}
+								</p>{/if}
+							{#if staffView && printer.nextAction}<p class="next-action">
+									<strong>Next:</strong>
+									{printer.nextAction}
+								</p>{/if}
+
+							{#if printer.lastSeen && (!printer.connected || printer.stale)}<small
+									class="record-context"
+									>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
+								>{/if}
+						</td>
 					</tr>
-					{#if staffView && expandedId === printer.id}
-						<tr class="details-row"
-							><td colspan="6"
-								><section
-									id={`details-${printer.id}`}
-									aria-label={`${printer.name} details`}
-									class="print-details"
-								>
-									<div class="detail-heading">
-										<strong>{printer.name} · Current print</strong><Button
-											color="none"
-											size="xs"
-											class="close-details"
-											on:click={() => (expandedId = null)}>Close</Button
-										>
-									</div>
-									{#if disconnected || printer.stale}<p class="detail-empty">
-											Current print details are unavailable until the printer reconnects.
-										</p>
-									{:else if printer.job && ['printing', 'paused'].includes(printer.activity)}
-										<dl class="detail-fields">
-											<div>
-												<dt>Printing for</dt>
-												<dd>{printer.job.person}</dd>
-											</div>
-											<div>
-												<dt>File</dt>
-												<dd class="filename">{printer.job.file}</dd>
-											</div>
-											<div>
-												<dt>Material</dt>
-												<dd>{printer.job.material}</dd>
-											</div>
-											<div>
-												<dt>Started</dt>
-												<dd>{printer.job.started}</dd>
-											</div>
-											{#if printer.progress !== undefined}<div>
-													<dt>Progress</dt>
-													<dd class="detail-progress">
-														<progress
-															max="100"
-															value={printer.progress}
-															aria-label={`${printer.name} print progress`}
-														></progress><span>{printer.progress}%</span>
-													</dd>
-												</div>{/if}
-										</dl>
-									{:else if printer.activity === 'unknown'}<p class="detail-empty">
-											Current print details are unavailable.
-										</p>
-									{:else}<p class="detail-empty">No current print.</p>{/if}
-									<p class="machine-reference">
-										Machine ID: {printer.machineId ?? 'Not yet recorded'}
-									</p>
-								</section></td
-							></tr
-						>
-					{/if}
+					{#if staffView && expandedId === printer.id}<tr
+							class="quick-row"
+							id={`quick-view-${printer.id}`}
+							><td colspan="6"><PrinterQuickView {printer} /></td></tr
+						>{/if}
 				{:else}<tr
 						><td colspan="6" class="table-empty"
-							><p>
-								{disconnected && ['printing', 'idle'].includes(filter)
-									? 'Live activity is unavailable while updates are interrupted.'
-									: 'No printers with this status.'}
-							</p>
-							<Button color="alternative" size="xs" on:click={() => (filter = 'all')}
-								>Show all printers</Button
+							><p>No matching printers.</p>
+							<Button color="alternative" size="xs" on:click={() => (filter = 'active')}
+								>In fleet</Button
 							></td
 						></tr
 					>{/each}
@@ -356,19 +310,28 @@
 			>
 				<div class="mobile-primary">
 					{#if staffView}<button
-							class="printer-expand mobile-printer-expand"
+							class="expand"
 							type="button"
+							aria-label={`Quick view: ${printer.name}`}
 							aria-expanded={expandedId === printer.id}
-							aria-controls={`mobile-details-${printer.id}`}
-							aria-label={`${expandedId === printer.id ? 'Close' : 'View'} details for ${printer.name}`}
-							on:click={() => (expandedId = expandedId === printer.id ? null : printer.id)}
+							aria-controls={`mobile-quick-view-${printer.id}`}
+							on:click={() => toggle(printer.id)}
 							><span class="chevron" class:expanded={expandedId === printer.id} aria-hidden="true"
 								>›</span
-							><span class="mobile-identity"
-								><strong>{printer.name}</strong><span>{printer.model}</span></span
 							></button
+						>{/if}
+					{#if staffView}<a
+							class="printer-link mobile-printer-link"
+							href={`/printers/${encodeURIComponent(printer.id)}`}
+							><span class="mobile-identity"
+								><strong>{printer.name}</strong><span>{printer.model}</span><FleetStamp
+									lifecycle={printer.lifecycle}
+								/></span
+							></a
 						>{:else}<div class="mobile-identity public-mobile-identity">
-							<strong>{printer.name}</strong><span>{printer.model}</span>
+							<strong>{printer.name}</strong><span>{printer.model}</span><FleetStamp
+								lifecycle={printer.lifecycle}
+							/>
 						</div>{/if}
 					<span class="condition-badge {printer.condition}"
 						><span aria-hidden="true">{conditionIcon(printer.condition)}</span>{conditionText[
@@ -380,7 +343,7 @@
 					<span
 						class:table-printing={printer.activity === 'printing' &&
 							!disconnected &&
-							!printer.stale}>{activityLabel(printer)}</span
+							!printer.stale}>{activityLabels[activityState(printer, disconnected)]}</span
 					>
 					{#if minutes !== null}<span
 							class="table-time"
@@ -390,69 +353,26 @@
 						>{/if}
 				</div>
 				{#if printer.note || printer.stale}<p class="mobile-note table-note">
-						{printer.note ?? 'No recent update.'}
+						{printer.note ?? ''}
 					</p>{/if}
-				{#if staffView && expandedId === printer.id}<section
-						id={`mobile-details-${printer.id}`}
-						aria-label={`${printer.name} details`}
-						class="print-details mobile-print-details"
-					>
-						<div class="detail-heading">
-							<strong>{printer.name} · Current print</strong><Button
-								color="none"
-								size="xs"
-								class="close-details"
-								on:click={() => (expandedId = null)}>Close</Button
-							>
-						</div>
-						{#if disconnected || printer.stale}<p class="detail-empty">
-								Current print details are unavailable until the printer reconnects.
-							</p>
-						{:else if printer.job && ['printing', 'paused'].includes(printer.activity)}
-							<dl class="detail-fields">
-								<div>
-									<dt>Printing for</dt>
-									<dd>{printer.job.person}</dd>
-								</div>
-								<div>
-									<dt>File</dt>
-									<dd class="filename">{printer.job.file}</dd>
-								</div>
-								<div>
-									<dt>Material</dt>
-									<dd>{printer.job.material}</dd>
-								</div>
-								<div>
-									<dt>Started</dt>
-									<dd>{printer.job.started}</dd>
-								</div>
-								{#if printer.progress !== undefined}<div>
-										<dt>Progress</dt>
-										<dd class="detail-progress">
-											<progress
-												max="100"
-												value={printer.progress}
-												aria-label={`${printer.name} print progress`}
-											></progress><span>{printer.progress}%</span>
-										</dd>
-									</div>{/if}
-							</dl>
-						{:else if printer.activity === 'unknown'}<p class="detail-empty">
-								Current print details are unavailable.
-							</p>
-						{:else}<p class="detail-empty">No current print.</p>{/if}
-						<p class="machine-reference">Machine ID: {printer.machineId ?? 'Not yet recorded'}</p>
-					</section>{/if}
+				{#if staffView && printer.nextAction}<p class="mobile-note table-note">
+						<strong>Next:</strong>
+						{printer.nextAction}
+					</p>{/if}
+				{#if staffView && printer.printerNoteAt}<p class="mobile-note table-note">
+						{printer.printerNote || 'Cleared at printer.'}
+					</p>{/if}
+
+				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"
+						>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
+					>{/if}
+				{#if staffView && expandedId === printer.id}<div id={`mobile-quick-view-${printer.id}`}>
+						<PrinterQuickView {printer} />
+					</div>{/if}
 			</article>
 		{:else}<div class="mobile-empty">
-				<p>
-					{disconnected && ['printing', 'idle'].includes(filter)
-						? 'Live activity is unavailable while updates are interrupted.'
-						: 'No printers with this status.'}
-				</p>
-				<Button color="alternative" size="xs" on:click={() => (filter = 'all')}
-					>Show all printers</Button
-				>
+				<p>No matching printers.</p>
+				<Button color="alternative" size="xs" on:click={() => (filter = 'active')}>In fleet</Button>
 			</div>{/each}
 	</div>
 	<footer>
@@ -465,6 +385,41 @@
 </main>
 
 <style>
+	.expand {
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
+		width: 16px;
+		height: 20px;
+		flex-shrink: 0;
+		border-radius: 0.25rem;
+		vertical-align: middle;
+	}
+	.chevron {
+		font-size: 20px;
+		line-height: 15px;
+		color: var(--muted);
+		width: 9px;
+		flex-shrink: 0;
+	}
+	.chevron.expanded {
+		transform: rotate(90deg);
+	}
+	.expand:focus-visible {
+		outline: 2px solid var(--violet);
+		outline-offset: -2px;
+		border-radius: 3px;
+	}
+	.quick-row td {
+		background: var(--paper);
+		padding: 0;
+	}
+	.record-context {
+		display: block;
+		font-size: 0.72rem;
+		opacity: 0.75;
+		margin-top: 0.35rem;
+	}
 	.printer-dashboard {
 		--ink: #252b35;
 		--muted: #66707c;
@@ -547,6 +502,7 @@
 		opacity: 0.8;
 		font-variant-numeric: tabular-nums;
 	}
+
 	:global(.reset-sort) {
 		color: var(--violet);
 		font-size: 11px !important;
@@ -643,7 +599,7 @@
 		opacity: 1;
 	}
 	.sort-button:focus-visible,
-	.printer-expand:focus-visible {
+	.printer-link:focus-visible {
 		outline: 2px solid var(--violet);
 		outline-offset: -2px;
 		border-radius: 3px;
@@ -736,92 +692,24 @@
 	.row-out .table-note {
 		color: var(--red);
 	}
-	.printer-expand {
+	.printer-link {
+		flex: 1;
+		min-width: 0;
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
 		text-align: left;
 		margin: -5px 0;
 		padding: 5px 0;
-		width: 100%;
+		width: auto;
 	}
-	.printer-expand:hover .table-name {
+	.identity-row {
+		display: flex;
+		align-items: center;
+	}
+	.printer-link:hover .table-name {
 		text-decoration: underline;
 		text-underline-offset: 3px;
-	}
-	.chevron {
-		font-size: 20px;
-		line-height: 15px;
-		color: var(--muted);
-		width: 9px;
-		flex-shrink: 0;
-	}
-	.chevron.expanded {
-		transform: rotate(90deg);
-	}
-	.fleet-table .details-row > td {
-		padding: 0;
-		background: var(--paper);
-	}
-	.print-details {
-		padding: 14px 18px;
-		border-left: 3px solid var(--violet);
-	}
-	.detail-heading {
-		display: flex;
-		justify-content: space-between;
-		gap: 12px;
-		align-items: center;
-		margin-bottom: 12px;
-	}
-	.detail-heading strong {
-		font-size: 12px;
-		font-weight: 600;
-	}
-	:global(.close-details) {
-		padding: 3px 6px !important;
-		color: var(--muted);
-		font-size: 11px !important;
-	}
-	.detail-fields {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 16px 34px;
-	}
-	.detail-fields dt {
-		font-size: 10px;
-		color: var(--muted);
-		margin-bottom: 3px;
-	}
-	.detail-fields dd {
-		font-size: 12px;
-	}
-	.detail-fields .filename {
-		font-family: ui-monospace, monospace;
-		font-size: 11px;
-		overflow-wrap: anywhere;
-	}
-	.detail-progress {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-	.detail-progress span {
-		font-variant-numeric: tabular-nums;
-	}
-	progress {
-		width: 80px;
-		height: 4px;
-		accent-color: var(--violet);
-	}
-	.machine-reference {
-		font-size: 10px;
-		color: var(--muted);
-		margin-top: 12px;
-	}
-	.detail-empty {
-		color: var(--muted);
-		font-size: 12px;
 	}
 	.table-empty p {
 		margin: 12px 0;
@@ -968,7 +856,7 @@
 			justify-content: space-between;
 			gap: 10px;
 		}
-		.mobile-printer-expand {
+		.mobile-printer-link {
 			min-width: 0;
 			margin: -4px 0;
 			padding: 4px 0;
@@ -1015,16 +903,6 @@
 		}
 		.mobile-printer.row-out .mobile-note {
 			color: var(--red);
-		}
-		.mobile-print-details {
-			margin: 9px -9px -8px -12px;
-			padding: 12px 12px 12px 15px;
-			background: var(--paper);
-		}
-		.mobile-print-details .detail-fields {
-			display: grid;
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: 12px 18px;
 		}
 		.mobile-empty {
 			padding: 14px 9px 18px;

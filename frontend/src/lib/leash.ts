@@ -3,6 +3,8 @@ import { isAfter } from 'date-fns';
 import { minidenticon } from 'minidenticons';
 
 export const allPermissions = [
+	'leash.printers:read',
+	'leash.printers:manage',
 	'leash.users:target_self',
 	'leash.users:target_others',
 	'leash.users:create',

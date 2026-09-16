@@ -114,6 +114,11 @@ jobs:
       - name: Test Frontend Units
         working-directory: ./frontend
         run: pnpm run test:unit -- --run
+      - name: Test printer collectors
+        working-directory: ./frontend
+        run: |
+          python3 scripts/test-printer-fleet-collector.py
+          python3 scripts/test-printer-registry-collector.py
       - name: Check Frontend Types
         if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true' }}
         working-directory: ./frontend
