@@ -167,8 +167,8 @@ function eventItem(event: PrinterEvent): HistoryItem | null {
 			: event.actorMethod === 'local_pin'
 				? 'Staff PIN'
 				: event.actorMethod === 'ucard'
-					? `${event.actorName || 'Attribution not recorded'} · Card tap`
-					: event.actorName || 'Attribution not recorded';
+					? `${event.actorName || 'Attribution unavailable'} · Card tap`
+					: event.actorName || 'Attribution unavailable';
 		item.icon = undefined;
 		item.text =
 			showNote && note ? note[1] || undefined : !note && !condition ? event.detail : undefined;
@@ -260,7 +260,7 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			title,
 			source: 'mkr.cx',
 			user:
-				edit.actorName || (edit.actor.startsWith('user:') ? 'Attribution not recorded' : undefined),
+				edit.actorName || (edit.actor.startsWith('user:') ? 'Attribution unavailable' : undefined),
 			actor: edit.actor,
 			text,
 			changes

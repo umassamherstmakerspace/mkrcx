@@ -219,7 +219,7 @@ describe('printer timeline', () => {
 		expect(item).toMatchObject({
 			kind: 'note',
 			source: 'Printer',
-			user: 'Attribution not recorded',
+			user: 'Attribution unavailable',
 			title: 'Status recorded',
 			text: 'Fan broken.\nReplacement ordered.',
 			changes: ['Condition: Out of service']
@@ -262,9 +262,9 @@ describe('printer timeline', () => {
 		expect(historyItems(history([], [{ ...base, actorMethod: 'local_pin' }]))[0].user).toBe(
 			'Staff PIN'
 		);
-		expect(historyItems(history([], [base]))[0].user).toBe('Attribution not recorded');
+		expect(historyItems(history([], [base]))[0].user).toBe('Attribution unavailable');
 		expect(historyItems(history([], [{ ...base, actorMethod: 'ucard' }]))[0].user).toBe(
-			'Attribution not recorded · Card tap'
+			'Attribution unavailable · Card tap'
 		);
 		for (const eventType of ['printer_runtime_changed', 'system_runtime_changed']) {
 			const automatic = historyItems(history([], [{ ...base, eventType }]))[0];
