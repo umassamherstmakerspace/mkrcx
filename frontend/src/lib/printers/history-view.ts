@@ -120,11 +120,7 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			recordedAt: edit.recordedAt,
 			kind: text ? 'note' : 'change',
 			title,
-			source: edit.actor.startsWith('user:')
-				? 'Staff · mkr.cx'
-				: edit.actor.startsWith('service-user:')
-					? 'Automatic · mkr.cx'
-					: 'mkr.cx',
+			source: edit.actor.startsWith('user:') ? 'Staff · mkr.cx' : 'mkr.cx',
 			actor: edit.actor,
 			text,
 			changes

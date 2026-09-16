@@ -119,4 +119,9 @@ describe('printer timeline', () => {
 	it('accepts an empty collected history', () => {
 		expect(historyItems({ events: null, edits: null, lastSync: null })).toEqual([]);
 	});
+	it('does not mistake an imported human note for an automatic event', () => {
+		const item = historyItems(history([{ ...edit, actor: 'service-user:7' }]))[0];
+		expect(item.source).toBe('mkr.cx');
+		expect(item.kind).toBe('note');
+	});
 });

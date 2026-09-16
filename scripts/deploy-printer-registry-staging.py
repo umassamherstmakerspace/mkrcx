@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--frontend", required=True)
     parser.add_argument("--backend", required=True)
     parser.add_argument("--dedicated-collector", action="store_true", help="Use only after the separate staging collector is verified")
+    parser.add_argument("--frontend-only", action="store_true", help="Leave the staging backend deployment unchanged")
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
     for component, image in (("frontend", args.frontend), ("leash", args.backend)):
@@ -43,8 +44,15 @@ def main():
     if "token" not in get("secret", "mkrcx-printer-fleet-staging-ingest").get("data", {}):
         raise RuntimeError("Staging collector secret is missing")
     production = {n: get("deployment", n)["spec"] for n in ("mkrcx-frontend", "mkrcx-leash")}
+    targets = [("mkrcx-leash-staging", args.backend), ("mkrcx-frontend-staging", args.frontend)]
+    if args.frontend_only:
+        backend = get("deployment", "mkrcx-leash-staging")["spec"]
+        if next(c["image"] for c in backend["template"]["spec"]["containers"] if c["name"] == "mkrcx-leash") != args.backend:
+            raise RuntimeError("Staging backend differs from the expected image")
+        production["mkrcx-leash-staging"] = backend
+        targets = [("mkrcx-frontend-staging", args.frontend)]
     plans = []
-    for name, image in (("mkrcx-leash-staging", args.backend), ("mkrcx-frontend-staging", args.frontend)):
+    for name, image in targets:
         current = get("deployment", name)
         containers = current["spec"]["template"]["spec"]["containers"]
         target_name = "mkrcx-leash" if "leash" in name else "mkrcx-frontend"
@@ -74,8 +82,8 @@ def main():
             print(kube("rollout", "status", "deployment/" + name, "--timeout=180s"), flush=True)
         for name, spec in production.items():
             if get("deployment", name)["spec"] != spec:
-                raise RuntimeError("Production spec changed during the staging rollout; investigate before continuing")
-        print("Staging rollout ready; production deployment specs unchanged")
+                raise RuntimeError(name + " spec changed during the staging rollout; investigate before continuing")
+        print("Staging rollout ready; protected deployment specs unchanged")
 
 
 if __name__ == "__main__":
