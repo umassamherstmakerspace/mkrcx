@@ -8,7 +8,8 @@ const edit: PrinterEdit = {
 	condition: 'out',
 	note: 'Fan broken',
 	manual: true,
-	lifecycle: 'repair',
+	lifecycle: 'active',
+	maintenance: 'repair',
 	name: 'Ada'
 };
 const history = (
@@ -50,7 +51,7 @@ describe('printer timeline', () => {
 		expect(items[0]).toMatchObject({
 			title: 'Printer updated',
 			kind: 'change',
-			changes: ['Lineup: In repair → Shelved']
+			changes: ['Fleet: In fleet → Shelved']
 		});
 		expect(items[0].text).toBeUndefined();
 	});
@@ -123,5 +124,33 @@ describe('printer timeline', () => {
 		const item = historyItems(history([{ ...edit, actor: 'service-user:7' }]))[0];
 		expect(item.source).toBe('mkr.cx');
 		expect(item.kind).toBe('note');
+	});
+	it('reports maintenance and location changes independently of fleet and condition', () => {
+		const items = historyItems(
+			history([
+				edit,
+				{
+					...edit,
+					version: 2,
+					maintenance: 'testing',
+					location: 'Repair bench',
+					recordedAt: '2026-09-16T12:00:00Z'
+				}
+			])
+		);
+		expect(items[0].changes).toEqual([
+			'Maintenance: In repair → Testing',
+			'Location: Not set → Repair bench'
+		]);
+		expect(items[0].text).toBeUndefined();
+	});
+	it('normalizes a legacy repair snapshot without inventing a fleet move', () => {
+		const items = historyItems(
+			history([
+				{ ...edit, lifecycle: 'repair', maintenance: undefined },
+				{ ...edit, version: 2, recordedAt: '2026-09-16T12:00:00Z' }
+			])
+		);
+		expect(items[0].changes).toEqual([]);
 	});
 });

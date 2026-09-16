@@ -251,3 +251,121 @@ func TestPrinterHardwareCannotBeReusedOrReassigned(t *testing.T) {
 		t.Fatal(status)
 	}
 }
+
+func TestPrinterFleetAndMaintenanceAreIndependent(t *testing.T) {
+	app, db := printerTestApp(t)
+	maintenance := "repair"
+	edit := editFor("Bench repair")
+	edit.Lifecycle, edit.Maintenance, edit.Location = "shelved", &maintenance, "Repair bench"
+	edit.Host, edit.MAC = "192.168.1.250", "02:11:22:33:44:55"
+	status, saved := printerRequest(t, app, "PUT", "/records/bench-repair", edit, "")
+	if status != 200 || saved["lifecycle"] != "shelved" || saved["maintenance"] != "repair" || saved["condition"] != "out" {
+		t.Fatalf("states lost: %d %#v", status, saved)
+	}
+	_, public := printerRequest(t, app, "GET", "/printer-fleet", nil, "")
+	for _, p := range public["printers"].([]interface{}) {
+		if p.(map[string]interface{})["id"] == "bench-repair" {
+			t.Fatal("shelved printer public")
+		}
+	}
+	_, roster := printerRequest(t, app, "GET", "/printer-fleet/roster", nil, "test-collector")
+	if printerItem(t, roster, "bench-repair")["host"] != edit.Host {
+		t.Fatal("repair-bench telemetry excluded")
+	}
+	_, staff := printerRequest(t, app, "GET", "/staff", nil, "")
+	if printerItem(t, staff, "bench-repair")["maintenance"] != "repair" {
+		t.Fatal("staff maintenance missing")
+	}
+	// A client that predates the maintenance field must not clear it on an unrelated edit.
+	edit.Version, edit.Maintenance = 1, nil
+	status, saved = printerRequest(t, app, "PUT", "/records/bench-repair", edit, "")
+	if status != 200 || saved["maintenance"] != "repair" {
+		t.Fatal("legacy client lost maintenance", saved)
+	}
+	reading := printerReading{ID: "bench-repair", Condition: "unknown", Activity: "unknown"}
+	printerRequest(t, app, "POST", "/printer-fleet/ingest", printerSnapshot{FetchedAt: time.Now().UTC(), Printers: []printerReading{reading}}, "test-collector")
+	if err := models.MigratePrinterRegistry(db); err != nil {
+		t.Fatal(err)
+	}
+	_, staff = printerRequest(t, app, "GET", "/staff", nil, "")
+	p := printerItem(t, staff, "bench-repair")
+	if p["maintenance"] != "repair" || p["condition"] != "out" || p["note"] != edit.Note || p["location"] != "Repair bench" {
+		t.Fatal("offline/restart lost fields", p)
+	}
+	maintenance = "none"
+	edit.Version, edit.Maintenance = 2, &maintenance
+	status, saved = printerRequest(t, app, "PUT", "/records/bench-repair", edit, "")
+	if status != 200 || saved["maintenance"] != "none" || saved["lifecycle"] != "shelved" || saved["condition"] != "out" {
+		t.Fatal("clear maintenance affected other states", saved)
+	}
+	edit.Version, edit.Lifecycle = 3, "retired"
+	printerRequest(t, app, "PUT", "/records/bench-repair", edit, "")
+	_, roster = printerRequest(t, app, "GET", "/printer-fleet/roster", nil, "test-collector")
+	for _, p := range roster["printers"].([]interface{}) {
+		if p.(map[string]interface{})["id"] == "bench-repair" {
+			t.Fatal("retired printer polled")
+		}
+	}
+	_, history := printerRequest(t, app, "GET", "/history/bench-repair", nil, "")
+	first := history["edits"].([]interface{})[3].(map[string]interface{})
+	if first["maintenance"] != "repair" || first["location"] != "Repair bench" {
+		t.Fatal("history fields missing", first)
+	}
+}
+
+func TestPrinterLegacyMaintenanceMigration(t *testing.T) {
+	app, db := printerTestApp(t)
+	at := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	record := models.PrinterRecord{ID: "legacy-repair", Name: "Legacy", Model: "K1", Lifecycle: "repair", Condition: "out", Note: "Keep this note", Manual: true, Version: 9, UpdatedAt: at}
+	if err := db.Create(&record).Error; err != nil {
+		t.Fatal(err)
+	}
+	// Reproduce the existing schema before maintenance was added.
+	if err := db.Migrator().DropColumn(&models.PrinterRecord{}, "maintenance"); err != nil {
+		t.Fatal(err)
+	}
+	if err := models.MigratePrinterRegistry(db); err != nil {
+		t.Fatal(err)
+	}
+	var migrated models.PrinterRecord
+	db.First(&migrated, "id = ?", record.ID)
+	if migrated.Lifecycle != "active" || migrated.Maintenance != "repair" || migrated.Note != record.Note || migrated.Version != 9 || !migrated.UpdatedAt.Equal(at) {
+		t.Fatalf("migration changed unrelated state: %#v", migrated)
+	}
+	body := `{"lifecycle":"testing","condition":"out","note":"Keep this note","manual":true}`
+	if err := db.Create(&models.PrinterRecordEvent{PrinterID: record.ID, Version: 9, Record: body, CreatedAt: at}).Error; err != nil {
+		t.Fatal(err)
+	}
+	_, history := printerRequest(t, app, "GET", "/history/"+record.ID, nil, "")
+	item := history["edits"].([]interface{})[0].(map[string]interface{})
+	if item["lifecycle"] != "active" || item["maintenance"] != "testing" {
+		t.Fatal("legacy history projection", item)
+	}
+	var event models.PrinterRecordEvent
+	db.First(&event, "printer_id = ?", record.ID)
+	if event.Record != body {
+		t.Fatal("rewrote immutable history")
+	}
+	db.Model(&migrated).UpdateColumns(map[string]interface{}{"lifecycle": "shelved", "maintenance": "diagnosis"})
+	if err := models.MigratePrinterRegistry(db); err != nil {
+		t.Fatal(err)
+	}
+	db.First(&migrated, "id = ?", record.ID)
+	if migrated.Lifecycle != "shelved" || migrated.Maintenance != "diagnosis" {
+		t.Fatal("repeat migration reset states")
+	}
+}
+
+func TestPrinterMaintenanceValidationAndLegacySave(t *testing.T) {
+	app, _ := printerTestApp(t)
+	edit := editFor("Legacy testing")
+	status, saved := printerRequest(t, app, "PUT", "/records/legacy-testing", edit, "")
+	if status != 200 || saved["lifecycle"] != "active" || saved["maintenance"] != "testing" {
+		t.Fatal("legacy save", status, saved)
+	}
+	bad := "printing"
+	edit.Maintenance, edit.Lifecycle, edit.Version = &bad, "shelved", 1
+	if status, _ := printerRequest(t, app, "PUT", "/records/legacy-testing", edit, ""); status != 400 {
+		t.Fatal("invalid maintenance accepted", status)
+	}
+}

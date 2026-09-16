@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
+	import {
+		activityLabels,
+		activityState,
+		conditionLabels,
+		fleetLabels,
+		maintenanceLabels,
+		printerStates
+	} from '$lib/printers/printer-state';
 	import PrinterHistory from '$lib/printers/PrinterHistory.svelte';
 	import { duration, type Printer } from '$lib/printers/prototype-data';
 	export let data: PageData;
@@ -12,19 +20,6 @@
 		canManage = data.canManage;
 		message = '';
 	}
-	const conditions = {
-		working: 'Working',
-		limited: 'Limited use',
-		out: 'Out of service',
-		unknown: 'Condition unknown'
-	};
-	const lineups = {
-		active: 'Active',
-		testing: 'Testing',
-		repair: 'In repair',
-		shelved: 'Shelved',
-		retired: 'Retired'
-	};
 	const date = (value: string) => new Date(value).toLocaleString();
 	async function refresh() {
 		const id = data.printer.id;
@@ -77,7 +72,7 @@
 				<p class="eyebrow">Staff view</p>
 				<h1>{printer.name}</h1>
 				<p class="identity">
-					{[printer.model, printer.machineId, printer.location].filter(Boolean).join(' · ')}
+					{[printer.model, printer.machineId].filter(Boolean).join(' · ')}
 				</p>
 			</div>
 			{#if canManage}<a class="edit" href={`/printers/manage?id=${encodeURIComponent(printer.id)}`}
@@ -85,23 +80,28 @@
 				>{/if}
 		</header>
 		<section class="summary" aria-label="Printer status">
-			<div class="status">
-				<strong class="condition {printer.condition}">{conditions[printer.condition]}</strong>
-				<span
-					>{printer.stale
-						? 'Live status unavailable'
-						: !printer.connected || printer.activity === 'unknown'
-							? 'Offline'
-							: printer.activity === 'printing'
-								? 'Printing'
-								: printer.activity === 'paused'
-									? 'Paused'
-									: 'Idle'}</span
-				>
-				{#if printer.lifecycle && printer.lifecycle !== 'active'}<span
-						>{lineups[printer.lifecycle]}</span
-					>{/if}
-			</div>
+			<dl class="facts">
+				<div>
+					<dt>Condition</dt>
+					<dd class={printer.condition}>{conditionLabels[printer.condition]}</dd>
+				</div>
+				<div>
+					<dt>Activity</dt>
+					<dd>{activityLabels[activityState(printer)]}</dd>
+				</div>
+				<div>
+					<dt>Fleet</dt>
+					<dd>{fleetLabels[printerStates(printer).lifecycle]}</dd>
+				</div>
+				{#if printerStates(printer).maintenance !== 'none'}<div>
+						<dt>Maintenance</dt>
+						<dd>{maintenanceLabels[printerStates(printer).maintenance]}</dd>
+					</div>{/if}
+				{#if printer.location}<div>
+						<dt>Location</dt>
+						<dd>{printer.location}</dd>
+					</div>{/if}
+			</dl>
 			{#if printer.lastSeen && (!printer.connected || printer.stale)}<p class="last-seen">
 					Last seen {date(printer.lastSeen)}
 				</p>{/if}
@@ -182,32 +182,31 @@
 		padding: 1.1rem;
 		background: #fafafa;
 	}
-	.status {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.6rem 1rem;
-		font-size: 0.9rem;
+	.facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+		gap: 1rem 2rem;
 	}
-	.condition {
-		border-radius: 0.3rem;
-		padding: 0.2rem 0.5rem;
+	.facts dt {
+		color: #66707c;
+		font-size: 0.75rem;
+		margin-bottom: 0.3rem;
+	}
+	.facts dd {
+		font-size: 1rem;
+		font-weight: 550;
+		overflow-wrap: anywhere;
 	}
 	.working {
 		color: #206441;
-		background: #e5f3eb;
 	}
 	.limited {
 		color: #79530a;
-		background: #fff3d7;
 	}
 	.out {
 		color: #971b25;
-		background: #fde9ec;
 	}
-	.unknown {
-		background: #e8eaed;
-	}
+
 	.last-seen {
 		color: #66707c;
 		font-size: 0.8rem;
@@ -261,7 +260,16 @@
 	:global(.dark) .last-seen {
 		color: #aab3c0;
 	}
-	:global(.dark) .unknown {
-		color: #252b35;
+	:global(.dark) .facts dt {
+		color: #aab3c0;
+	}
+	:global(.dark) .working {
+		color: #8ed3aa;
+	}
+	:global(.dark) .limited {
+		color: #e4c680;
+	}
+	:global(.dark) .out {
+		color: #f2a1a8;
 	}
 </style>

@@ -26,17 +26,18 @@ const printerFreshness = 90 * time.Second
 var printerIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,79}$`)
 
 type printerEdit struct {
-	Version   uint64 `json:"version"`
-	Name      string `json:"name"`
-	Model     string `json:"model"`
-	MachineID string `json:"machineId"`
-	Location  string `json:"location"`
-	Lifecycle string `json:"lifecycle"`
-	Host      string `json:"host"`
-	MAC       string `json:"mac"`
-	Condition string `json:"condition"`
-	Note      string `json:"note"`
-	Manual    bool   `json:"manual"`
+	Version     uint64  `json:"version"`
+	Name        string  `json:"name"`
+	Model       string  `json:"model"`
+	MachineID   string  `json:"machineId"`
+	Location    string  `json:"location"`
+	Lifecycle   string  `json:"lifecycle"`
+	Maintenance *string `json:"maintenance,omitempty"`
+	Host        string  `json:"host"`
+	MAC         string  `json:"mac"`
+	Condition   string  `json:"condition"`
+	Note        string  `json:"note"`
+	Manual      bool    `json:"manual"`
 }
 type printerJob struct {
 	Person   string `json:"person"`
@@ -153,7 +154,8 @@ func printerStaffHistory(c *fiber.Ctx) error {
 		if json.Unmarshal([]byte(edit.Record), &saved) != nil {
 			continue
 		}
-		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "lifecycle": saved.Lifecycle, "name": saved.Name})
+		lifecycle, maintenance := models.PrinterStates(saved.Lifecycle, saved.Maintenance)
+		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "lifecycle": lifecycle, "maintenance": maintenance, "location": saved.Location, "name": saved.Name})
 	}
 	c.Set("Cache-Control", "private, no-store")
 	return c.JSON(fiber.Map{"events": events, "edits": changes, "lastSync": record.HistorySyncedAt, "stationCondition": record.ObservedCondition, "stationNote": record.ObservedNote, "stationReportedAt": record.ConditionObservedAt})
@@ -193,9 +195,19 @@ func savePrinterRecord(c *fiber.Ctx) error {
 	edit.Model = strings.TrimSpace(edit.Model)
 	edit.Host = strings.TrimSpace(edit.Host)
 	edit.MAC = strings.ToLower(strings.TrimSpace(edit.MAC))
+	// Older clients can still submit a combined state, but cannot silently clear maintenance.
+	if edit.Lifecycle == "testing" || edit.Lifecycle == "repair" {
+		legacy := edit.Lifecycle
+		if edit.Maintenance != nil && *edit.Maintenance != legacy {
+			return fiber.NewError(400, "Conflicting printer states")
+		}
+		edit.Maintenance = &legacy
+		edit.Lifecycle = "active"
+	}
 	if !printerIDPattern.MatchString(id) || edit.Name == "" || edit.Model == "" ||
 		!printerText(edit.Name, 120) || !printerText(edit.Model, 80) || !printerText(edit.Location, 120) || !printerText(edit.MachineID, 120) || !printerText(edit.Note, 2000) ||
-		!printerChoice(edit.Lifecycle, "active", "testing", "repair", "shelved", "retired") || !printerChoice(edit.Condition, "working", "limited", "out", "unknown") {
+		!printerChoice(edit.Lifecycle, "active", "shelved", "retired") || !printerChoice(edit.Condition, "working", "limited", "out", "unknown") ||
+		(edit.Maintenance != nil && !printerChoice(*edit.Maintenance, "none", "diagnosis", "repair", "testing")) {
 		return fiber.NewError(400, "Invalid printer record")
 	}
 	// Only a verified LAN IPv4 target and a unicast hardware identity can be polled.
@@ -246,6 +258,10 @@ func savePrinterRecord(c *fiber.Ctx) error {
 		saved.MachineID = edit.MachineID
 		saved.Location = edit.Location
 		saved.Lifecycle = edit.Lifecycle
+		_, saved.Maintenance = models.PrinterStates(current.Lifecycle, current.Maintenance)
+		if edit.Maintenance != nil {
+			saved.Maintenance = *edit.Maintenance
+		}
 		saved.Host = edit.Host
 		saved.MAC = edit.MAC
 		saved.Condition = edit.Condition
@@ -269,7 +285,7 @@ func savePrinterRecord(c *fiber.Ctx) error {
 		} else {
 			// Explicit fields prevent telemetry ingest and record edits from overwriting one another.
 			result := tx.Model(&models.PrinterRecord{}).Where("id = ? AND version = ?", id, edit.Version).Updates(map[string]interface{}{
-				"name": saved.Name, "model": saved.Model, "machine_id": saved.MachineID, "location": saved.Location, "lifecycle": saved.Lifecycle,
+				"name": saved.Name, "model": saved.Model, "machine_id": saved.MachineID, "location": saved.Location, "lifecycle": saved.Lifecycle, "maintenance": saved.Maintenance,
 				"host": saved.Host, "mac": saved.MAC, "host_key": saved.HostKey, "mac_key": saved.MACKey, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "version": saved.Version, "updated_at": saved.UpdatedAt, "updated_by": actor,
 			})
 			if result.Error != nil {
@@ -294,7 +310,8 @@ func savePrinterRecord(c *fiber.Ctx) error {
 
 func printerRoster(c *fiber.Ctx) error {
 	var records []models.PrinterRecord
-	if err := leash_auth.GetDB(c).Where("lifecycle NOT IN ? AND host <> ''", []string{"shelved", "retired"}).Order("id").Find(&records).Error; err != nil {
+	// A shelved printer may be powered on at the repair bench. Keep reading known hosts.
+	if err := leash_auth.GetDB(c).Where("lifecycle <> ? AND host <> ''", "retired").Order("id").Find(&records).Error; err != nil {
 		return fiber.ErrInternalServerError
 	}
 	roster := make([]fiber.Map, 0, len(records))
@@ -436,7 +453,8 @@ func respondPrinterFleet(c *fiber.Ctx, staff bool) error {
 		if reading.Fault != "" {
 			activity = "unknown"
 		}
-		item := fiber.Map{"id": p.ID, "name": p.Name, "model": p.Model, "machineId": p.MachineID, "location": p.Location, "lifecycle": p.Lifecycle, "condition": condition, "note": note, "conditionSource": source, "conditionUpdatedAt": updated, "lastSeen": p.LastSeen, "activity": activity, "stale": !fresh, "connected": fresh && activity != "unknown"}
+		lifecycle, maintenance := models.PrinterStates(p.Lifecycle, p.Maintenance)
+		item := fiber.Map{"id": p.ID, "name": p.Name, "model": p.Model, "machineId": p.MachineID, "location": p.Location, "lifecycle": lifecycle, "maintenance": maintenance, "condition": condition, "note": note, "conditionSource": source, "conditionUpdatedAt": updated, "lastSeen": p.LastSeen, "activity": activity, "stale": !fresh, "connected": fresh && activity != "unknown"}
 		if fresh && printerChoice(activity, "printing", "paused") {
 			if reading.Minutes != nil {
 				item["minutes"] = reading.Minutes

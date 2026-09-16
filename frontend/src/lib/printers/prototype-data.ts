@@ -1,12 +1,15 @@
 /** Public printer view. Identities and staff records are loaded from the backend registry. */
 export type Condition = 'working' | 'limited' | 'out' | 'unknown';
 export type Activity = 'idle' | 'printing' | 'paused' | 'unknown';
+export type FleetPlacement = 'active' | 'shelved' | 'retired';
+export type Maintenance = 'none' | 'diagnosis' | 'repair' | 'testing';
 export type Printer = {
 	id: string;
 	machineId?: string;
 	name: string;
 	model: string;
 	lifecycle?: 'active' | 'testing' | 'repair' | 'shelved' | 'retired';
+	maintenance?: Maintenance;
 	location?: string;
 	conditionSource?: 'record' | 'station';
 	conditionUpdatedAt?: string | null;

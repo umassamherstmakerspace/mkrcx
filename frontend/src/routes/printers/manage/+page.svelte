@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { printerStates, fleetLabels, maintenanceLabels } from '$lib/printers/printer-state';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -9,6 +10,7 @@
 		machineId: string;
 		location: string;
 		lifecycle: string;
+		maintenance: string;
 		host: string;
 		mac: string;
 		condition: string;
@@ -47,14 +49,15 @@
 	function select(record?: Record) {
 		isNew = !record;
 		edit = record
-			? { ...record }
+			? { ...record, ...printerStates(record) }
 			: {
 					id: '',
 					name: '',
 					model: 'K1',
 					machineId: '',
 					location: '',
-					lifecycle: 'testing',
+					lifecycle: 'shelved',
+					maintenance: 'testing',
 					host: '',
 					mac: '',
 					condition: 'unknown',
@@ -76,6 +79,7 @@
 				machineId,
 				location,
 				lifecycle,
+				maintenance,
 				host,
 				mac,
 				condition,
@@ -92,6 +96,7 @@
 					machineId,
 					location,
 					lifecycle,
+					maintenance,
 					host,
 					mac,
 					condition,
@@ -173,12 +178,17 @@
 						>Location<input maxlength="120" disabled={saving} bind:value={edit.location} /></label
 					>
 					<label
-						>Lineup<select disabled={saving} bind:value={edit.lifecycle}
-							><option value="active">Active lineup</option><option value="testing">Testing</option
-							><option value="repair">In repair</option><option value="shelved"
-								>Shelved — hidden from public list</option
-							><option value="retired">Retired — hidden from public list</option></select
-						></label
+						>Fleet<select disabled={saving} bind:value={edit.lifecycle}>
+							<option value="active">In fleet</option><option value="shelved">Shelved</option
+							><option value="retired">Retired</option>
+						</select></label
+					>
+					<label
+						>Maintenance<select disabled={saving} bind:value={edit.maintenance}>
+							{#each Object.entries(maintenanceLabels) as [value, label]}<option {value}
+									>{label}</option
+								>{/each}
+						</select></label
 					>
 					<label
 						>Condition<select
@@ -242,7 +252,10 @@
 		<ul>
 			{#each records as record}<li>
 					<button disabled={saving} on:click={() => select(record)}>{record.name}</button><span
-						>{record.model} · {record.lifecycle}</span
+						>{record.model} · {fleetLabels[printerStates(record).lifecycle]}{printerStates(record)
+							.maintenance !== 'none'
+							? ` · ${maintenanceLabels[printerStates(record).maintenance]}`
+							: ''}</span
 					>{#if record.note}<p>{record.note}</p>{/if}
 				</li>{/each}
 		</ul>

@@ -1,3 +1,4 @@
+import { printerStates } from './printer-state';
 export type PrinterEvent = {
 	sourceId: string;
 	recordedAt: string;
@@ -14,6 +15,8 @@ export type PrinterEdit = {
 	note: string;
 	manual: boolean;
 	lifecycle: string;
+	maintenance?: string;
+	location?: string;
 	name: string;
 };
 export type PrinterHistoryData = {
@@ -41,7 +44,9 @@ const labels: Record<string, string> = {
 	out: 'Out of service',
 	out_of_service: 'Out of service',
 	unknown: 'Unknown',
-	active: 'Active',
+	active: 'In fleet',
+	none: 'None',
+	diagnosis: 'Needs diagnosis',
 	testing: 'Testing',
 	repair: 'In repair',
 	shelved: 'Shelved',
@@ -84,7 +89,9 @@ function eventItem(event: PrinterEvent): HistoryItem {
 }
 
 export function historyItems(history: PrinterHistoryData): HistoryItem[] {
-	const edits = [...(history.edits ?? [])].sort((a, b) => a.version - b.version);
+	const edits = (history.edits ?? [])
+		.map((edit) => ({ ...edit, ...printerStates(edit) }))
+		.sort((a, b) => a.version - b.version);
 	const items = (history.events ?? []).map(eventItem);
 	for (let i = 0; i < edits.length; i++) {
 		const edit = edits[i];
@@ -96,7 +103,11 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 		if (previous) {
 			if (previous.name !== edit.name) changes.push(`Name: ${previous.name} → ${edit.name}`);
 			if (previous.lifecycle !== edit.lifecycle)
-				changes.push(`Lineup: ${label(previous.lifecycle)} → ${label(edit.lifecycle)}`);
+				changes.push(`Fleet: ${label(previous.lifecycle)} → ${label(edit.lifecycle)}`);
+			if (previous.maintenance !== edit.maintenance)
+				changes.push(`Maintenance: ${label(previous.maintenance)} → ${label(edit.maintenance)}`);
+			if ((previous.location ?? '') !== (edit.location ?? ''))
+				changes.push(`Location: ${previous.location || 'Not set'} → ${edit.location || 'Not set'}`);
 			if (previous.manual !== edit.manual)
 				changes.push(
 					edit.manual ? 'Condition & note saved here' : 'Using printer condition & note'
@@ -109,7 +120,8 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			} else if (changes.length) title = 'Printer updated';
 		} else {
 			// A saved snapshot is not evidence that its note was changed at this time.
-			changes.push(`Lineup: ${label(edit.lifecycle)}`);
+			changes.push(`Fleet: ${label(edit.lifecycle)}`);
+			if (edit.maintenance !== 'none') changes.push(`Maintenance: ${label(edit.maintenance)}`);
 			if (edit.manual) {
 				changes.push(`Condition: ${label(edit.condition)}`);
 				text = edit.note || undefined;

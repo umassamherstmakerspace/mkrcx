@@ -26,6 +26,18 @@ func MigratePrinterRegistry(db *gorm.DB) error {
 			records[i].MACKey = &records[i].MAC
 		}
 	}
-	// Existing records, including retired printers, survive migrations unchanged.
-	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&records).Error
+	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&records).Error; err != nil {
+		return err
+	}
+	// Separate maintenance from fleet membership, preserving visibility, version and note dates.
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, legacy := range []string{"testing", "repair"} {
+			if err := tx.Model(&PrinterRecord{}).Where("lifecycle = ?", legacy).UpdateColumns(map[string]interface{}{
+				"lifecycle": "active", "maintenance": legacy,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

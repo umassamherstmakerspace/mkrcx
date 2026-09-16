@@ -14,7 +14,7 @@ import urllib.request
 from pathlib import Path
 
 BASE = "https://leash.staging.mkr.cx/api/printer-fleet/records"
-FIELDS = ("name", "model", "machineId", "location", "lifecycle", "host", "mac", "condition", "note", "manual", "version")
+FIELDS = ("name", "model", "machineId", "location", "lifecycle", "maintenance", "host", "mac", "condition", "note", "manual", "version")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -59,7 +59,7 @@ def main():
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,79}", record.get("id", "")): raise RuntimeError("Invalid printer ID")
         body = {field: record[field] for field in FIELDS}
         result = request("/" + record["id"], body)
-        if result.get("version") != body["version"] + 1 or any(result.get(k) != body[k] for k in ("condition", "note", "manual", "lifecycle")):
+        if result.get("version") != body["version"] + 1 or any(result.get(k) != body[k] for k in ("condition", "note", "manual", "lifecycle", "maintenance", "location")):
             raise RuntimeError("Saved response did not match; read back before retrying")
     print(json.dumps(result, indent=2))
 
