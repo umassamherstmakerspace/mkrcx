@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare or apply an exact-image staging rollout on Spence. Production is read-only."""
+"""Prepare or apply an exact-image staging rollout through Armengaud. Production is read-only."""
 import argparse
 import json
 import os
