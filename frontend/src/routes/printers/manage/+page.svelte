@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import PrinterHistory from '$lib/printers/PrinterHistory.svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	type Record = {
 		id: string;
 		name: string;
@@ -27,7 +28,7 @@
 			ready = false;
 			throw new Error(
 				response.status === 403
-					? 'Printer management is currently limited to administrators and specifically authorized accounts.'
+					? 'Printer management access required.'
 					: 'Sign in with an authorized account to manage printers.'
 			);
 		}
@@ -35,7 +36,13 @@
 		ready = true;
 	}
 	onMount(() => {
-		void load().catch((e) => (message = e.message));
+		void load()
+			.then(() => {
+				const id = $page.url.searchParams.get('id');
+				const record = records.find((record) => record.id === id);
+				if (record) select(record);
+			})
+			.catch((e) => (message = e.message));
 	});
 	function select(record?: Record) {
 		isNew = !record;
@@ -96,12 +103,16 @@
 			if (!response.ok)
 				throw new Error(
 					response.status === 409
-						? 'This record changed or its hardware identity conflicts. Reload the list and review before saving.'
+						? 'Record changed or identity conflicts. Reload before saving.'
 						: await response.text()
 				);
+			if ($page.url.searchParams.get('id') === id) {
+				await goto(`/printers/${encodeURIComponent(id)}`);
+				return;
+			}
 			edit = null;
 			await load();
-			message = 'Saved. The dashboard record is updated; local printer gating is unchanged.';
+			message = 'Saved.';
 		} catch (e) {
 			message = e instanceof Error ? e.message : 'Save failed';
 		} finally {
@@ -119,10 +130,6 @@
 <main>
 	<a href="/printers">← Printer status</a>
 	<h1>Manage printers</h1>
-	<p>
-		Keep the lineup, testing and repair notes up to date. Notes are public. These records do not
-		change local print gating.
-	</p>
 	{#if message}<p role="status">{message}</p>{/if}
 	{#if ready}
 		<button on:click={() => select()} disabled={saving}>Add printer</button>
@@ -174,7 +181,7 @@
 						></label
 					>
 					<label
-						>Known condition<select
+						>Condition<select
 							disabled={saving}
 							bind:value={edit.condition}
 							on:change={() => {
@@ -187,8 +194,9 @@
 						></label
 					>
 				</div>
+				<p class="hint">Doesn’t change printer controls.</p>
 				<label
-					>Public note<textarea
+					>Note (public)<textarea
 						maxlength="2000"
 						rows="4"
 						disabled={saving}
@@ -200,12 +208,9 @@
 				>
 				<label class="check"
 					><input type="checkbox" disabled={saving} bind:checked={edit.manual} />Keep this condition
-					and note until someone edits them here.</label
+					and note.</label
 				>
-				<p class="hint">
-					Uncheck to use the station's last reported condition and note. Editing a condition keeps
-					the note unless you explicitly change or clear it.
-				</p>
+				<p class="hint">Uncheck to use printer reports.</p>
 				<details>
 					<summary>Printer connection</summary>
 					<p>
@@ -224,10 +229,15 @@
 				<button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save record'}</button><button
 					type="button"
 					disabled={saving}
-					on:click={() => (edit = null)}>Cancel</button
+					on:click={() => {
+						if ($page.url.searchParams.get('id') === edit?.id)
+							void goto(`/printers/${encodeURIComponent(edit.id)}`);
+						else edit = null;
+					}}>Cancel</button
 				>
 			</form>
-			{#if !isNew}{#key edit.id}<PrinterHistory id={edit.id} />{/key}{/if}
+			{#if !isNew}<a href={`/printers/${encodeURIComponent(edit.id)}`}>View printer & history →</a
+				>{/if}
 		{/if}
 		<ul>
 			{#each records as record}<li>
