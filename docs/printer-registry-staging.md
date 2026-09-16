@@ -33,21 +33,25 @@ and recovery/authentication logs are deferred.
 
 ## Deployed release and verification
 
-- Backend source `fc794a8c5747473a0bec109ac4849c3a8bce39d5`, [successful build](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/35024149727):
-  `ghcr.io/umassamherstmakerspace/mkrcx-leash@sha256:f1124bd2c821a49eb6b2da8daf2e4d350bc7e572cad8c4e26d98174ae7758c15`.
-- Frontend source `74efd56f2444bc41596d2310827c98018ad14484`, [successful build](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/35107612455):
-  `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:12f55aa735ad10b8235dba6c53f51ed880b7e4b8e9787fb43eba163fc1f95286`.
-  The manifest was verified as pullable for amd64 and arm64. This UI release adds the dedicated
-  staff printer page and unified History. The 111 frontend unit tests, frontend lint/build and
-  local Svelte checks pass. Synthetic desktop and 390 px phone checks cover navigation, mixed
-  history, ten-entry expansion to fifteen entries, note save/return, and no horizontal overflow
-  or nested history scrolling. No synthetic records were written to staging.
-- September 16 rollout changed only the staging frontend. The staging backend and production
-  deployment specs stayed unchanged, with dedicated collection still enabled. Live readback:
-  16 public printers, eight saved notes, fresh feed, no private fields, and ten denied access
-  checks including both HTML and JSON on the new detail route. Registration landing passed.
-  The staging public fleet also rendered successfully in the browser. Signed-in live review
-  remains Shira's checkpoint below.
+- Both components use source `e86e919b4a26d7f34868eccffa7cdb443bcb5c9b`,
+  [successful build](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/35114028801).
+  Backend: `ghcr.io/umassamherstmakerspace/mkrcx-leash@sha256:688727eaa1964bfffc2f79aa4b167c62d878c14ff9d8ad8d91fe39207134ca64`.
+  Frontend: `ghcr.io/umassamherstmakerspace/mkrcx-frontend@sha256:78d07388fb018b9f6372b3700e80ec19a00aa7c4ef7ed43f255e78ad810ff02b`.
+  Both manifests were verified as pullable for amd64 and arm64.
+- This release separates fleet placement from maintenance and replaces the detail-page badges
+  with labeled, non-interactive facts. The complete Go suite, 117 frontend unit tests, lint,
+  build, and local Svelte checks pass. Migration tests cover the old schema, repeated startup,
+  saved timestamps/versions/notes, legacy clients, and immutable history projection.
+- Synthetic desktop and 390 px phone review verified Working + Idle, Shelved + Out of service
+  + In repair, combined fleet/maintenance filters, changing maintenance without changing fleet,
+  condition or note, and history showing that one change. No horizontal overflow or interactive
+  controls in the detail status summary. No synthetic records were written to staging.
+- Live rollout readback: both staging images are ready/updated 1/1; production specs and images
+  are unchanged. All 16 public records retained their condition, note, fleet placement,
+  location, condition source and saved-condition timestamp across deployment. The new maintenance
+  field is present, the feed is fresh, all ten access-denial checks and public-data privacy checks
+  pass, and the registration landing still passes. The updated public fleet rendered with the new
+  filters. Signed-in live editor/detail review remains Shira's checkpoint below.
 - Shira explicitly approved installing the separate 20-second collector on the central Pi and
   sending status, saved notes and recent job/error history to `leash.staging.mkr.cx`.
   The installed collector's normalized source SHA-256 is
@@ -71,7 +75,15 @@ and recovery/authentication logs are deferred.
   behavior was exercised with the synthetic UI fixture and backend API tests; do not describe
   that as a completed signed-in staging browser test.
 
-The September 16 UI-only rollback is
+The current state-model rollback patches are in
+`C:\Users\shira\AppData\Local\Temp\mkrcx-printer-registry-staging-30j9o5ap`.
+They restore frontend `12f55aa735ad10b8235dba6c53f51ed880b7e4b8e9787fb43eba163fc1f95286`
+and backend `f1124bd2c821a49eb6b2da8daf2e4d350bc7e572cad8c4e26d98174ae7758c15`.
+The additive maintenance column and its data must be retained; older versions do not display
+the independent maintenance state. Roll back the frontend before the backend so the new editor
+does not send a field the old backend cannot accept. Keep the dedicated collector running.
+
+The earlier September 16 UI-only rollback is
 `C:\Users\shira\AppData\Local\Temp\mkrcx-printer-registry-staging-7qehhuq_\mkrcx-frontend-staging-rollback.json`.
 It restores the previous frontend digest `3dccc57aabc29b5426c73490ba46de43c9031c7e4504995cdfe1f678770364d1`
 and keeps the dedicated collector enabled. This UI rollback does not require stopping the collector.
@@ -89,7 +101,9 @@ separate staging timer/service, then apply the original image-guarded patches. R
 ## Behavior
 
 - Staff printer names link to `/printers/[id]` on desktop and phone. The page shows saved
-  condition, current activity, lineup, last seen, notes, current print when available, and History.
+  condition, current activity, fleet placement, maintenance when present, location, last seen,
+  notes, current print when available, and History. Status values use labeled text, not badges
+  that could be mistaken for a toggle.
   It refreshes status every 15 seconds and clears private details when access is lost.
 - History merges record edits and printer events by timestamp. Notes, jobs, errors and changes
   have different layouts; ten entries appear initially, with Load more and no nested scroll area.
@@ -106,9 +120,20 @@ separate staging timer/service, then apply the original image-guarded patches. R
   an edited or retired record. New records appear without a frontend or collector code change.
 - Live readings cannot overwrite a manually maintained note. Offline/stale readings preserve
   the last known condition and explanation but remove live activity/estimates and job details.
-- Testing, repair, shelving and retirement are lineup states separate from condition. Shelved and
-  retired records remain in staff views/history but are omitted from the public list and polling roster. Testing/repair printers are excluded
-  from the available-idle filter.
+- Fleet placement is In fleet (`active`), Shelved, or Retired. Maintenance is None, Needs diagnosis
+  (`diagnosis`), In repair (`repair`), or Testing. Condition remains Working, Limited use,
+  Out of service, or Unknown. Live activity is separate from all of these; Idle is not proof
+  of usability. Offline/unavailable readings never clear condition, maintenance, or notes.
+- Fleet, condition, maintenance and activity filters combine. Staff default to In fleet and can
+  select Shelved + In repair, for example. Shelved and retired records remain in staff history
+  but are omitted from the public list. Shelved machines with known hosts can still be polled
+  at a repair bench; retired machines are excluded from the polling roster.
+- Migration adds maintenance and converts old `testing`/`repair` fleet states to In fleet plus
+  that maintenance state, preserving visibility, version, note and timestamps. Historical
+  snapshots are projected into these fields without rewriting them. Missing maintenance on an
+  older client's save preserves the current value. New UI records start Shelved + Testing.
+  Location stays explicit; this release does not infer bench/storage placement or reassign
+  existing printers based on notes.
 - IDs follow physical machines. MAC identity cannot be reassigned. Clear an old printer's host
   to release its address; keep its MAC and repair record, then register the replacement separately.
 - A record may have no connection information, or a known MAC with no address. Connection targets
@@ -118,7 +143,7 @@ separate staging timer/service, then apply the original image-guarded patches. R
 - A manual dashboard edit does **not** update the station database or local gating. The editor
   explicitly states this. Returning a record to station-reported mode is an explicit edit.
   Bidirectional station synchronization is a later, separately tested phase.
-- Lineup-only edits preserve the selected condition source. Editing a note or condition explicitly
+- Fleet, location and maintenance edits preserve the selected condition source. Editing a note or condition explicitly
   selects the saved dashboard record.
 - History returns the latest 100 station/observed events and 50 dashboard edits. Each collection
   reads up to 30 job events and 20 condition events per polled printer, capped at 1,000 total;
