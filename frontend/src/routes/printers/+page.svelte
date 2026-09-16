@@ -22,12 +22,11 @@
 	} from '$lib/printers/fleet-view';
 	let printers: Printer[] = [];
 	let staffView = false;
-	let expanded = new Set<string>();
+	let expandedId: string | null = null;
 	function toggle(id: string) {
-		if (expanded.has(id)) expanded.delete(id);
-		else expanded.add(id);
-		expanded = new Set(expanded);
+		expandedId = expandedId === id ? null : id;
 	}
+	$: if (!staffView) expandedId = null;
 	let filters: FleetFilters = { ...defaultFilters };
 	let disconnected = true;
 	let fetchedAt: string | null = null;
@@ -135,7 +134,7 @@
 	<div class="toolbar">
 		<div class="filters" role="group" aria-label="Filter printers">
 			{#if staffView}<label
-					>Fleet<select bind:value={filters.fleet}
+					><span class="sr-only">Fleet</span><select bind:value={filters.fleet}
 						><option value="all">All printers</option
 						>{#each Object.entries(fleetLabels) as [value, label]}<option {value}>{label}</option
 							>{/each}</select
@@ -248,9 +247,14 @@
 										class="expand"
 										type="button"
 										aria-label={`Quick view: ${printer.name}`}
-										aria-expanded={expanded.has(printer.id)}
+										aria-expanded={expandedId === printer.id}
+										aria-controls={`quick-view-${printer.id}`}
 										on:click={() => toggle(printer.id)}
-										><span aria-hidden="true">{expanded.has(printer.id) ? '⌄' : '›'}</span></button
+										><span
+											class="chevron"
+											class:expanded={expandedId === printer.id}
+											aria-hidden="true">›</span
+										></button
 									>{/if}
 								{#if staffView}<a
 										class="printer-link"
@@ -295,7 +299,9 @@
 								>{/if}
 						</td>
 					</tr>
-					{#if staffView && expanded.has(printer.id)}<tr class="quick-row"
+					{#if staffView && expandedId === printer.id}<tr
+							class="quick-row"
+							id={`quick-view-${printer.id}`}
 							><td colspan="6"><PrinterQuickView {printer} /></td></tr
 						>{/if}
 				{:else}<tr
@@ -334,9 +340,12 @@
 							class="expand"
 							type="button"
 							aria-label={`Quick view: ${printer.name}`}
-							aria-expanded={expanded.has(printer.id)}
+							aria-expanded={expandedId === printer.id}
+							aria-controls={`mobile-quick-view-${printer.id}`}
 							on:click={() => toggle(printer.id)}
-							><span aria-hidden="true">{expanded.has(printer.id) ? '⌄' : '›'}</span></button
+							><span class="chevron" class:expanded={expandedId === printer.id} aria-hidden="true"
+								>›</span
+							></button
 						>{/if}
 					{#if staffView}<a
 							class="printer-link mobile-printer-link"
@@ -378,7 +387,9 @@
 				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"
 						>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
 					>{/if}
-				{#if staffView && expanded.has(printer.id)}<PrinterQuickView {printer} />{/if}
+				{#if staffView && expandedId === printer.id}<div id={`mobile-quick-view-${printer.id}`}>
+						<PrinterQuickView {printer} />
+					</div>{/if}
 			</article>
 		{:else}<div class="mobile-empty">
 				<p>
@@ -407,17 +418,24 @@
 		align-items: center;
 		width: 1.8rem;
 		height: 2rem;
-		font-size: 1.3rem;
 		flex-shrink: 0;
 		border-radius: 0.25rem;
 		vertical-align: middle;
 	}
-	.expand:hover {
-		background: rgba(100, 110, 120, 0.12);
+	.chevron {
+		font-size: 20px;
+		line-height: 15px;
+		color: var(--muted);
+		width: 9px;
+		flex-shrink: 0;
+	}
+	.chevron.expanded {
+		transform: rotate(90deg);
 	}
 	.expand:focus-visible {
-		outline: 2px solid #881c1c;
-		outline-offset: 2px;
+		outline: 2px solid var(--violet);
+		outline-offset: -2px;
+		border-radius: 3px;
 	}
 	.quick-row td {
 		background: rgba(100, 110, 120, 0.04);

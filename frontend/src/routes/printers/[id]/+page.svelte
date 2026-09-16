@@ -72,7 +72,9 @@
 				<p class="eyebrow">Staff view</p>
 				<h1>{printer.name}</h1>
 				<p class="identity">
-					{[printer.model, printer.machineId].filter(Boolean).join(' · ')}
+					{[printer.model, printer.machineId, fleetLabels[printerStates(printer).lifecycle]]
+						.filter(Boolean)
+						.join(' · ')}
 				</p>
 			</div>
 			{#if canManage}<a class="edit" href={`/printers/manage?id=${encodeURIComponent(printer.id)}`}
@@ -88,10 +90,6 @@
 				<div>
 					<dt>Activity</dt>
 					<dd>{activityLabels[activityState(printer)]}</dd>
-				</div>
-				<div>
-					<dt>Fleet</dt>
-					<dd>{fleetLabels[printerStates(printer).lifecycle]}</dd>
 				</div>
 				{#if printerStates(printer).maintenance !== 'none'}<div>
 						<dt>Maintenance</dt>

@@ -8,7 +8,7 @@
 <div class="quick-view">
 	<dl>
 		<div>
-			<dt>Fleet</dt>
+			<dt class="sr-only">Fleet</dt>
 			<dd>{fleetLabels[states.lifecycle]}</dd>
 		</div>
 		{#if states.maintenance !== 'none'}<div>
