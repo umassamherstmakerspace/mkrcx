@@ -147,6 +147,8 @@ func TestPrinterHistoryEnrichmentPreservesEventsAndPrivacy(t *testing.T) {
 	}
 	send()
 	duration := 7510.0
+	// MariaDB datetime(3) truncates station timestamps to millisecond precision.
+	db.Model(&models.PrinterHistoryEvent{}).Where("source_id = ?", event.SourceID).UpdateColumn("recorded_at", event.RecordedAt.Truncate(time.Millisecond))
 	snapshot.History[0].Person = "Private student"
 	snapshot.History[0].DurationSeconds = &duration
 	send()

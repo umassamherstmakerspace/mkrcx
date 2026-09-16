@@ -399,14 +399,17 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 			}
 			// Older projections omitted these fields. Fill missing metadata only, and
 			// require the same printer, type and timestamp before enriching an event.
-			match := tx.Model(&models.PrinterHistoryEvent{}).Where("source_id = ? AND printer_id = ? AND event_type = ? AND recorded_at = ?", event.SourceID, event.PrinterID, event.EventType, event.RecordedAt)
+			// MariaDB stores datetime(3); allow sub-millisecond truncation/rounding.
+			match := func() *gorm.DB {
+				return tx.Model(&models.PrinterHistoryEvent{}).Where("source_id = ? AND printer_id = ? AND event_type = ? AND recorded_at > ? AND recorded_at < ?", event.SourceID, event.PrinterID, event.EventType, event.RecordedAt.Add(-time.Millisecond), event.RecordedAt.Add(time.Millisecond))
+			}
 			if event.Person != "" {
-				if err := match.Where("person IS NULL OR person = ''").UpdateColumn("person", event.Person).Error; err != nil {
+				if err := match().Where("person IS NULL OR person = ''").UpdateColumn("person", event.Person).Error; err != nil {
 					return err
 				}
 			}
 			if event.DurationSeconds != nil {
-				if err := tx.Model(&models.PrinterHistoryEvent{}).Where("source_id = ? AND printer_id = ? AND event_type = ? AND recorded_at = ? AND duration_seconds IS NULL", event.SourceID, event.PrinterID, event.EventType, event.RecordedAt).UpdateColumn("duration_seconds", *event.DurationSeconds).Error; err != nil {
+				if err := match().Where("duration_seconds IS NULL").UpdateColumn("duration_seconds", *event.DurationSeconds).Error; err != nil {
 					return err
 				}
 			}
