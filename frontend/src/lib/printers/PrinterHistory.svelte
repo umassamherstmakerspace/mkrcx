@@ -66,16 +66,24 @@
 		<ol>
 			{#each items.slice(0, shown) as item (item.id)}
 				<li class={item.kind}>
-					<span class="marker" aria-hidden="true"
-						>{item.icon ??
-							(item.kind === 'note'
-								? '✎'
-								: item.kind === 'error'
-									? '!'
-									: item.kind === 'job'
-										? '✓'
-										: '·')}</span
-					>
+					<span class="marker" aria-hidden="true">
+						{#if item.kind === 'note'}
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.7"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z" />
+								<path d="M14 3v5h5M8 12h8M8 16h6" />
+							</svg>
+						{:else}{item.icon ??
+								(item.kind === 'error' ? '!' : item.kind === 'job' ? '✓' : '·')}{/if}
+					</span>
 					<article>
 						<div class="entry-heading">
 							<time datetime={item.recordedAt}>{date(item.recordedAt)}</time>
@@ -83,7 +91,7 @@
 							{#if item.source}<span class="source" title={item.actor}>{item.source}</span>{/if}
 						</div>
 						{#if item.file || item.person || item.material || item.duration}<p class="job-details">
-								{[item.file, item.person || 'User not recorded', item.material, item.duration]
+								{[item.file, item.person || 'User unavailable', item.material, item.duration]
 									.filter(Boolean)
 									.join(' · ')}
 							</p>{/if}
