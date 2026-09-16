@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { printerStates, fleetLabels, maintenanceLabels } from '$lib/printers/printer-state';
+	import { printerStates, fleetLabels } from '$lib/printers/printer-state';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -57,7 +57,7 @@
 					machineId: '',
 					location: '',
 					lifecycle: 'shelved',
-					maintenance: 'testing',
+					maintenance: 'none',
 					host: '',
 					mac: '',
 					condition: 'unknown',
@@ -183,13 +183,7 @@
 							><option value="retired">Retired</option>
 						</select></label
 					>
-					<label
-						>Maintenance<select disabled={saving} bind:value={edit.maintenance}>
-							{#each Object.entries(maintenanceLabels) as [value, label]}<option {value}
-									>{label}</option
-								>{/each}
-						</select></label
-					>
+
 					<label
 						>Condition<select
 							disabled={saving}
@@ -252,10 +246,7 @@
 		<ul>
 			{#each records as record}<li>
 					<button disabled={saving} on:click={() => select(record)}>{record.name}</button><span
-						>{record.model} · {fleetLabels[printerStates(record).lifecycle]}{printerStates(record)
-							.maintenance !== 'none'
-							? ` · ${maintenanceLabels[printerStates(record).maintenance]}`
-							: ''}</span
+						>{record.model} · {fleetLabels[printerStates(record).lifecycle]}</span
 					>{#if record.note}<p>{record.note}</p>{/if}
 				</li>{/each}
 		</ul>

@@ -1,20 +1,10 @@
 <script lang="ts">
 	import type { Printer } from './prototype-data';
-	import { fleetLabels, maintenanceLabels, printerStates } from './printer-state';
 	export let printer: Printer;
-	$: states = printerStates(printer);
 </script>
 
 <div class="quick-view">
 	<dl>
-		<div>
-			<dt class="sr-only">Fleet</dt>
-			<dd>{fleetLabels[states.lifecycle]}</dd>
-		</div>
-		{#if states.maintenance !== 'none'}<div>
-				<dt>Maintenance</dt>
-				<dd>{maintenanceLabels[states.maintenance]}</dd>
-			</div>{/if}
 		{#if printer.location}<div>
 				<dt>Location</dt>
 				<dd>{printer.location}</dd>

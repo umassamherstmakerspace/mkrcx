@@ -1,4 +1,4 @@
-import type { Condition, FleetPlacement, Maintenance, Printer } from './prototype-data';
+import type { FleetPlacement, Maintenance, Printer } from './prototype-data';
 
 export const fleetLabels = { active: 'In fleet', shelved: 'Shelved', retired: 'Retired' };
 export const maintenanceLabels = {
@@ -40,29 +40,16 @@ export function activityState(printer: Printer, disconnected = false): keyof typ
 	return printer.activity;
 }
 
-export type FleetFilters = {
-	fleet: FleetPlacement | 'all';
-	condition: Condition | 'all';
-	maintenance: Maintenance | 'all';
-	activity: keyof typeof activityLabels | 'all';
-};
-export const defaultFilters: FleetFilters = {
-	fleet: 'active',
-	condition: 'all',
-	maintenance: 'all',
-	activity: 'all'
-};
+export const fleetViews = [
+	{ id: 'active', label: 'In fleet' },
+	{ id: 'attention', label: 'Needs attention' },
+	{ id: 'shelved', label: 'Shelved' }
+] as const;
+export type FleetView = (typeof fleetViews)[number]['id'];
 
-export function matchesFilters(
-	printer: Printer,
-	filters: FleetFilters,
-	disconnected = false
-): boolean {
-	const state = printerStates(printer);
-	return (
-		(filters.fleet === 'all' || state.lifecycle === filters.fleet) &&
-		(filters.condition === 'all' || printer.condition === filters.condition) &&
-		(filters.maintenance === 'all' || state.maintenance === filters.maintenance) &&
-		(filters.activity === 'all' || activityState(printer, disconnected) === filters.activity)
-	);
+export function matchesFleetView(printer: Printer, view: FleetView): boolean {
+	const { lifecycle } = printerStates(printer);
+	if (lifecycle === 'retired') return false;
+	if (view === 'attention') return printer.condition === 'limited' || printer.condition === 'out';
+	return lifecycle === view;
 }

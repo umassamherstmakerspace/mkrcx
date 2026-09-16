@@ -4,14 +4,11 @@
 	import {
 		activityLabels,
 		activityState,
-		defaultFilters,
-		matchesFilters,
-		printerStates,
-		fleetLabels,
-		maintenanceLabels,
-		conditionLabels,
-		type FleetFilters
+		fleetViews,
+		matchesFleetView,
+		type FleetView
 	} from '$lib/printers/printer-state';
+	import FleetStamp from '$lib/printers/FleetStamp.svelte';
 	import { Button } from 'flowbite-svelte';
 	import { duration, finishTime, type Printer, type Condition } from '$lib/printers/prototype-data';
 	import {
@@ -27,7 +24,7 @@
 		expandedId = expandedId === id ? null : id;
 	}
 	$: if (!staffView) expandedId = null;
-	let filters: FleetFilters = { ...defaultFilters };
+	let filter: FleetView = 'active';
 	let disconnected = true;
 	let fetchedAt: string | null = null;
 	let sortKey: SortKey = 'condition';
@@ -82,12 +79,12 @@
 		return () => window.clearInterval(timer);
 	});
 	$: visible = sortFleet(
-		printers.filter((printer) => matchesFilters(printer, filters, disconnected)),
+		printers.filter((printer) => matchesFleetView(printer, filter)),
 		sortKey,
 		sortDirection,
 		disconnected
 	);
-	$: if (!staffView && filters.fleet !== 'active') filters = { ...filters, fleet: 'active' };
+	$: if (!staffView && filter === 'shelved') filter = 'active';
 	function changeSort(key: SortKey) {
 		sortDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
 		sortKey = key;
@@ -133,39 +130,19 @@
 		</div>{/if}
 	<div class="toolbar">
 		<div class="filters" role="group" aria-label="Filter printers">
-			{#if staffView}<label
-					><span class="sr-only">Fleet</span><select bind:value={filters.fleet}
-						><option value="all">All printers</option
-						>{#each Object.entries(fleetLabels) as [value, label]}<option {value}>{label}</option
-							>{/each}</select
-					></label
-				>{/if}
-			<label
-				>Condition<select bind:value={filters.condition}
-					><option value="all">Any condition</option
-					>{#each Object.entries(conditionLabels) as [value, label]}<option {value}>{label}</option
-						>{/each}</select
-				></label
-			>
-			<label
-				>Maintenance<select bind:value={filters.maintenance}
-					><option value="all">Any maintenance</option
-					>{#each Object.entries(maintenanceLabels) as [value, label]}<option {value}
-							>{label}</option
-						>{/each}</select
-				></label
-			>
-			<label
-				>Activity<select bind:value={filters.activity}
-					><option value="all">Any activity</option
-					>{#each Object.entries(activityLabels) as [value, label]}<option {value}>{label}</option
-						>{/each}</select
-				></label
-			>
-			{#if JSON.stringify(filters) !== JSON.stringify(defaultFilters)}<button
-					class="clear-filters"
-					on:click={() => (filters = { ...defaultFilters })}>Reset filters</button
-				>{/if}
+			{#each fleetViews.filter((view) => staffView || view.id !== 'shelved') as view}
+				<Button
+					color="none"
+					size="sm"
+					class={filter === view.id ? 'filter-button selected' : 'filter-button'}
+					aria-pressed={filter === view.id}
+					on:click={() => (filter = view.id)}
+				>
+					{view.label}<span class="filter-count"
+						>{printers.filter((printer) => matchesFleetView(printer, view.id)).length}</span
+					>
+				</Button>
+			{/each}
 		</div>
 		{#if sortKey !== 'condition' || sortDirection !== 'asc'}<Button
 				color="none"
@@ -261,6 +238,7 @@
 										href={`/printers/${encodeURIComponent(printer.id)}`}
 										><span class="table-name">{printer.name}</span></a
 									>{:else}<span class="table-name">{printer.name}</span>{/if}
+								{#if staffView}<FleetStamp lifecycle={printer.lifecycle} />{/if}
 							</div>
 						</th>
 						<td class="table-model">{printer.model}</td>
@@ -287,12 +265,7 @@
 						>
 						<td class="table-note"
 							>{printer.note ?? ''}
-							{#if printerStates(printer).maintenance !== 'none'}<small class="record-context"
-									>{maintenanceLabels[printerStates(printer).maintenance]}</small
-								>{/if}
-							{#if staffView && printerStates(printer).lifecycle !== 'active'}<small
-									class="record-context">{fleetLabels[printerStates(printer).lifecycle]}</small
-								>{/if}
+
 							{#if printer.lastSeen && (!printer.connected || printer.stale)}<small
 									class="record-context"
 									>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
@@ -306,15 +279,9 @@
 						>{/if}
 				{:else}<tr
 						><td colspan="6" class="table-empty"
-							><p>
-								{disconnected && ['printing', 'idle', 'paused'].includes(filters.activity)
-									? 'Live activity is unavailable while updates are interrupted.'
-									: 'No matching printers.'}
-							</p>
-							<Button
-								color="alternative"
-								size="xs"
-								on:click={() => (filters = { ...defaultFilters })}>Reset filters</Button
+							><p>No matching printers.</p>
+							<Button color="alternative" size="xs" on:click={() => (filter = 'active')}
+								>In fleet</Button
 							></td
 						></tr
 					>{/each}
@@ -351,10 +318,14 @@
 							class="printer-link mobile-printer-link"
 							href={`/printers/${encodeURIComponent(printer.id)}`}
 							><span class="mobile-identity"
-								><strong>{printer.name}</strong><span>{printer.model}</span></span
+								><strong>{printer.name}</strong><span>{printer.model}</span><FleetStamp
+									lifecycle={printer.lifecycle}
+								/></span
 							></a
 						>{:else}<div class="mobile-identity public-mobile-identity">
-							<strong>{printer.name}</strong><span>{printer.model}</span>
+							<strong>{printer.name}</strong><span>{printer.model}</span><FleetStamp
+								lifecycle={printer.lifecycle}
+							/>
 						</div>{/if}
 					<span class="condition-badge {printer.condition}"
 						><span aria-hidden="true">{conditionIcon(printer.condition)}</span>{conditionText[
@@ -378,12 +349,7 @@
 				{#if printer.note || printer.stale}<p class="mobile-note table-note">
 						{printer.note ?? ''}
 					</p>{/if}
-				{#if printerStates(printer).maintenance !== 'none'}<small class="record-context"
-						>{maintenanceLabels[printerStates(printer).maintenance]}</small
-					>{/if}
-				{#if staffView && printerStates(printer).lifecycle !== 'active'}<small
-						class="record-context">{fleetLabels[printerStates(printer).lifecycle]}</small
-					>{/if}
+
 				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"
 						>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
 					>{/if}
@@ -392,14 +358,8 @@
 					</div>{/if}
 			</article>
 		{:else}<div class="mobile-empty">
-				<p>
-					{disconnected && ['printing', 'idle', 'paused'].includes(filters.activity)
-						? 'Live activity is unavailable while updates are interrupted.'
-						: 'No matching printers.'}
-				</p>
-				<Button color="alternative" size="xs" on:click={() => (filters = { ...defaultFilters })}
-					>Reset filters</Button
-				>
+				<p>No matching printers.</p>
+				<Button color="alternative" size="xs" on:click={() => (filter = 'active')}>In fleet</Button>
 			</div>{/each}
 	</div>
 	<footer>
@@ -508,27 +468,27 @@
 	.filters {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 10px;
-		align-items: end;
-	}
-	.filters label {
-		display: grid;
 		gap: 4px;
+	}
+	:global(.filter-button) {
 		color: var(--muted);
-		font-size: 11px;
+		padding: 6px 9px !important;
+		border-radius: 5px !important;
+		font-size: 11px !important;
+		gap: 7px;
+		border: 1px solid transparent;
 	}
-	.filters select {
-		color: var(--ink);
-		background: var(--paper);
-		border: 1px solid var(--line);
-		border-radius: 4px;
-		padding: 6px 26px 6px 8px;
-		font-size: 12px;
+	:global(.filter-button:hover) {
+		background: var(--subtle);
 	}
-	.clear-filters {
-		color: var(--violet);
-		font-size: 12px;
-		padding: 7px 0;
+	:global(.filter-button.selected) {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.filter-count {
+		font-size: 10px;
+		opacity: 0.8;
+		font-variant-numeric: tabular-nums;
 	}
 
 	:global(.reset-sort) {

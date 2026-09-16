@@ -1,14 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
-	import {
-		activityLabels,
-		activityState,
-		conditionLabels,
-		fleetLabels,
-		maintenanceLabels,
-		printerStates
-	} from '$lib/printers/printer-state';
+	import { activityState, conditionLabels } from '$lib/printers/printer-state';
+	import FleetStamp from '$lib/printers/FleetStamp.svelte';
 	import PrinterHistory from '$lib/printers/PrinterHistory.svelte';
 	import { duration, type Printer } from '$lib/printers/prototype-data';
 	export let data: PageData;
@@ -49,7 +43,7 @@
 					minutes: undefined,
 					progress: undefined
 				};
-			message = 'Live status unavailable.';
+			message = '';
 		}
 	}
 	onMount(() => {
@@ -72,9 +66,7 @@
 				<p class="eyebrow">Staff view</p>
 				<h1>{printer.name}</h1>
 				<p class="identity">
-					{[printer.model, printer.machineId, fleetLabels[printerStates(printer).lifecycle]]
-						.filter(Boolean)
-						.join(' · ')}
+					{[printer.model, printer.machineId].filter(Boolean).join(' · ')}
 				</p>
 			</div>
 			{#if canManage}<a class="edit" href={`/printers/manage?id=${encodeURIComponent(printer.id)}`}
@@ -82,32 +74,34 @@
 				>{/if}
 		</header>
 		<section class="summary" aria-label="Printer status">
-			<dl class="facts">
-				<div>
-					<dt>Condition</dt>
-					<dd class={printer.condition}>{conditionLabels[printer.condition]}</dd>
-				</div>
-				<div>
-					<dt>Activity</dt>
-					<dd>{activityLabels[activityState(printer)]}</dd>
-				</div>
-				{#if printerStates(printer).maintenance !== 'none'}<div>
-						<dt>Maintenance</dt>
-						<dd>{maintenanceLabels[printerStates(printer).maintenance]}</dd>
-					</div>{/if}
-				{#if printer.location}<div>
-						<dt>Location</dt>
-						<dd>{printer.location}</dd>
-					</div>{/if}
-			</dl>
-			{#if printer.lastSeen && (!printer.connected || printer.stale)}<p class="last-seen">
-					Last seen {date(printer.lastSeen)}
-				</p>{/if}
-			{#if !printer.stale && printer.job && ['printing', 'paused'].includes(printer.activity)}
+			<div class="status-line">
+				<strong class={printer.condition}
+					>{printer.condition === 'unknown'
+						? 'Condition unknown'
+						: conditionLabels[printer.condition]}</strong
+				>
+				<FleetStamp lifecycle={printer.lifecycle} />
+			</div>
+			{#if printer.location}<p class="location">{printer.location}</p>{/if}
+			{#if ['offline', 'unavailable'].includes(activityState(printer))}
+				<p class="last-seen">
+					{activityState(printer) === 'offline'
+						? 'Offline'
+						: 'Updates unavailable'}{#if printer.lastSeen}
+						· Last seen {date(printer.lastSeen)}{/if}
+				</p>
+			{/if}
+			{#if !printer.stale && ['printing', 'paused'].includes(printer.activity)}
 				<section class="current" aria-label="Current print">
-					<p class="file">{printer.job.file}</p>
-					<p>{[printer.job.person, printer.job.material].filter(Boolean).join(' · ')}</p>
+					{#if printer.job?.file}<p class="file">{printer.job.file}</p>{/if}
+					{#if printer.job}<p>
+							{[printer.job.person, printer.job.material].filter(Boolean).join(' · ')}
+						</p>{/if}
 					<div class="progress">
+						{#if printer.activity === 'paused'}<strong>Paused</strong
+							>{:else if printer.progress === undefined && printer.minutes === undefined}<span
+								>Printing</span
+							>{/if}
 						{#if printer.progress !== undefined}<progress
 								max="100"
 								value={printer.progress}
@@ -182,23 +176,19 @@
 		padding: 1.1rem;
 		background: #fafafa;
 	}
-	.facts {
+	.status-line {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem 2rem;
+		gap: 0.7rem;
+		align-items: center;
 	}
-	.facts > div {
-		min-width: 8rem;
-	}
-	.facts dt {
-		color: #66707c;
-		font-size: 0.75rem;
-		margin-bottom: 0.3rem;
-	}
-	.facts dd {
+	.status-line strong {
 		font-size: 1rem;
-		font-weight: 550;
-		overflow-wrap: anywhere;
+		font-weight: 600;
+	}
+	.location {
+		margin-top: 0.4rem;
+		font-size: 0.9rem;
 	}
 	.working {
 		color: #206441;
@@ -263,9 +253,6 @@
 	:global(.dark) .eyebrow,
 	:global(.dark) .identity,
 	:global(.dark) .last-seen {
-		color: #aab3c0;
-	}
-	:global(.dark) .facts dt {
 		color: #aab3c0;
 	}
 	:global(.dark) .working {
