@@ -99,7 +99,7 @@ def read_history(ids, path=None):
                 WHERE r.printer_id=? AND e.event_type IN ('printer_completed','printer_cancelled','printer_failed')
                 ORDER BY e.id DESC LIMIT 30''', (printer_id,)).fetchall()
             changes = db.execute('''SELECT id,event_type,created_at,payload_json FROM printer_runtime_events
-                WHERE printer_id=? AND event_type IN ('staff_runtime_changed','printer_runtime_changed')
+                WHERE printer_id=? AND event_type IN ('staff_runtime_changed','printer_runtime_changed','system_runtime_changed')
                 ORDER BY id DESC LIMIT 20''', (printer_id,)).fetchall()
             for source, rows in [('job', jobs), ('condition', changes)]:
                 for row in rows:
@@ -117,6 +117,12 @@ def read_history(ids, path=None):
                             details.append('The station recorded a failed print without an error message.')
                     event = {'sourceId':f'station:{source}:{row["id"]}', 'printerId':printer_id,
                         'recordedAt':row['created_at'],'eventType':row['event_type'],'detail':clean_text('\n'.join(details),4000)}
+                    if source == 'condition':
+                        method = payload.get('method')
+                        if method in ('ucard', 'local_pin', 'printer_api'):
+                            event['actorMethod'] = method
+                            if method == 'ucard':
+                                event['actorName'] = clean_text(payload.get('displayIdentity'),200)
                     if source == 'job':
                         event.update(file=clean_text(row['file_name'],1000),material=clean_text(row['filament_type'],120),person=clean_text(row['user_display'],200))
                         duration = payload.get('printDurationSeconds')

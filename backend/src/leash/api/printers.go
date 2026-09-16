@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -148,6 +149,37 @@ func printerStaffHistory(c *fiber.Ctx) error {
 	if err := db.Where("printer_id = ?", record.ID).Order("id DESC").Limit(50).Find(&edits).Error; err != nil {
 		return fiber.ErrInternalServerError
 	}
+	// Resolve old account IDs; new edits retain the name at the time of the edit.
+	userIDs := []uint64{}
+	actorIDs := map[string]uint64{}
+	for _, edit := range edits {
+		if edit.ActorName != "" {
+			continue
+		}
+		kind, value, ok := strings.Cut(edit.Actor, ":")
+		if !ok || (kind != "user" && kind != "service-user") {
+			continue
+		}
+		id, err := strconv.ParseUint(value, 10, 64)
+		if err == nil {
+			actorIDs[edit.Actor] = id
+			userIDs = append(userIDs, id)
+		}
+	}
+	names := map[uint64]string{}
+	if len(userIDs) > 0 {
+		var users []struct {
+			ID   uint64
+			Name string
+		}
+		// Scan only display fields, without User's permission-loading AfterFind hook.
+		if err := db.Model(&models.User{}).Unscoped().Select("id", "name").Where("id IN ?", userIDs).Scan(&users).Error; err != nil {
+			return fiber.ErrInternalServerError
+		}
+		for _, user := range users {
+			names[user.ID] = user.Name
+		}
+	}
 	changes := make([]fiber.Map, 0, len(edits))
 	for _, edit := range edits {
 		var saved models.PrinterRecord
@@ -155,7 +187,11 @@ func printerStaffHistory(c *fiber.Ctx) error {
 			continue
 		}
 		lifecycle, maintenance := models.PrinterStates(saved.Lifecycle, saved.Maintenance)
-		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "lifecycle": lifecycle, "maintenance": maintenance, "location": saved.Location, "name": saved.Name})
+		actorName := edit.ActorName
+		if actorName == "" {
+			actorName = names[actorIDs[edit.Actor]]
+		}
+		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "actorName": actorName, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "manual": saved.Manual, "lifecycle": lifecycle, "maintenance": maintenance, "location": saved.Location, "name": saved.Name})
 	}
 	c.Set("Cache-Control", "private, no-store")
 	return c.JSON(fiber.Map{"events": events, "edits": changes, "lastSync": record.HistorySyncedAt, "stationCondition": record.ObservedCondition, "stationNote": record.ObservedNote, "stationReportedAt": record.ConditionObservedAt})
@@ -296,7 +332,7 @@ func savePrinterRecord(c *fiber.Ctx) error {
 			}
 		}
 		body, _ := json.Marshal(saved)
-		return tx.Create(&models.PrinterRecordEvent{PrinterID: id, Version: saved.Version, Actor: actor, CreatedAt: saved.UpdatedAt, Record: string(body)}).Error
+		return tx.Create(&models.PrinterRecordEvent{PrinterID: id, Version: saved.Version, Actor: actor, ActorName: auth.User.Name, CreatedAt: saved.UpdatedAt, Record: string(body)}).Error
 	})
 	if err != nil {
 		if e, ok := err.(*fiber.Error); ok {
@@ -336,6 +372,9 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 		return fiber.ErrRequestEntityTooLarge
 	}
 	for _, event := range snapshot.History {
+		if !printerText(event.ActorName, 200) || !printerChoice(event.ActorMethod, "", "ucard", "local_pin", "printer_api") || (event.ActorName != "" && event.ActorMethod != "ucard") {
+			return fiber.NewError(400, "Invalid printer event attribution")
+		}
 		if !printerText(event.Person, 200) || (event.DurationSeconds != nil && (*event.DurationSeconds < 0 || *event.DurationSeconds > 31536000)) {
 			return fiber.NewError(400, "Invalid printer job details")
 		}
@@ -410,6 +449,12 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 			}
 			if event.DurationSeconds != nil {
 				if err := match().Where("duration_seconds IS NULL").UpdateColumn("duration_seconds", *event.DurationSeconds).Error; err != nil {
+					return err
+				}
+			}
+			// Keep attribution together so a later import cannot relabel a PIN edit.
+			if event.ActorMethod != "" {
+				if err := match().Where("(actor_method IS NULL OR actor_method = '') AND (actor_name IS NULL OR actor_name = '')").UpdateColumns(map[string]interface{}{"actor_method": event.ActorMethod, "actor_name": event.ActorName}).Error; err != nil {
 					return err
 				}
 			}

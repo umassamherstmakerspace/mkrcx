@@ -5,38 +5,62 @@
 	let history: PrinterHistoryData | null = null;
 	let error = '';
 	let loading = false;
+	let mounted = false;
+	let request: AbortController | null = null;
 	let shown = 10;
 	$: items = history ? historyItems(history) : [];
-	const date = (value: string) => new Date(value).toLocaleString();
+	const date = (value: string) =>
+		new Date(value).toLocaleString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
 	async function refresh() {
+		if (loading || !mounted) return;
 		loading = true;
-		error = '';
+		request = new AbortController();
+		const timeout = window.setTimeout(() => request?.abort(), 8_000);
 		try {
-			const response = await fetch(`/printers/history?id=${encodeURIComponent(id)}`);
+			const response = await fetch(`/printers/history?id=${encodeURIComponent(id)}`, {
+				signal: request.signal
+			});
 			if (!response.ok)
 				throw new Error(
 					[401, 403].includes(response.status) ? 'Staff access required.' : 'History unavailable.'
 				);
-			history = await response.json();
+			const result = await response.json();
+			if (!mounted) return;
+			history = result;
+			error = '';
 		} catch (e) {
+			if (!mounted) return;
 			history = null;
 			error = e instanceof Error ? e.message : 'History unavailable.';
 		} finally {
+			window.clearTimeout(timeout);
+			request = null;
 			loading = false;
 		}
 	}
 	onMount(() => {
+		mounted = true;
 		void refresh();
+		const timer = window.setInterval(refresh, 15_000);
+		return () => {
+			mounted = false;
+			window.clearInterval(timer);
+			request?.abort();
+		};
 	});
 </script>
 
 <section class="history" aria-label="Printer history">
 	<div class="heading">
 		<h2>History</h2>
-		<button type="button" disabled={loading} on:click={refresh}
-			>{loading ? 'Loading…' : 'Refresh'}</button
-		>
 	</div>
+	{#if loading && !history && !error}<p role="status">Loading…</p>{/if}
 	{#if error}<p role="status">{error}</p>{/if}
 	{#if history}
 		<ol>
@@ -54,13 +78,12 @@
 					>
 					<article>
 						<div class="entry-heading">
-							<h3>{item.title}</h3>
 							<time datetime={item.recordedAt}>{date(item.recordedAt)}</time>
+							<h3>{item.title}</h3>
+							{#if item.source}<span class="source" title={item.actor}>{item.source}</span>{/if}
 						</div>
-						{#if item.source}<p class="source" title={item.actor}>{item.source}</p>{/if}
-						{#if item.file}<p class="file">{item.file}</p>{/if}
-						{#if item.file || item.person || item.material || item.duration}<p class="metadata">
-								{[item.person || 'User not recorded', item.material, item.duration]
+						{#if item.file || item.person || item.material || item.duration}<p class="job-details">
+								{[item.file, item.person || 'User not recorded', item.material, item.duration]
 									.filter(Boolean)
 									.join(' · ')}
 							</p>{/if}
@@ -102,9 +125,6 @@
 	button:hover {
 		background: #f5f5f5;
 	}
-	button:disabled {
-		opacity: 0.6;
-	}
 	ol {
 		list-style: none;
 		padding: 0;
@@ -114,7 +134,7 @@
 		display: grid;
 		grid-template-columns: 1.5rem minmax(0, 1fr);
 		gap: 0.5rem;
-		padding: 0.5rem 0;
+		padding: 0.4rem 0;
 		border-bottom: 1px solid #e5e7eb;
 	}
 	.marker {
@@ -131,8 +151,7 @@
 	.entry-heading {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.25rem 1rem;
-		justify-content: space-between;
+		gap: 0.15rem 0.65rem;
 		align-items: baseline;
 	}
 	h3 {
@@ -141,16 +160,15 @@
 	}
 	time {
 		color: #66707c;
-		font-size: 0.75rem;
+		font-size: 0.8rem;
+		font-weight: 500;
 	}
 	.source {
 		color: #66707c;
 		font-size: 0.75rem;
-		margin: 0.15rem 0 0.3rem;
 		overflow-wrap: anywhere;
 	}
-	.file,
-	.metadata {
+	.job-details {
 		font-size: 0.8rem;
 		color: #505966;
 		overflow-wrap: anywhere;
@@ -203,8 +221,7 @@
 	}
 	:global(.dark) .source,
 	:global(.dark) time,
-	:global(.dark) .file,
-	:global(.dark) .metadata,
+	:global(.dark) .job-details,
 	:global(.dark) .empty {
 		color: #aab3c0;
 	}
@@ -215,9 +232,6 @@
 		background: #39282b;
 	}
 	@media (max-width: 480px) {
-		.entry-heading {
-			flex-direction: column;
-		}
 		.note article {
 			padding: 0.7rem;
 		}

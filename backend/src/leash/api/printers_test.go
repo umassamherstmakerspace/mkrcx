@@ -24,10 +24,13 @@ func printerTestApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	if err = models.MigratePrinterRegistry(db); err != nil {
 		t.Fatal(err)
 	}
+	if err = db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)").Error; err != nil {
+		t.Fatal(err)
+	}
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals("db", db)
-		c.Locals("auth", leash_auth.Authentication{Authenticator: leash_auth.AUTHENTICATOR_USER, User: models.User{ID: 42}})
+		c.Locals("auth", leash_auth.Authentication{Authenticator: leash_auth.AUTHENTICATOR_USER, User: models.User{ID: 42, Name: "Staff fixture"}})
 		return c.Next()
 	})
 	registerPrinterPublicEndpoints(app)

@@ -8,10 +8,13 @@ export type PrinterEvent = {
 	material?: string;
 	person?: string;
 	durationSeconds?: number;
+	actorName?: string;
+	actorMethod?: 'ucard' | 'local_pin' | 'printer_api';
 };
 export type PrinterEdit = {
 	recordedAt: string;
 	actor: string;
+	actorName?: string;
 	version: number;
 	condition: string;
 	note: string;
@@ -103,13 +106,19 @@ function eventItem(event: PrinterEvent): HistoryItem {
 				? 'No error message recorded.'
 				: detail
 	};
-	if (['staff_runtime_changed', 'printer_runtime_changed'].includes(event.eventType)) {
+	if (
+		['staff_runtime_changed', 'printer_runtime_changed', 'system_runtime_changed'].includes(
+			event.eventType
+		)
+	) {
 		const condition = event.detail.match(/^Condition: ([^\n]*)/);
 		const note = event.detail.match(/(?:^|\n)Note: ([\s\S]*)/);
 		item.kind = note?.[1] ? 'note' : 'change';
 		item.title = note?.[1] ? 'Note & condition' : 'Condition updated';
 		item.source =
-			event.eventType === 'staff_runtime_changed' ? 'Staff · Printer' : 'Printer station';
+			event.eventType === 'staff_runtime_changed'
+				? `${event.actorMethod === 'local_pin' ? 'Local PIN' : event.actorName || (event.actorMethod === 'ucard' ? 'Staff card · Name not recorded' : 'Staff identity not recorded')} · Printer`
+				: 'Printer station';
 		item.icon = undefined;
 		item.text = note ? note[1] : condition ? undefined : event.detail;
 		item.changes = condition ? [`Condition: ${label(condition[1])}`] : [];
@@ -163,7 +172,11 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			recordedAt: edit.recordedAt,
 			kind: text ? 'note' : 'change',
 			title,
-			source: edit.actor.startsWith('user:') ? 'Staff · mkr.cx' : 'mkr.cx',
+			source: edit.actor.startsWith('user:')
+				? `${edit.actorName || 'Staff name not recorded'} · mkr.cx`
+				: edit.actorName
+					? `${edit.actorName} · API · mkr.cx`
+					: 'mkr.cx',
 			actor: edit.actor,
 			text,
 			changes

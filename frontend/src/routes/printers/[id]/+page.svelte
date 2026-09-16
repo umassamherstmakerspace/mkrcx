@@ -103,25 +103,27 @@
 			{#if printer.lastSeen && (!printer.connected || printer.stale)}<p class="last-seen">
 					Last seen {date(printer.lastSeen)}
 				</p>{/if}
-			{#if printer.note}<p class="note">{printer.note}</p>{/if}
+			{#if !printer.stale && printer.job && ['printing', 'paused'].includes(printer.activity)}
+				<section class="current" aria-label="Current print">
+					<p class="file">{printer.job.file}</p>
+					<p>{[printer.job.person, printer.job.material].filter(Boolean).join(' · ')}</p>
+					<div class="progress">
+						{#if printer.progress !== undefined}<progress
+								max="100"
+								value={printer.progress}
+								aria-label="Print progress"
+							></progress><span>{Math.round(printer.progress)}%</span>{/if}
+						{#if printer.minutes !== undefined}<span
+								>~{duration(Math.max(0, Math.ceil(printer.minutes)))} left</span
+							>{/if}
+					</div>
+				</section>
+			{/if}
+			{#if printer.note}<section class="notes" aria-label="Printer notes">
+					<h2>Notes</h2>
+					<p class="note">{printer.note}</p>
+				</section>{/if}
 		</section>
-		{#if !printer.stale && printer.job && ['printing', 'paused'].includes(printer.activity)}
-			<section class="current" aria-label="Current print">
-				<h2>Current print</h2>
-				<p class="file">{printer.job.file}</p>
-				<p>{[printer.job.person, printer.job.material].filter(Boolean).join(' · ')}</p>
-				<div class="progress">
-					{#if printer.progress !== undefined}<progress
-							max="100"
-							value={printer.progress}
-							aria-label="Print progress"
-						></progress><span>{Math.round(printer.progress)}%</span>{/if}
-					{#if printer.minutes !== undefined}<span
-							>~{duration(Math.max(0, Math.ceil(printer.minutes)))} left</span
-						>{/if}
-				</div>
-			</section>
-		{/if}
 		{#key printer.id}<PrinterHistory id={printer.id} />{/key}
 	{/if}
 </main>
@@ -181,9 +183,12 @@
 		background: #fafafa;
 	}
 	.facts {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+		display: flex;
+		flex-wrap: wrap;
 		gap: 1rem 2rem;
+	}
+	.facts > div {
+		min-width: 8rem;
 	}
 	.facts dt {
 		color: #66707c;
@@ -213,16 +218,18 @@
 	.note {
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
-		margin-top: 1rem;
 		line-height: 1.55;
 	}
+	.notes {
+		margin-top: 0.8rem;
+	}
 	.current {
-		margin: 1.5rem 0;
+		margin: 0.75rem 0;
 	}
 	h2 {
-		font-size: 1rem;
+		font-size: 0.85rem;
 		font-weight: 650;
-		margin-bottom: 0.6rem;
+		margin-bottom: 0.25rem;
 	}
 	.file {
 		overflow-wrap: anywhere;

@@ -53,6 +53,31 @@ class RegistryCollectorTests(unittest.TestCase):
         self.assertEqual(reading['fault'],'MCU shutdown: Heater not heating')
         self.assertEqual(reading['activity'],'unknown')
 
+    def test_station_attribution_exports_only_display_name_and_known_method(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'station.sqlite'
+            db=sqlite3.connect(path)
+            db.executescript('''CREATE TABLE requests(id TEXT,printer_id TEXT,file_name TEXT,filament_type TEXT,user_display TEXT);
+                CREATE TABLE events(id INTEGER,request_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);
+                CREATE TABLE printer_runtime_events(id INTEGER,printer_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);''')
+            for i,method in enumerate(('ucard','local_pin',None,'unknown','printer_api')):
+                payload={'newCondition':'working','newNote':'Fan replaced','displayIdentity':'Fixture staff','method':method,
+                    'actorId':'private-user-id','accessRef':'secret-access','cardCsn':'secret-card','pin':'secret-pin'}
+                kind='system_runtime_changed' if method=='printer_api' else 'staff_runtime_changed'
+                db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)',(i,'replacement',kind,'2026-09-15T12:00:00Z',json.dumps(payload)))
+            db.commit(); db.close()
+            events={event['sourceId']:event for event in COLLECTOR.read_history(['replacement'],path)}
+            self.assertEqual(len(events),5)
+            self.assertEqual(events['station:condition:0']['actorName'],'Fixture staff')
+            self.assertEqual(events['station:condition:0']['actorMethod'],'ucard')
+            self.assertEqual(events['station:condition:1']['actorMethod'],'local_pin')
+            for i in (1,2,3,4): self.assertNotIn('actorName',events[f'station:condition:{i}'])
+            for i in (2,3): self.assertNotIn('actorMethod',events[f'station:condition:{i}'])
+            self.assertEqual(events['station:condition:4']['actorMethod'],'printer_api')
+            serialized=json.dumps(events)
+            for private in ('secret-','private-user-id','accessRef','cardCsn','pin"'):
+                self.assertNotIn(private,serialized.replace('local_pin"',''))
+
     def setUp(self):
         self.record = {"id": "replacement", "host": "192.168.1.160", "mac": "fc:ee:28:00:30:aa"}
 

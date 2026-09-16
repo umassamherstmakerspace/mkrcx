@@ -48,6 +48,7 @@ type PrinterRecordEvent struct {
 	PrinterID string    `gorm:"size:80;index" json:"printerId"`
 	Version   uint64    `json:"version"`
 	Actor     string    `gorm:"size:160" json:"actor"`
+	ActorName string    `gorm:"size:200" json:"actorName,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	Record    string    `gorm:"type:text" json:"record"`
 }
@@ -62,5 +63,7 @@ type PrinterHistoryEvent struct {
 	File            string    `gorm:"size:1000" json:"file,omitempty"`
 	Material        string    `gorm:"size:120" json:"material,omitempty"`
 	Person          string    `gorm:"size:200" json:"person,omitempty"`
+	ActorName       string    `gorm:"size:200" json:"actorName,omitempty"`
+	ActorMethod     string    `gorm:"size:24" json:"actorMethod,omitempty"`
 	DurationSeconds *float64  `json:"durationSeconds,omitempty"`
 }

@@ -140,7 +140,7 @@ describe('printer timeline', () => {
 		)[0];
 		expect(item).toMatchObject({
 			kind: 'note',
-			source: 'Staff · Printer',
+			source: 'Staff identity not recorded · Printer',
 			text: 'Fan broken.\nReplacement ordered.',
 			changes: ['Condition: Out of service']
 		});
@@ -168,6 +168,28 @@ describe('printer timeline', () => {
 			file: 'part.gcode',
 			material: 'PLA'
 		});
+	});
+	it('distinguishes signed-in staff, local PIN and missing station attribution', () => {
+		const base = {
+			sourceId: 'staff',
+			recordedAt: edit.recordedAt,
+			eventType: 'staff_runtime_changed',
+			detail: 'Condition: working\nNote: Fan replaced'
+		};
+		expect(
+			historyItems(history([], [{ ...base, actorMethod: 'ucard', actorName: 'Alex' }]))[0].source
+		).toBe('Alex · Printer');
+		expect(historyItems(history([], [{ ...base, actorMethod: 'local_pin' }]))[0].source).toBe(
+			'Local PIN · Printer'
+		);
+		expect(historyItems(history([], [base]))[0].source).toBe(
+			'Staff identity not recorded · Printer'
+		);
+		expect(historyItems(history([{ ...edit, actorName: 'Alex' }]))[0].source).toBe('Alex · mkr.cx');
+		expect(
+			historyItems(history([{ ...edit, actor: 'service-user:4', actorName: 'Import account' }]))[0]
+				.source
+		).toBe('Import account · API · mkr.cx');
 	});
 	it('accepts an empty collected history', () => {
 		expect(historyItems({ events: null, edits: null, lastSync: null })).toEqual([]);
