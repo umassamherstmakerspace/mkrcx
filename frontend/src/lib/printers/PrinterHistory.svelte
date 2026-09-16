@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { historyItems, type PrinterHistoryData } from './history-view';
+	import { historyItems, printDuration, type PrinterHistoryData } from './history-view';
 	export let id: string;
 	let history: PrinterHistoryData | null = null;
 	let error = '';
@@ -8,7 +8,11 @@
 	let mounted = false;
 	let request: AbortController | null = null;
 	let shown = 10;
+	let filter = 'all';
 	$: items = history ? historyItems(history) : [];
+	$: visible = items.filter(
+		(item) => filter === 'all' || (filter === 'prints' ? item.printOutcome : item.kind !== 'job')
+	);
 	const date = (value: string) =>
 		new Date(value).toLocaleString(undefined, {
 			year: 'numeric',
@@ -63,11 +67,34 @@
 	{#if loading && !history && !error}<p role="status">Loading…</p>{/if}
 	{#if error}<p role="status">{error}</p>{/if}
 	{#if history}
+		{#if history.usage && history.usage.jobs > 0}
+			<p class="usage">
+				<strong>Recorded print time: {printDuration(history.usage.seconds)}</strong> · {history
+					.usage.jobs} prints
+			</p>
+			<p class="coverage">
+				Partial history{#if history.usage.firstOutcome}, since {new Date(
+						history.usage.firstOutcome
+					).toLocaleDateString()}{/if}. Includes completed, cancelled and failed prints.{#if history.usage.missingDurations}
+					{history.usage.missingDurations} missing durations.{/if}
+			</p>
+		{/if}
+		<div class="history-filters" aria-label="History views">
+			{#each [{ id: 'all', label: 'All' }, { id: 'updates', label: 'Notes & errors' }, { id: 'prints', label: 'Prints' }] as view}<button
+					class:active={filter === view.id}
+					type="button"
+					aria-pressed={filter === view.id}
+					on:click={() => {
+						filter = view.id;
+						shown = 10;
+					}}>{view.label}</button
+				>{/each}
+		</div>
 		<ol>
-			{#each items.slice(0, shown) as item (item.id)}
+			{#each visible.slice(0, shown) as item (item.id)}
 				<li class={item.kind}>
 					<span class="marker" aria-hidden="true">
-						{#if item.kind === 'note'}
+						{#if item.kind === 'note' || item.kind === 'summary'}
 							<svg
 								width="16"
 								height="16"
@@ -86,7 +113,15 @@
 					</span>
 					<article>
 						<div class="entry-heading">
-							<time datetime={item.recordedAt}>{date(item.recordedAt)}</time>
+							<time datetime={item.dateOnly ? item.recordedAt.slice(0, 10) : item.recordedAt}
+								>{item.dateOnly
+									? new Date(item.recordedAt).toLocaleDateString(undefined, {
+											year: 'numeric',
+											month: 'short',
+											day: 'numeric'
+										})
+									: date(item.recordedAt)}</time
+							>
 							{#if item.source}<span class="source">{item.source}</span>{/if}
 							<h3>{item.title}</h3>
 						</div>
@@ -100,17 +135,65 @@
 								{#if item.kind === 'note'}“{item.text}”{:else}{item.text}{/if}
 							</p>{/if}
 						{#each item.changes ?? [] as change}<p class="change-line">{change}</p>{/each}
+						{#if item.links}<p class="sources">
+								{#each item.links as link}<a
+										href={link.url}
+										target="_blank"
+										rel="noopener noreferrer">{link.label}</a
+									>{/each}{#if item.preparedBy}<span>Summary by {item.preparedBy}</span>{/if}
+							</p>{/if}
 					</article>
 				</li>
 			{:else}<li class="empty">No history yet.</li>{/each}
 		</ol>
-		{#if items.length > shown}<button class="more" type="button" on:click={() => (shown += 10)}
+		{#if visible.length > shown}<button class="more" type="button" on:click={() => (shown += 10)}
 				>Load more</button
 			>{/if}
 	{/if}
 </section>
 
 <style>
+	.usage {
+		font-size: 0.85rem;
+	}
+	.coverage {
+		font-size: 0.75rem;
+		color: #66707c;
+		margin-top: 0.15rem;
+	}
+	.history-filters {
+		display: flex;
+		gap: 0.4rem;
+		margin: 0.7rem 0;
+	}
+	.history-filters button.active {
+		background: #881c1c;
+		color: white;
+		border-color: #881c1c;
+	}
+	.sources {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem 0.8rem;
+		font-size: 0.75rem;
+		margin-top: 0.3rem;
+		color: #66707c;
+	}
+	.sources a {
+		color: #881c1c;
+		text-decoration: underline;
+	}
+	.summary article {
+		border-left: 2px solid #a39470;
+		padding-left: 0.7rem;
+	}
+	:global(.dark) .sources a {
+		color: #f0a0a0;
+	}
+	:global(.dark) .coverage,
+	:global(.dark) .sources {
+		color: #aab3c0;
+	}
 	.history {
 		margin-top: 1.4rem;
 		width: 100%;

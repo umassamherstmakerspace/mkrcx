@@ -23,6 +23,60 @@ const history = (
 ): PrinterHistoryData => ({ edits, events, lastSync: null });
 
 describe('printer timeline', () => {
+	it('keeps report dates, links and summary authors separate from repair claims', () => {
+		const items = historyItems({
+			...history(),
+			summaries: [
+				{
+					sourceId: 'standup:fixture:report',
+					reportDate: '2026-09-10',
+					body: 'Sam replaced the cable; verification remains open.',
+					preparedBy: 'Codex',
+					importedAt: '2026-09-16T12:00:00Z',
+					sources: [
+						{ url: 'https://example.org/log/1', label: 'Sam’s report' },
+						{ url: 'javascript:alert(1)', label: 'Unsafe' }
+					]
+				}
+			]
+		});
+		expect(items[0]).toMatchObject({
+			kind: 'summary',
+			dateOnly: true,
+			recordedAt: '2026-09-10T12:00:00',
+			preparedBy: 'Codex',
+			text: 'Sam replaced the cable; verification remains open.'
+		});
+		expect(items[0].links).toEqual([{ url: 'https://example.org/log/1', label: 'Sam’s report' }]);
+		expect(items[0].user).toBeUndefined();
+	});
+	it('distinguishes a failed print without metadata from a printer reconnecting', () => {
+		const items = historyItems(
+			history(
+				[],
+				[
+					{
+						sourceId: 'failed',
+						recordedAt: '2026-09-10T12:00:00Z',
+						eventType: 'printer_failed',
+						detail: 'Heater error'
+					},
+					{
+						sourceId: 'reconnected',
+						recordedAt: '2026-09-10T13:00:00Z',
+						eventType: 'printer_responding',
+						detail: 'Previous error: Heater error'
+					}
+				]
+			)
+		);
+		expect(items[0]).toMatchObject({
+			title: 'Printer responding again',
+			kind: 'change',
+			printOutcome: false
+		});
+		expect(items[1]).toMatchObject({ title: 'Print failed', kind: 'error', printOutcome: true });
+	});
 	it('shows outcomes with user and duration, and hides historical starts', () => {
 		const base = { recordedAt: edit.recordedAt, detail: '', file: 'part.gcode' };
 		const items = historyItems(

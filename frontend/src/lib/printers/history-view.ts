@@ -29,6 +29,17 @@ export type PrinterEdit = {
 	name: string;
 };
 export type PrinterHistoryData = {
+	summaries?:
+		| {
+				sourceId: string;
+				reportDate: string;
+				body: string;
+				sources: { url: string; label: string }[];
+				preparedBy: string;
+				importedAt: string;
+		  }[]
+		| null;
+	usage?: { seconds: number; jobs: number; missingDurations: number; firstOutcome: string | null };
 	events: PrinterEvent[] | null;
 	edits: PrinterEdit[] | null;
 	lastSync: string | null;
@@ -36,7 +47,11 @@ export type PrinterHistoryData = {
 export type HistoryItem = {
 	id: string;
 	recordedAt: string;
-	kind: 'note' | 'job' | 'error' | 'change';
+	kind: 'note' | 'job' | 'error' | 'change' | 'summary';
+	dateOnly?: boolean;
+	links?: { url: string; label: string }[];
+	preparedBy?: string;
+	printOutcome?: boolean;
 	title: string;
 	source: string;
 	actor?: string;
@@ -83,19 +98,23 @@ const eventLabels: Record<string, string> = {
 	printer_completed: 'Print completed',
 	printer_cancelled: 'Print cancelled',
 	printer_failed: 'Print failed',
-	printer_error: 'Printer error'
+	printer_error: 'Printer error',
+	printer_responding: 'Printer responding again'
 };
 
 function eventItem(event: PrinterEvent): HistoryItem | null {
 	const legacyDuration = event.detail.match(/(?:^|\n)Print duration: (\d+) min(?:\n|$)/);
 	const detail = event.detail.replace(/(?:^|\n)Print duration: \d+ min(?=\n|$)/, '').trim();
 	const item: HistoryItem = {
+		printOutcome: ['printer_completed', 'printer_cancelled', 'printer_failed'].includes(
+			event.eventType
+		),
 		id: `event:${event.sourceId}`,
 		recordedAt: event.recordedAt,
 		kind:
 			event.eventType === 'printer_error' || event.eventType === 'printer_failed' ? 'error' : 'job',
 		title: eventLabels[event.eventType] ?? event.eventType.replaceAll('_', ' '),
-		source: event.eventType === 'printer_error' ? 'Klipper' : '',
+		source: ['printer_error', 'printer_responding'].includes(event.eventType) ? 'Klipper' : '',
 		file: event.file,
 		material: event.material,
 		person: event.person,
@@ -113,6 +132,10 @@ function eventItem(event: PrinterEvent): HistoryItem | null {
 				? 'No error message recorded.'
 				: detail
 	};
+	if (event.eventType === 'printer_responding') {
+		item.kind = 'change';
+		item.icon = '·';
+	}
 	if (
 		['staff_runtime_changed', 'printer_runtime_changed', 'system_runtime_changed'].includes(
 			event.eventType
@@ -162,6 +185,25 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 		.filter((event) => event.eventType !== 'started')
 		.map(eventItem)
 		.filter((item): item is HistoryItem => item !== null);
+	for (const summary of history.summaries ?? []) {
+		items.push({
+			id: `summary:${summary.sourceId}`,
+			recordedAt: `${summary.reportDate}T12:00:00`,
+			dateOnly: true,
+			kind: 'summary',
+			title: 'Repair update',
+			source: 'Ship’s log',
+			text: summary.body,
+			preparedBy: summary.preparedBy,
+			links: summary.sources.filter((source) => {
+				try {
+					return new URL(source.url).protocol === 'https:';
+				} catch {
+					return false;
+				}
+			})
+		});
+	}
 	for (let i = 0; i < edits.length; i++) {
 		const edit = edits[i];
 		// The API returns a bounded window. Only compare consecutive saved versions.

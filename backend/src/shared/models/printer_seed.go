@@ -12,7 +12,7 @@ import (
 var printerSeed []byte
 
 func MigratePrinterRegistry(db *gorm.DB) error {
-	if err := db.AutoMigrate(&PrinterRecord{}, &PrinterRecordEvent{}, &PrinterHistoryEvent{}); err != nil {
+	if err := db.AutoMigrate(&PrinterRecord{}, &PrinterRecordEvent{}, &PrinterHistoryEvent{}, &PrinterSummary{}); err != nil {
 		return err
 	}
 	var records []PrinterRecord

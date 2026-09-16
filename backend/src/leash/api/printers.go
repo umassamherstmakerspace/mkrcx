@@ -123,6 +123,7 @@ func registerPrinterPublicEndpoints(api fiber.Router) {
 	api.Get("/printer-fleet/roster", printerCollectorAuth, printerRoster)
 }
 func registerPrinterEndpoints(api fiber.Router) {
+	api.Post("/printer-fleet/history/:id/summaries", printerPermission("leash.printers:manage"), importPrinterSummary)
 	api.Get("/printer-fleet/history/:id", printerPermission("leash.printers:read"), printerStaffHistory)
 	api.Get("/printer-fleet/staff", printerPermission("leash.printers:read"), func(c *fiber.Ctx) error { return respondPrinterFleet(c, true) })
 	api.Get("/printer-fleet/records", printerPermission("leash.printers:manage"), listPrinterRecords)
@@ -195,7 +196,15 @@ func printerStaffHistory(c *fiber.Ctx) error {
 		changes = append(changes, fiber.Map{"recordedAt": edit.CreatedAt, "actor": edit.Actor, "actorName": actorName, "version": edit.Version, "condition": saved.Condition, "note": saved.Note, "nextAction": saved.NextAction, "manual": saved.Manual, "lifecycle": lifecycle, "maintenance": maintenance, "location": saved.Location, "name": saved.Name})
 	}
 	c.Set("Cache-Control", "private, no-store")
-	return c.JSON(fiber.Map{"events": events, "edits": changes, "lastSync": record.HistorySyncedAt, "stationCondition": record.ObservedCondition, "stationNote": record.ObservedNote, "stationReportedAt": record.ConditionObservedAt})
+	var summaries []models.PrinterSummary
+	if err := db.Where("printer_id = ?", record.ID).Order("report_date DESC, imported_at DESC").Limit(100).Find(&summaries).Error; err != nil {
+		return fiber.ErrInternalServerError
+	}
+	usage, err := readPrinterUsage(db, record.ID)
+	if err != nil {
+		return fiber.ErrInternalServerError
+	}
+	return c.JSON(fiber.Map{"events": events, "edits": changes, "summaries": summaries, "usage": usage, "lastSync": record.HistorySyncedAt, "stationCondition": record.ObservedCondition, "stationNote": record.ObservedNote, "stationReportedAt": record.ConditionObservedAt})
 }
 
 func listPrinterRecords(c *fiber.Ctx) error {
@@ -418,14 +427,29 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 			body, _ := json.Marshal(p)
 			var previous printerReading
 			_ = json.Unmarshal([]byte(record.Telemetry), &previous)
-			if p.Fault != "" && previous.Fault != p.Fault {
+			previousFault := record.ObservedFault
+			if previousFault == "" {
+				previousFault = previous.Fault
+			}
+			if p.Fault != "" && previousFault != p.Fault {
 				event := models.PrinterHistoryEvent{SourceID: fmt.Sprintf("observer:%s:%d", p.ID, snapshot.FetchedAt.UnixNano()), PrinterID: p.ID, RecordedAt: snapshot.FetchedAt, EventType: "printer_error", Detail: p.Fault}
 				if err := tx.Create(&event).Error; err != nil {
 					return err
 				}
 			}
 			updates := map[string]interface{}{"fetched_at": snapshot.FetchedAt, "telemetry": string(body)}
-			if p.Activity != "unknown" {
+			if p.Fault != "" {
+				updates["observed_fault"] = p.Fault
+			} else if p.Activity != "unknown" {
+				updates["observed_fault"] = ""
+				if previousFault != "" {
+					event := models.PrinterHistoryEvent{SourceID: fmt.Sprintf("observer:%s:%d:responding", p.ID, snapshot.FetchedAt.UnixNano()), PrinterID: p.ID, RecordedAt: snapshot.FetchedAt, EventType: "printer_responding", Detail: "Previous error: " + previousFault}
+					if err := tx.Create(&event).Error; err != nil {
+						return err
+					}
+				}
+			}
+			if p.Activity != "unknown" || p.Fault != "" {
 				updates["last_seen"] = snapshot.FetchedAt
 			}
 			// Connectivity failures are observations, never instructions to clear a repair record.
@@ -540,6 +564,14 @@ func respondPrinterFleet(c *fiber.Ctx, staff bool) error {
 		item := fiber.Map{"id": p.ID, "name": p.Name, "model": p.Model, "machineId": p.MachineID, "location": p.Location, "lifecycle": lifecycle, "maintenance": maintenance, "condition": condition, "note": note, "conditionSource": source, "conditionUpdatedAt": updated, "lastSeen": p.LastSeen, "activity": activity, "stale": !fresh, "connected": fresh && activity != "unknown"}
 		if staff {
 			item["nextAction"] = p.NextAction
+			// Preserve the assessment while surfacing newer notes made at the printer.
+			if p.ConditionObservedAt != nil && p.ConditionObservedAt.After(p.UpdatedAt) && p.ObservedNote != p.Note {
+				item["printerNote"] = p.ObservedNote
+				item["printerNoteAt"] = p.ConditionObservedAt
+			}
+			if fresh && reading.Fault != "" {
+				item["fault"] = reading.Fault
+			}
 		}
 		if fresh && printerChoice(activity, "printing", "paused") {
 			if reading.Minutes != nil {

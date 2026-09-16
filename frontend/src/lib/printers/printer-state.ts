@@ -14,6 +14,7 @@ export const conditionLabels = {
 	unknown: 'Unknown'
 };
 export const activityLabels = {
+	error: 'Error',
 	idle: 'Idle',
 	printing: 'Printing',
 	paused: 'Paused',
@@ -36,6 +37,7 @@ export function printerStates(record: { lifecycle?: string; maintenance?: string
 
 export function activityState(printer: Printer, disconnected = false): keyof typeof activityLabels {
 	if (disconnected || printer.stale) return 'unavailable';
+	if (printer.fault) return 'error';
 	if (printer.connected === false || printer.activity === 'unknown') return 'offline';
 	return printer.activity;
 }
@@ -50,6 +52,7 @@ export type FleetView = (typeof fleetViews)[number]['id'];
 export function matchesFleetView(printer: Printer, view: FleetView): boolean {
 	const { lifecycle } = printerStates(printer);
 	if (lifecycle === 'retired') return false;
-	if (view === 'attention') return printer.condition === 'limited' || printer.condition === 'out';
+	if (view === 'attention')
+		return printer.condition === 'limited' || printer.condition === 'out' || !!printer.fault;
 	return lifecycle === view;
 }

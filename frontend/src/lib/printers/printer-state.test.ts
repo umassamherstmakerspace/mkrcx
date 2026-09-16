@@ -21,6 +21,13 @@ const shelved: Printer = {
 };
 
 describe('printer views', () => {
+	it('surfaces an active machine error without changing the saved assessment', () => {
+		const printer = { ...working, fault: 'Heater not heating' };
+		expect(activityState(printer)).toBe('error');
+		expect(matchesFleetView(printer, 'attention')).toBe(true);
+		expect(printer.condition).toBe('working');
+		expect(activityState({ ...printer, stale: true })).toBe('unavailable');
+	});
 	it('includes shelved problems in Needs attention, without treating offline as broken', () => {
 		const printers = [
 			working,

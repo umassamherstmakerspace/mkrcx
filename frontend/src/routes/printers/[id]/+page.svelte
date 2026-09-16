@@ -7,11 +7,9 @@
 	import { duration, type Printer } from '$lib/printers/prototype-data';
 	export let data: PageData;
 	let printer: Printer | null;
-	let canManage = false;
 	let message = '';
 	$: {
 		printer = data.printer;
-		canManage = data.canManage;
 		message = '';
 	}
 	const date = (value: string) => new Date(value).toLocaleString();
@@ -31,7 +29,6 @@
 			const result = await response.json();
 			if (id !== data.printer.id) return;
 			printer = result.printer;
-			canManage = result.canManage;
 			message = '';
 		} catch {
 			if (id !== data.printer.id) return;
@@ -69,9 +66,6 @@
 					{[printer.model, printer.machineId].filter(Boolean).join(' · ')}
 				</p>
 			</div>
-			{#if canManage}<a class="edit" href={`/printers/manage?id=${encodeURIComponent(printer.id)}`}
-					>Edit</a
-				>{/if}
 		</header>
 		<section class="summary" aria-label="Printer status">
 			<div class="status-line">
@@ -87,7 +81,12 @@
 					<strong>Next:</strong>
 					{printer.nextAction}
 				</p>{/if}
-			{#if ['offline', 'unavailable'].includes(activityState(printer))}
+			{#if printer.fault && !printer.stale}
+				<section class="machine-error">
+					<h2>Printer error</h2>
+					<p>{printer.fault}</p>
+				</section>
+			{:else if ['offline', 'unavailable'].includes(activityState(printer))}
 				<p class="last-seen">
 					{activityState(printer) === 'offline'
 						? 'Offline'
@@ -101,7 +100,13 @@
 				<section class="current" aria-label="Current print">
 					{#if printer.job?.file}<p class="file">{printer.job.file}</p>{/if}
 					{#if printer.job}<p>
-							{[printer.job.person, printer.job.material].filter(Boolean).join(' · ')}
+							Printing for {printer.job.person || 'Unavailable'}{#if printer.job.material}
+								· {printer.job.material}{/if}
+						</p>{/if}
+					{#if printer.job?.started}<p class="started">
+							Started {Number.isNaN(Date.parse(printer.job.started))
+								? printer.job.started
+								: date(printer.job.started)}
 						</p>{/if}
 					<div class="progress">
 						{#if printer.activity === 'paused'}<strong>Paused</strong
@@ -123,12 +128,42 @@
 					<h2>Notes</h2>
 					<p class="note">{printer.note}</p>
 				</section>{/if}
+			{#if printer.printerNoteAt}<section class="notes" aria-label="Latest printer note">
+					<h2>Latest printer note <small>{date(printer.printerNoteAt)}</small></h2>
+					<p class="note">{printer.printerNote || 'Note cleared at the printer.'}</p>
+				</section>{/if}
 		</section>
 		{#key printer.id}<PrinterHistory id={printer.id} />{/key}
 	{/if}
 </main>
 
 <style>
+	.started {
+		font-size: 0.8rem;
+		color: #66707c;
+	}
+	:global(.dark) .started {
+		color: #aab3c0;
+	}
+	.machine-error {
+		margin-top: 0.7rem;
+		border-left: 3px solid #a12a37;
+		padding: 0.5rem 0.75rem;
+	}
+	.machine-error h2 {
+		font-size: 0.9rem;
+		font-weight: 650;
+	}
+	.machine-error p {
+		font-size: 0.85rem;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.notes small {
+		font-weight: 400;
+		font-size: 0.75rem;
+		margin-left: 0.4rem;
+	}
 	main {
 		max-width: 1600px;
 		margin: 0 auto;
@@ -170,11 +205,6 @@
 		margin-top: 0.4rem;
 		font-size: 0.9rem;
 		overflow-wrap: anywhere;
-	}
-	.edit {
-		border: 1px solid #cdd1d6;
-		border-radius: 0.4rem;
-		padding: 0.45rem 1rem;
 	}
 	.summary {
 		border: 1px solid #dfe2e6;

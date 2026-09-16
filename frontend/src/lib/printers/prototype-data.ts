@@ -19,6 +19,9 @@ export type Printer = {
 	activity: Activity;
 	note?: string;
 	nextAction?: string;
+	printerNote?: string;
+	printerNoteAt?: string;
+	fault?: string;
 	minutes?: number;
 	progress?: number;
 	stale?: boolean;

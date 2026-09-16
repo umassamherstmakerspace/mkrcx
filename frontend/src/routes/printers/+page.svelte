@@ -123,7 +123,6 @@
 			<span class="sample-label">{staffView ? 'Staff view' : 'Public view'}</span>
 		</div>
 	</header>
-	{#if staffView}<a href="/printers/manage">Edit fleet</a>{/if}
 	{#if disconnected}<div class="connection-banner" role="status">
 			<strong>Updates unavailable</strong> Live activity and finish estimates cannot be confirmed. Saved
 			conditions and notes remain visible.
@@ -265,6 +264,10 @@
 						>
 						<td class="table-note"
 							>{printer.note ?? ''}
+							{#if staffView && printer.printerNoteAt}<p class="next-action">
+									<strong>Printer note:</strong>
+									{printer.printerNote || 'Cleared at printer.'}
+								</p>{/if}
 							{#if staffView && printer.nextAction}<p class="next-action">
 									<strong>Next:</strong>
 									{printer.nextAction}
@@ -357,6 +360,10 @@
 						<strong>Next:</strong>
 						{printer.nextAction}
 					</p>{/if}
+				{#if staffView && printer.printerNoteAt}<p class="mobile-note table-note">
+						<strong>Printer note:</strong>
+						{printer.printerNote || 'Cleared at printer.'}
+					</p>{/if}
 
 				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"
 						>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
@@ -384,8 +391,8 @@
 		display: inline-flex;
 		justify-content: center;
 		align-items: center;
-		width: 1.8rem;
-		height: 2rem;
+		width: 16px;
+		height: 20px;
 		flex-shrink: 0;
 		border-radius: 0.25rem;
 		vertical-align: middle;
@@ -406,9 +413,8 @@
 		border-radius: 3px;
 	}
 	.quick-row td {
-		background: rgba(100, 110, 120, 0.04);
-		padding-top: 0;
-		padding-bottom: 0;
+		background: var(--paper);
+		padding: 0;
 	}
 	.record-context {
 		display: block;

@@ -31,6 +31,7 @@ type PrinterRecord struct {
 	HistorySyncedAt     *time.Time `json:"-"`
 	FetchedAt           *time.Time `json:"-"`
 	Telemetry           string     `gorm:"type:text" json:"-"`
+	ObservedFault       string     `gorm:"type:text" json:"-"`
 }
 
 // PrinterStates projects legacy combined states without changing historical snapshots.
