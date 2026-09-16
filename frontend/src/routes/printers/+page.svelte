@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import PrinterQuickView from '$lib/printers/PrinterQuickView.svelte';
 	import {
 		activityLabels,
 		activityState,
@@ -21,6 +22,12 @@
 	} from '$lib/printers/fleet-view';
 	let printers: Printer[] = [];
 	let staffView = false;
+	let expanded = new Set<string>();
+	function toggle(id: string) {
+		if (expanded.has(id)) expanded.delete(id);
+		else expanded.add(id);
+		expanded = new Set(expanded);
+	}
 	let filters: FleetFilters = { ...defaultFilters };
 	let disconnected = true;
 	let fetchedAt: string | null = null;
@@ -120,7 +127,7 @@
 			<span class="sample-label">{staffView ? 'Staff view' : 'Public view'}</span>
 		</div>
 	</header>
-	{#if staffView}<a href="/printers/manage">Manage printer records</a>{/if}
+	{#if staffView}<a href="/printers/manage">Edit fleet</a>{/if}
 	{#if disconnected}<div class="connection-banner" role="status">
 			<strong>Updates unavailable</strong> Live activity and finish estimates cannot be confirmed. Saved
 			conditions and notes remain visible.
@@ -236,11 +243,21 @@
 						class:row-stale={disconnected || printer.stale || printer.condition === 'unknown'}
 					>
 						<th scope="row">
-							{#if staffView}<a
-									class="printer-link"
-									href={`/printers/${encodeURIComponent(printer.id)}`}
-									><span class="table-name">{printer.name}</span></a
-								>{:else}<span class="table-name">{printer.name}</span>{/if}
+							<div class="identity-row">
+								{#if staffView}<button
+										class="expand"
+										type="button"
+										aria-label={`Quick view: ${printer.name}`}
+										aria-expanded={expanded.has(printer.id)}
+										on:click={() => toggle(printer.id)}
+										><span aria-hidden="true">{expanded.has(printer.id) ? '⌄' : '›'}</span></button
+									>{/if}
+								{#if staffView}<a
+										class="printer-link"
+										href={`/printers/${encodeURIComponent(printer.id)}`}
+										><span class="table-name">{printer.name}</span></a
+									>{:else}<span class="table-name">{printer.name}</span>{/if}
+							</div>
 						</th>
 						<td class="table-model">{printer.model}</td>
 						<td
@@ -278,6 +295,9 @@
 								>{/if}
 						</td>
 					</tr>
+					{#if staffView && expanded.has(printer.id)}<tr class="quick-row"
+							><td colspan="6"><PrinterQuickView {printer} /></td></tr
+						>{/if}
 				{:else}<tr
 						><td colspan="6" class="table-empty"
 							><p>
@@ -310,6 +330,14 @@
 				class:row-stale={disconnected || printer.stale || printer.condition === 'unknown'}
 			>
 				<div class="mobile-primary">
+					{#if staffView}<button
+							class="expand"
+							type="button"
+							aria-label={`Quick view: ${printer.name}`}
+							aria-expanded={expanded.has(printer.id)}
+							on:click={() => toggle(printer.id)}
+							><span aria-hidden="true">{expanded.has(printer.id) ? '⌄' : '›'}</span></button
+						>{/if}
 					{#if staffView}<a
 							class="printer-link mobile-printer-link"
 							href={`/printers/${encodeURIComponent(printer.id)}`}
@@ -350,6 +378,7 @@
 				{#if printer.lastSeen && (!printer.connected || printer.stale)}<small class="record-context"
 						>Last seen {new Date(printer.lastSeen).toLocaleString()}</small
 					>{/if}
+				{#if staffView && expanded.has(printer.id)}<PrinterQuickView {printer} />{/if}
 			</article>
 		{:else}<div class="mobile-empty">
 				<p>
@@ -372,6 +401,29 @@
 </main>
 
 <style>
+	.expand {
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
+		width: 1.8rem;
+		height: 2rem;
+		font-size: 1.3rem;
+		flex-shrink: 0;
+		border-radius: 0.25rem;
+		vertical-align: middle;
+	}
+	.expand:hover {
+		background: rgba(100, 110, 120, 0.12);
+	}
+	.expand:focus-visible {
+		outline: 2px solid #881c1c;
+		outline-offset: 2px;
+	}
+	.quick-row td {
+		background: rgba(100, 110, 120, 0.04);
+		padding-top: 0;
+		padding-bottom: 0;
+	}
 	.record-context {
 		display: block;
 		font-size: 0.72rem;
@@ -651,13 +703,19 @@
 		color: var(--red);
 	}
 	.printer-link {
+		flex: 1;
+		min-width: 0;
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
 		text-align: left;
 		margin: -5px 0;
 		padding: 5px 0;
-		width: 100%;
+		width: auto;
+	}
+	.identity-row {
+		display: flex;
+		align-items: center;
 	}
 	.printer-link:hover .table-name {
 		text-decoration: underline;

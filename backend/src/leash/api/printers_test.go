@@ -133,6 +133,65 @@ func TestPrinterShelvingAndHistorySurviveOffline(t *testing.T) {
 	}
 }
 
+func TestPrinterHistoryEnrichmentPreservesEventsAndPrivacy(t *testing.T) {
+	app, db := printerTestApp(t)
+	printerRequest(t, app, "PUT", "/records/enrichment", editFor("Enrichment"), "")
+	now := time.Now().UTC()
+	event := models.PrinterHistoryEvent{SourceID: "station:job:40", PrinterID: "enrichment", RecordedAt: now.Add(-time.Hour), EventType: "printer_completed", File: "private.gcode", Detail: "Print duration: 125 min"}
+	snapshot := printerSnapshot{FetchedAt: now, Printers: []printerReading{{ID: "enrichment", Condition: "working", Activity: "idle"}}, History: []models.PrinterHistoryEvent{event}}
+	send := func() {
+		t.Helper()
+		if status, _ := printerRequest(t, app, "POST", "/printer-fleet/ingest", snapshot, "test-collector"); status != 204 {
+			t.Fatal(status)
+		}
+	}
+	send()
+	duration := 7510.0
+	snapshot.History[0].Person = "Private student"
+	snapshot.History[0].DurationSeconds = &duration
+	send()
+	send()
+	var stored models.PrinterHistoryEvent
+	db.First(&stored, "source_id = ?", event.SourceID)
+	if stored.Person != "Private student" || stored.DurationSeconds == nil || *stored.DurationSeconds != duration || stored.Detail != event.Detail {
+		t.Fatal("metadata not enriched safely", stored)
+	}
+	var count int64
+	db.Model(&models.PrinterHistoryEvent{}).Count(&count)
+	if count != 1 {
+		t.Fatal("duplicate event", count)
+	}
+	snapshot.History[0].Person = "Replacement name"
+	send()
+	db.First(&stored, "source_id = ?", event.SourceID)
+	if stored.Person != "Private student" {
+		t.Fatal("overwrote populated metadata")
+	}
+	_, public := printerRequest(t, app, "GET", "/printer-fleet", nil, "")
+	body, _ := json.Marshal(public)
+	if bytes.Contains(body, []byte("Private student")) || bytes.Contains(body, []byte("private.gcode")) {
+		t.Fatal("job data leaked publicly")
+	}
+	_, history := printerRequest(t, app, "GET", "/history/enrichment", nil, "")
+	job := history["events"].([]interface{})[0].(map[string]interface{})
+	if job["person"] != "Private student" || job["durationSeconds"] != duration {
+		t.Fatal("staff history missing job metadata")
+	}
+	// A colliding source ID cannot enrich a different event.
+	snapshot.History[0].SourceID = "station:job:41"
+	snapshot.History[0].Person = ""
+	snapshot.History[0].DurationSeconds = nil
+	send()
+	snapshot.History[0].Person = "Wrong job"
+	snapshot.History[0].RecordedAt = now.Add(-2 * time.Hour)
+	send()
+	var collision models.PrinterHistoryEvent
+	db.First(&collision, "source_id = ?", "station:job:41")
+	if collision.Person != "" {
+		t.Fatal("enriched mismatched event")
+	}
+}
+
 func TestPrinterNotesSurviveOfflineRestartAndStaleTelemetry(t *testing.T) {
 	app, db := printerTestApp(t)
 	edit := editFor("Replacement")

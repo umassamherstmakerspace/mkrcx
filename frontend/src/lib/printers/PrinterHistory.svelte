@@ -43,22 +43,26 @@
 			{#each items.slice(0, shown) as item (item.id)}
 				<li class={item.kind}>
 					<span class="marker" aria-hidden="true"
-						>{item.kind === 'note'
-							? '✎'
-							: item.kind === 'error'
-								? '!'
-								: item.kind === 'job'
-									? '▸'
-									: '·'}</span
+						>{item.icon ??
+							(item.kind === 'note'
+								? '✎'
+								: item.kind === 'error'
+									? '!'
+									: item.kind === 'job'
+										? '✓'
+										: '·')}</span
 					>
 					<article>
 						<div class="entry-heading">
 							<h3>{item.title}</h3>
 							<time datetime={item.recordedAt}>{date(item.recordedAt)}</time>
 						</div>
-						<p class="source" title={item.actor}>{item.source}</p>
-						{#if item.file || item.material}<p class="file">
-								{[item.file, item.material].filter(Boolean).join(' · ')}
+						{#if item.source}<p class="source" title={item.actor}>{item.source}</p>{/if}
+						{#if item.file}<p class="file">{item.file}</p>{/if}
+						{#if item.file || item.person || item.material || item.duration}<p class="metadata">
+								{[item.person || 'User not recorded', item.material, item.duration]
+									.filter(Boolean)
+									.join(' · ')}
 							</p>{/if}
 						{#if item.text}<p class="text">{item.text}</p>{/if}
 						{#each item.changes ?? [] as change}<p class="change-line">{change}</p>{/each}
@@ -74,7 +78,7 @@
 
 <style>
 	.history {
-		margin-top: 2rem;
+		margin-top: 1.4rem;
 		width: 100%;
 	}
 	.heading {
@@ -109,8 +113,8 @@
 	li {
 		display: grid;
 		grid-template-columns: 1.5rem minmax(0, 1fr);
-		gap: 0.7rem;
-		padding: 0.9rem 0;
+		gap: 0.5rem;
+		padding: 0.5rem 0;
 		border-bottom: 1px solid #e5e7eb;
 	}
 	.marker {
@@ -145,7 +149,8 @@
 		margin: 0.15rem 0 0.3rem;
 		overflow-wrap: anywhere;
 	}
-	.file {
+	.file,
+	.metadata {
 		font-size: 0.8rem;
 		color: #505966;
 		overflow-wrap: anywhere;
@@ -155,18 +160,18 @@
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 		font-size: 0.9rem;
-		line-height: 1.5;
-		margin-top: 0.3rem;
+		line-height: 1.35;
+		margin-top: 0.15rem;
 	}
 	.note article {
 		background: #f5f3ed;
 		border-radius: 0.45rem;
-		padding: 0.85rem 1rem;
+		padding: 0.5rem 0.7rem;
 	}
 	.note .marker {
 		background: #eee8d7;
 		color: #786333;
-		margin-top: 0.8rem;
+		margin-top: 0.4rem;
 	}
 	.error .marker {
 		background: #fde9ec;
@@ -199,6 +204,7 @@
 	:global(.dark) .source,
 	:global(.dark) time,
 	:global(.dark) .file,
+	:global(.dark) .metadata,
 	:global(.dark) .empty {
 		color: #aab3c0;
 	}

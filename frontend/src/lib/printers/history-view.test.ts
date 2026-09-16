@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { historyItems, type PrinterEdit, type PrinterHistoryData } from './history-view';
+import {
+	historyItems,
+	printDuration,
+	type PrinterEdit,
+	type PrinterHistoryData
+} from './history-view';
 
 const edit: PrinterEdit = {
 	recordedAt: '2026-09-14T12:00:00Z',
@@ -18,6 +23,53 @@ const history = (
 ): PrinterHistoryData => ({ edits, events, lastSync: null });
 
 describe('printer timeline', () => {
+	it('shows outcomes with user and duration, and hides historical starts', () => {
+		const base = { recordedAt: edit.recordedAt, detail: '', file: 'part.gcode' };
+		const items = historyItems(
+			history(
+				[],
+				[
+					{ ...base, sourceId: 'start', eventType: 'started' },
+					{
+						...base,
+						sourceId: 'done',
+						eventType: 'printer_completed',
+						person: 'Fixture user',
+						material: 'PLA',
+						durationSeconds: 7510
+					}
+				]
+			)
+		);
+		expect(items).toHaveLength(1);
+		expect(items[0]).toMatchObject({
+			title: 'Print completed',
+			person: 'Fixture user',
+			duration: '2 hr 5 min',
+			icon: '✓',
+			source: ''
+		});
+	});
+	it('formats old duration-only entries without repeating their minute count', () => {
+		const item = historyItems(
+			history(
+				[],
+				[
+					{
+						sourceId: 'legacy',
+						recordedAt: edit.recordedAt,
+						eventType: 'printer_cancelled',
+						detail: 'Print duration: 125 min'
+					}
+				]
+			)
+		)[0];
+		expect(item).toMatchObject({ duration: '2 hr 5 min', text: '', icon: '×' });
+		expect(printDuration(undefined)).toBeUndefined();
+		expect(printDuration(0)).toBe('0 sec');
+		expect(printDuration(3600)).toBe('1 hr');
+		expect(printDuration(61)).toBe('1 min');
+	});
 	it('merges notes and automatic events in time order, independently of input order', () => {
 		const items = historyItems(
 			history(
@@ -39,7 +91,7 @@ describe('printer timeline', () => {
 			text: 'Fan replaced',
 			changes: []
 		});
-		expect(items[1]).toMatchObject({ kind: 'error', source: 'Automatic', text: 'Fan failure' });
+		expect(items[1]).toMatchObject({ kind: 'error', source: 'Klipper', text: 'Fan failure' });
 	});
 	it('describes a lineup change without repeating an unchanged repair note', () => {
 		const items = historyItems(

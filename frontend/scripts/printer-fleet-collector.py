@@ -77,6 +77,12 @@ def read_printer(entry, runtime, active):
         observed_macs = {str(value.get("mac_address", "")).lower() for value in system.get("network", {}).values()}
         if expected_mac not in observed_macs:
             raise ValueError("printer identity mismatch")
+        info = get_json(host, "/printer/info").get("result", {})
+        if info.get('state') in ('error', 'shutdown'):
+            message = info.get('state_message')
+            if isinstance(message, str):
+                base['fault'] = ''.join(c for c in message if ord(c) >= 32 or c in '\n\t')[:4000]
+            return base
         stats = get_json(host, "/printer/objects/query?print_stats&virtual_sdcard").get("result", {}).get("status", {})
         print_stats = stats.get("print_stats", {})
         state = print_stats.get("state")

@@ -142,7 +142,7 @@ func printerStaffHistory(c *fiber.Ctx) error {
 	}
 	var events []models.PrinterHistoryEvent
 	var edits []models.PrinterRecordEvent
-	if err := db.Where("printer_id = ?", record.ID).Order("recorded_at DESC, source_id DESC").Limit(100).Find(&events).Error; err != nil {
+	if err := db.Where("printer_id = ? AND event_type <> ?", record.ID, "started").Order("recorded_at DESC, source_id DESC").Limit(100).Find(&events).Error; err != nil {
 		return fiber.ErrInternalServerError
 	}
 	if err := db.Where("printer_id = ?", record.ID).Order("id DESC").Limit(50).Find(&edits).Error; err != nil {
@@ -336,6 +336,9 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 		return fiber.ErrRequestEntityTooLarge
 	}
 	for _, event := range snapshot.History {
+		if !printerText(event.Person, 200) || (event.DurationSeconds != nil && (*event.DurationSeconds < 0 || *event.DurationSeconds > 31536000)) {
+			return fiber.NewError(400, "Invalid printer job details")
+		}
 		if !printerIDPattern.MatchString(event.PrinterID) || !printerText(event.SourceID, 160) || !strings.HasPrefix(event.SourceID, "station:") || !printerText(event.EventType, 80) || event.EventType == "" || !printerText(event.Detail, 4000) || !printerText(event.File, 1000) || !printerText(event.Material, 120) || event.RecordedAt.IsZero() || event.RecordedAt.After(now.Add(5*time.Second)) {
 			return fiber.NewError(400, "Invalid printer history event")
 		}
@@ -393,6 +396,19 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 			}
 			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&event).Error; err != nil {
 				return err
+			}
+			// Older projections omitted these fields. Fill missing metadata only, and
+			// require the same printer, type and timestamp before enriching an event.
+			match := tx.Model(&models.PrinterHistoryEvent{}).Where("source_id = ? AND printer_id = ? AND event_type = ? AND recorded_at = ?", event.SourceID, event.PrinterID, event.EventType, event.RecordedAt)
+			if event.Person != "" {
+				if err := match.Where("person IS NULL OR person = ''").UpdateColumn("person", event.Person).Error; err != nil {
+					return err
+				}
+			}
+			if event.DurationSeconds != nil {
+				if err := tx.Model(&models.PrinterHistoryEvent{}).Where("source_id = ? AND printer_id = ? AND event_type = ? AND recorded_at = ? AND duration_seconds IS NULL", event.SourceID, event.PrinterID, event.EventType, event.RecordedAt).UpdateColumn("duration_seconds", *event.DurationSeconds).Error; err != nil {
+					return err
+				}
 			}
 		}
 		if snapshot.History != nil {

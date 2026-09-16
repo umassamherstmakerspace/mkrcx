@@ -130,7 +130,7 @@
 
 <style>
 	main {
-		max-width: 52rem;
+		max-width: 1600px;
 		margin: 0 auto;
 		padding: 2rem 1.25rem 4rem;
 		color: #252b35;
@@ -149,7 +149,7 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 1rem;
-		margin: 2rem 0 1.5rem;
+		margin: 1.25rem 0 1rem;
 	}
 	header > div {
 		min-width: 0;

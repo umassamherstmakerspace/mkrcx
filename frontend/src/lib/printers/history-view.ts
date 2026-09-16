@@ -6,6 +6,8 @@ export type PrinterEvent = {
 	detail: string;
 	file?: string;
 	material?: string;
+	person?: string;
+	durationSeconds?: number;
 };
 export type PrinterEdit = {
 	recordedAt: string;
@@ -35,7 +37,20 @@ export type HistoryItem = {
 	changes?: string[];
 	file?: string;
 	material?: string;
+	person?: string;
+	duration?: string;
+	icon?: string;
 };
+
+export function printDuration(seconds: number | undefined): string | undefined {
+	if (seconds === undefined || !Number.isFinite(seconds) || seconds < 0) return undefined;
+	if (seconds < 60) return `${Math.round(seconds)} sec`;
+	const minutes = Math.round(seconds / 60);
+	const hours = Math.floor(minutes / 60);
+	return [hours ? `${hours} hr` : '', minutes % 60 ? `${minutes % 60} min` : '']
+		.filter(Boolean)
+		.join(' ');
+}
 
 const labels: Record<string, string> = {
 	working: 'Working',
@@ -62,26 +77,40 @@ const eventLabels: Record<string, string> = {
 };
 
 function eventItem(event: PrinterEvent): HistoryItem {
+	const legacyDuration = event.detail.match(/(?:^|\n)Print duration: (\d+) min(?:\n|$)/);
+	const detail = event.detail.replace(/(?:^|\n)Print duration: \d+ min(?=\n|$)/, '').trim();
 	const item: HistoryItem = {
 		id: `event:${event.sourceId}`,
 		recordedAt: event.recordedAt,
 		kind:
 			event.eventType === 'printer_error' || event.eventType === 'printer_failed' ? 'error' : 'job',
 		title: eventLabels[event.eventType] ?? event.eventType.replaceAll('_', ' '),
-		source: 'Automatic',
+		source: event.eventType === 'printer_error' ? 'Klipper' : '',
 		file: event.file,
 		material: event.material,
+		person: event.person,
+		duration: printDuration(
+			event.durationSeconds ?? (legacyDuration ? Number(legacyDuration[1]) * 60 : undefined)
+		),
+		icon:
+			event.eventType === 'printer_completed'
+				? '✓'
+				: event.eventType === 'printer_cancelled'
+					? '×'
+					: '!',
 		text:
-			event.detail === 'The station recorded a failed print without an error message.'
+			detail === 'The station recorded a failed print without an error message.'
 				? 'No error message recorded.'
-				: event.detail
+				: detail
 	};
 	if (['staff_runtime_changed', 'printer_runtime_changed'].includes(event.eventType)) {
 		const condition = event.detail.match(/^Condition: ([^\n]*)/);
 		const note = event.detail.match(/(?:^|\n)Note: ([\s\S]*)/);
 		item.kind = note?.[1] ? 'note' : 'change';
 		item.title = note?.[1] ? 'Note & condition' : 'Condition updated';
-		item.source = event.eventType === 'staff_runtime_changed' ? 'Staff · Printer' : 'Automatic';
+		item.source =
+			event.eventType === 'staff_runtime_changed' ? 'Staff · Printer' : 'Printer station';
+		item.icon = undefined;
 		item.text = note ? note[1] : condition ? undefined : event.detail;
 		item.changes = condition ? [`Condition: ${label(condition[1])}`] : [];
 	}
@@ -92,7 +121,9 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 	const edits = (history.edits ?? [])
 		.map((edit) => ({ ...edit, ...printerStates(edit) }))
 		.sort((a, b) => a.version - b.version);
-	const items = (history.events ?? []).map(eventItem);
+	const items = (history.events ?? [])
+		.filter((event) => event.eventType !== 'started')
+		.map(eventItem);
 	for (let i = 0; i < edits.length; i++) {
 		const edit = edits[i];
 		// The API returns a bounded window. Only compare consecutive saved versions.

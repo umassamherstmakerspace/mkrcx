@@ -33,6 +33,39 @@ and recovery/authentication logs are deferred.
 
 ## Deployed release and verification
 
+### September 16 feedback iteration (candidate)
+
+- Restore a short, separate quick-view button alongside each staff printer name link, on desktop
+  and mobile. Keep history on the detail page. Rename the fleet editor action to “Edit fleet.”
+- Widen the detail page to the fleet page's 1600 px limit. Compact history rows, remove the vague
+  “Automatic” label, use outcome icons, and omit starts from displayed history. Current activity
+  stays at the top. Job outcomes include the station's saved user and typed duration; old
+  minute-only durations remain readable as hours/minutes. Missing users are stated explicitly.
+- The additive history fields `person` and `duration_seconds` are staff-only. Repeated collection
+  fills missing values on the same immutable source event without replacing existing metadata or
+  changing its timestamp, type, details, or identity. Stored starts are retained but excluded from
+  the bounded staff response so they do not crowd out outcomes.
+- Collector also reads Klipper error/shutdown `state_message` before querying print statistics,
+  following [Moonraker's printer info API](https://moonraker.readthedocs.io/en/latest/external_api/printer/).
+  This covers shutdowns where the print-statistics query is unavailable. It is observation only.
+- Laurie was updated in the staging database with the existing staging-only operator credentials:
+  version 2, actor `operator:codex`, Shelved + Testing, location “Repair bench,” note
+  “Awaiting follow-up on toolhead cable-chain cabling repair.” Condition remains Unknown.
+  The guarded transaction added the normal immutable record-history snapshot. Local before-image:
+  `.scratch/printer-laurie-before.json`; the public fleet now has 15 printers, with Laurie retained
+  in the staff Shelved filter. No seed or production record was changed.
+- Verification: complete Go suite, 119 frontend tests, 12 collector tests, Svelte checks (0 errors,
+  0 warnings), affected lint and production build passed. Synthetic desktop and 390 px mobile
+  checks verified separate expansion/link navigation, outcome-only history, user/duration/error
+  rendering and no horizontal overflow. Desktop ordinary job entries measured 77 px high.
+- Remaining: deploy these UI/backend images; install the collector update when the central Pi is
+  reachable. Direct and staging-server-jump SSH to `192.168.1.235` both timed out in this iteration.
+  Do not claim live history user/duration enrichment or shutdown collection until installed and
+  read back. Ship's-log summaries, maintenance records and hours since maintenance remain pending;
+  they require source-linked records and trustworthy duration coverage, not placeholder totals.
+
+### Previous deployed state-model release
+
 - Both components use source `e86e919b4a26d7f34868eccffa7cdb443bcb5c9b`,
   [successful build](https://github.com/umassamherstmakerspace/mkrcx/actions/runs/35114028801).
   Backend: `ghcr.io/umassamherstmakerspace/mkrcx-leash@sha256:688727eaa1964bfffc2f79aa4b167c62d878c14ff9d8ad8d91fe39207134ca64`.

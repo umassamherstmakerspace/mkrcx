@@ -23,11 +23,11 @@ class RegistryCollectorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'station.sqlite'
             db=sqlite3.connect(path)
-            db.executescript('''CREATE TABLE requests(id TEXT,printer_id TEXT,file_name TEXT,filament_type TEXT);
+            db.executescript('''CREATE TABLE requests(id TEXT,printer_id TEXT,file_name TEXT,filament_type TEXT,user_display TEXT);
                 CREATE TABLE events(id INTEGER,request_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);
                 CREATE TABLE printer_runtime_events(id INTEGER,printer_id TEXT,event_type TEXT,created_at TEXT,payload_json TEXT);''')
-            db.execute('INSERT INTO requests VALUES (?,?,?,?)',('job','replacement','part.gcode','PLA'))
-            db.execute('INSERT INTO events VALUES (?,?,?,?,?)',(10,'job','printer_failed','2026-09-15T12:00:00Z',json.dumps({'message':'Heater fault','accessRef':'secret-access','token':'secret-token'})))
+            db.execute('INSERT INTO requests VALUES (?,?,?,?,?)',('job','replacement','part.gcode','PLA','Fixture user'))
+            db.execute('INSERT INTO events VALUES (?,?,?,?,?)',(10,'job','printer_failed','2026-09-15T12:00:00Z',json.dumps({'message':'Heater fault','printDurationSeconds':7510,'accessRef':'secret-access','token':'secret-token'})))
             db.execute('INSERT INTO printer_runtime_events VALUES (?,?,?,?,?)',(20,'replacement','staff_runtime_changed','2026-09-15T12:01:00Z',json.dumps({'newCondition':'out_of_service','newNote':'Fan failed','accessRef':'secret-access'})))
             db.commit(); db.close()
             history=COLLECTOR.read_history(['replacement'],path)
@@ -35,7 +35,23 @@ class RegistryCollectorTests(unittest.TestCase):
             self.assertIn('Heater fault',json.dumps(history))
             self.assertIn('Fan failed',json.dumps(history))
             self.assertNotIn('secret-',json.dumps(history))
+            job=next(event for event in history if event['eventType']=='printer_failed')
+            self.assertEqual(job['person'],'Fixture user')
+            self.assertEqual(job['durationSeconds'],7510)
+            self.assertEqual(job['detail'],'Heater fault')
             self.assertEqual(history,COLLECTOR.read_history(['replacement'],path))
+
+    def test_shutdown_message_survives_unavailable_print_stats(self):
+        def get(host, route):
+            if route == '/machine/system_info':
+                return {'result':{'system_info':{'network':{'eth0':{'mac_address':self.record['mac']}}}}}
+            if route == '/printer/info':
+                return {'result':{'state':'shutdown','state_message':'MCU shutdown: Heater not heating'}}
+            raise AssertionError('Do not query unavailable print stats')
+        with patch.object(COLLECTOR.OBSERVER,'get_json',side_effect=get):
+            reading=COLLECTOR.OBSERVER.read_printer(('replacement',self.record['host'],self.record['mac']),{}, {})
+        self.assertEqual(reading['fault'],'MCU shutdown: Heater not heating')
+        self.assertEqual(reading['activity'],'unknown')
 
     def setUp(self):
         self.record = {"id": "replacement", "host": "192.168.1.160", "mac": "fc:ee:28:00:30:aa"}

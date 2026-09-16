@@ -94,9 +94,9 @@ def read_history(ids, path=None):
     result = []
     try:
         for printer_id in ids:
-            jobs = db.execute('''SELECT e.id,e.event_type,e.created_at,e.payload_json,r.file_name,r.filament_type
+            jobs = db.execute('''SELECT e.id,e.event_type,e.created_at,e.payload_json,r.file_name,r.filament_type,r.user_display
                 FROM events e JOIN requests r ON r.id=e.request_id
-                WHERE r.printer_id=? AND e.event_type IN ('started','printer_completed','printer_cancelled','printer_failed')
+                WHERE r.printer_id=? AND e.event_type IN ('printer_completed','printer_cancelled','printer_failed')
                 ORDER BY e.id DESC LIMIT 30''', (printer_id,)).fetchall()
             changes = db.execute('''SELECT id,event_type,created_at,payload_json FROM printer_runtime_events
                 WHERE printer_id=? AND event_type IN ('staff_runtime_changed','printer_runtime_changed')
@@ -113,15 +113,15 @@ def read_history(ids, path=None):
                         for key in ('message','error','detail'):
                             value = clean_text(payload.get(key), 2000)
                             if value: details.append(value)
-                        duration = payload.get('printDurationSeconds')
-                        if isinstance(duration, (int,float)) and 0 <= duration <= 31536000:
-                            details.append(f'Print duration: {round(duration / 60)} min')
                         if row['event_type'] == 'printer_failed' and not any(clean_text(payload.get(k),2000) for k in ('message','error','detail')):
                             details.append('The station recorded a failed print without an error message.')
                     event = {'sourceId':f'station:{source}:{row["id"]}', 'printerId':printer_id,
                         'recordedAt':row['created_at'],'eventType':row['event_type'],'detail':clean_text('\n'.join(details),4000)}
                     if source == 'job':
-                        event.update(file=clean_text(row['file_name'],1000),material=clean_text(row['filament_type'],120))
+                        event.update(file=clean_text(row['file_name'],1000),material=clean_text(row['filament_type'],120),person=clean_text(row['user_display'],200))
+                        duration = payload.get('printDurationSeconds')
+                        if isinstance(duration, (int,float)) and not isinstance(duration,bool) and 0 <= duration <= 31536000:
+                            event['durationSeconds'] = duration
                     result.append(event)
     finally:
         db.close()
