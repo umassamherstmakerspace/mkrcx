@@ -71,7 +71,7 @@
 			<p class="usage">
 				<strong>Recorded print time: {printDuration(history.usage.seconds)}</strong> · {history
 					.usage.jobs} prints recorded{#if history.usage.firstOutcome}
-					since {new Date(history.usage.firstOutcome).toLocaleDateString(undefined, {
+					{' '}since {new Date(history.usage.firstOutcome).toLocaleDateString(undefined, {
 						year: 'numeric',
 						month: 'short',
 						day: 'numeric'
