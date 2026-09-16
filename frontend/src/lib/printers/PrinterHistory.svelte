@@ -9,6 +9,20 @@
 	let request: AbortController | null = null;
 	let shown = 10;
 	let filter = 'all';
+	let results: HTMLOListElement;
+	let minResultsHeight = 0;
+	function selectFilter(next: string) {
+		if (next === filter) return;
+		let scroller: HTMLElement | null = results.parentElement;
+		while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+			scroller = scroller.parentElement;
+		}
+		// A short result list must not collapse the page beneath the current viewport.
+		const bottom = scroller?.getBoundingClientRect().bottom ?? window.innerHeight;
+		minResultsHeight = Math.max(0, bottom - results.getBoundingClientRect().top);
+		filter = next;
+		shown = 10;
+	}
 	$: items = history ? historyItems(history) : [];
 	$: visible = items.filter(
 		(item) => filter === 'all' || (filter === 'prints' ? item.printOutcome : item.kind !== 'job')
@@ -87,13 +101,10 @@
 					class:active={filter === view.id}
 					type="button"
 					aria-pressed={filter === view.id}
-					on:click={() => {
-						filter = view.id;
-						shown = 10;
-					}}>{view.label}</button
+					on:click={() => selectFilter(view.id)}>{view.label}</button
 				>{/each}
 		</div>
-		<ol>
+		<ol bind:this={results} style:min-height={`${minResultsHeight}px`}>
 			{#each visible.slice(0, shown) as item (item.id)}
 				<li class={item.kind}>
 					<span class="marker" aria-hidden="true">
@@ -130,7 +141,7 @@
 						</div>
 						{#if item.user}<p class="entry-user">User: {item.user}</p>{/if}
 						{#if item.file || item.person || item.material || item.duration}<p class="job-details">
-								{[item.file, item.person || 'User not recorded', item.material, item.duration]
+								{[item.person || 'User not recorded', item.material, item.duration, item.file]
 									.filter(Boolean)
 									.join(' · ')}
 							</p>{/if}
@@ -186,10 +197,6 @@
 		color: #881c1c;
 		text-decoration: underline;
 	}
-	.summary article {
-		border-left: 2px solid #a39470;
-		padding-left: 0.7rem;
-	}
 	:global(.dark) .sources a {
 		color: #f0a0a0;
 	}
@@ -223,6 +230,7 @@
 		background: #f5f5f5;
 	}
 	ol {
+		overflow-anchor: none;
 		list-style: none;
 		padding: 0;
 		margin: 0;
@@ -283,16 +291,6 @@
 		line-height: 1.35;
 		margin-top: 0.15rem;
 	}
-	.note article {
-		background: #f5f3ed;
-		border-radius: 0.45rem;
-		padding: 0.5rem 0.7rem;
-	}
-	.note .marker {
-		background: #eee8d7;
-		color: #786333;
-		margin-top: 0.4rem;
-	}
 	.error .marker {
 		background: #fde9ec;
 		color: #971b25;
@@ -327,15 +325,7 @@
 	:global(.dark) .empty {
 		color: #aab3c0;
 	}
-	:global(.dark) .note article {
-		background: #303027;
-	}
 	:global(.dark) .error .text {
 		background: #39282b;
-	}
-	@media (max-width: 480px) {
-		.note article {
-			padding: 0.7rem;
-		}
 	}
 </style>
