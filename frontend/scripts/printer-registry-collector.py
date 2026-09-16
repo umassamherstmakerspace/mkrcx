@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Staging-only roster-driven observer. Install separately from the production collector."""
+"""Roster-driven observer with separate staging and production configuration."""
 import importlib.util
 import ipaddress
 import json
@@ -13,8 +13,14 @@ from pathlib import Path
 SPEC = importlib.util.spec_from_file_location("fleet_observer", Path(__file__).with_name("printer-fleet-collector.py"))
 OBSERVER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(OBSERVER)
-ROSTER = "https://leash.staging.mkr.cx/api/printer-fleet/roster"
-INGEST = "https://leash.staging.mkr.cx/api/printer-fleet/ingest"
+def registry_endpoints():
+    base = os.environ.get("PRINTER_REGISTRY_ORIGIN", "https://leash.staging.mkr.cx")
+    if base not in ("https://leash.staging.mkr.cx", "https://leash.mkr.cx"):
+        raise ValueError("Unsupported printer registry origin")
+    return base + "/api/printer-fleet/roster", base + "/api/printer-fleet/ingest"
+
+
+ROSTER, INGEST = registry_endpoints()
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -77,7 +83,7 @@ def collect(roster):
         snapshot['history'] = read_history([entry[0] for entry in roster])
     except (sqlite3.Error, OSError, ValueError):
         # A missing history source must not wipe stored history or stop status updates.
-        print('Staging history source unavailable; retaining previously collected records')
+        print('Printer history source unavailable; retaining previously collected records')
     return snapshot
 
 
@@ -155,13 +161,13 @@ def main():
     req = urllib.request.Request(INGEST, data=json.dumps(snapshot).encode(), method="POST",
         headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json"})
     with opener.open(req, timeout=15) as response:
-        if response.status != 204: raise RuntimeError("Staging ingest failed")
+        if response.status != 204: raise RuntimeError("Registry ingest failed")
     history_count = len(snapshot['history']) if 'history' in snapshot else 'unavailable'
-    print(f"Staging printer registry: {len(snapshot['printers'])} observations; history events: {history_count}")
+    print(f"Printer registry: {len(snapshot['printers'])} observations; history events: {history_count}")
 
 
 if __name__ == "__main__":
     try: main()
     except Exception as error:
-        print("Staging collector failed: " + type(error).__name__)
+        print("Registry collector failed: " + type(error).__name__)
         raise SystemExit(1)

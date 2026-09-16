@@ -12,6 +12,15 @@ SPEC.loader.exec_module(COLLECTOR)
 
 
 class RegistryCollectorTests(unittest.TestCase):
+    def test_endpoints_keep_credentials_with_the_selected_registry(self):
+        with patch.dict(COLLECTOR.os.environ, {}, clear=True):
+            self.assertEqual(COLLECTOR.registry_endpoints(), ('https://leash.staging.mkr.cx/api/printer-fleet/roster', 'https://leash.staging.mkr.cx/api/printer-fleet/ingest'))
+        with patch.dict(COLLECTOR.os.environ, {'PRINTER_REGISTRY_ORIGIN':'https://leash.mkr.cx'}):
+            self.assertEqual(COLLECTOR.registry_endpoints(), ('https://leash.mkr.cx/api/printer-fleet/roster', 'https://leash.mkr.cx/api/printer-fleet/ingest'))
+        for origin in ('http://leash.mkr.cx', 'https://example.com', 'https://leash.mkr.cx@example.com', 'https://leash.mkr.cx/other'):
+            with patch.dict(COLLECTOR.os.environ, {'PRINTER_REGISTRY_ORIGIN':origin}), self.assertRaises(ValueError):
+                COLLECTOR.registry_endpoints()
+
     def test_saved_station_note_is_collected_when_printer_is_offline(self):
         with patch.object(COLLECTOR.OBSERVER,'read_runtime',return_value=({'replacement':{'condition':'out_of_service','problem_note':'Waiting for fan','system_status':'unavailable'}},{})), patch.object(COLLECTOR.OBSERVER,'read_printer',return_value={'id':'replacement','condition':'unknown','activity':'unknown'}), patch.object(COLLECTOR,'read_history',return_value=[]):
             snapshot=COLLECTOR.collect([('replacement','192.168.1.160','fc:ee:28:00:30:aa')])
