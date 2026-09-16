@@ -90,8 +90,10 @@
 						: 'Updates unavailable'}{#if printer.lastSeen}
 						· Last seen {date(printer.lastSeen)}{/if}
 				</p>
+			{:else if activityState(printer) === 'idle'}
+				<p class="idle">Idle</p>
 			{/if}
-			{#if !printer.stale && ['printing', 'paused'].includes(printer.activity)}
+			{#if ['printing', 'paused'].includes(activityState(printer))}
 				<section class="current" aria-label="Current print">
 					{#if printer.job?.file}<p class="file">{printer.job.file}</p>{/if}
 					{#if printer.job}<p>
@@ -99,7 +101,7 @@
 						</p>{/if}
 					<div class="progress">
 						{#if printer.activity === 'paused'}<strong>Paused</strong
-							>{:else if printer.progress === undefined && printer.minutes === undefined}<span
+							>{:else if !printer.job?.file && !printer.job?.person && !printer.job?.material && printer.progress === undefined && printer.minutes === undefined}<span
 								>Printing</span
 							>{/if}
 						{#if printer.progress !== undefined}<progress
@@ -187,6 +189,10 @@
 		font-weight: 600;
 	}
 	.location {
+		margin-top: 0.4rem;
+		font-size: 0.9rem;
+	}
+	.idle {
 		margin-top: 0.4rem;
 		font-size: 0.9rem;
 	}
