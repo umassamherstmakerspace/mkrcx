@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Import reviewed source-linked printer summaries through the staff API.
+"""Import reviewed printer summaries through the staff API.
 
-Input: JSON list of {printerId, sourceId, reportDate, body, sources:[{url,label}]}.
-Use a stable standup:<printer>:<source> ID. Identical retries are safe; corrections
+Input: JSON list of {printerId, sourceId, reportDate, body}, optionally sources:[{url,label}].
+Use a stable standup:<printer>:<summary> ID, independent of any message or link.
+Summaries may combine several reports; links are supplementary. Identical retries are safe; corrections
 need a new ID. Dates are report dates, never inferred repair-completion times.
 The configured API key must have leash.printers:manage on an authorized account.
 """

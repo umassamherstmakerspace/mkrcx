@@ -23,6 +23,29 @@ const history = (
 ): PrinterHistoryData => ({ edits, events, lastSync: null });
 
 describe('printer timeline', () => {
+	it('renders composite summaries without links and preserves their author', () => {
+		for (const sources of [undefined, null, []]) {
+			const item = historyItems({
+				...history(),
+				summaries: [
+					{
+						sourceId: 'standup:fixture:composite',
+						reportDate: '2026-09-10',
+						body: 'Composite review from several reports.',
+						preparedBy: 'Codex',
+						importedAt: '2026-09-16T12:00:00Z',
+						sources
+					}
+				]
+			})[0];
+			expect(item).toMatchObject({
+				text: 'Composite review from several reports.',
+				preparedBy: 'Codex',
+				source: 'Standup',
+				links: []
+			});
+		}
+	});
 	it('keeps report dates, links and summary authors separate from repair claims', () => {
 		const items = historyItems({
 			...history(),

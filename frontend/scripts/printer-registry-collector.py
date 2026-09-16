@@ -86,9 +86,11 @@ def clean_text(value, limit):
     return ''.join(c for c in value if ord(c) >= 32 or c in '\n\t')[:limit]
 
 
-def read_history(ids, path=None, *, job_limit=30, condition_limit=20, include_identity=None):
+def read_history(ids, path=None, *, job_limit=30, condition_limit=20, include_identity=None, include_print_users=None):
     if include_identity is None:
         include_identity = os.environ.get("PRINTER_HISTORY_IDENTITY_ENABLED") == "true"
+    if include_print_users is None:
+        include_print_users = include_identity or os.environ.get("PRINTER_HISTORY_PRINT_USERS_ENABLED") == "true"
     # Normal polling stays small; a one-time backfill can read a larger retained window.
     if any(type(limit) is not int or not 1 <= limit <= 1000 for limit in (job_limit, condition_limit)):
         raise ValueError('History limits must be integers from 1 to 1000')
@@ -135,7 +137,7 @@ def read_history(ids, path=None, *, job_limit=30, condition_limit=20, include_id
                                 event['actorName'] = clean_text(payload.get('displayIdentity'),200)
                     if source == 'job':
                         event.update(file=clean_text(row['file_name'],1000),material=clean_text(row['filament_type'],120))
-                        if include_identity: event['person'] = clean_text(row['user_display'],200)
+                        if include_print_users: event['person'] = clean_text(row['user_display'],200)
                         duration = payload.get('printDurationSeconds')
                         if isinstance(duration, (int,float)) and not isinstance(duration,bool) and 0 <= duration <= 31536000:
                             event['durationSeconds'] = duration

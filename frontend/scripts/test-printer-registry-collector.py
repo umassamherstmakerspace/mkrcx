@@ -44,6 +44,11 @@ class RegistryCollectorTests(unittest.TestCase):
                 private_off=COLLECTOR.read_history(['replacement'],path)
             self.assertTrue(all('person' not in event and 'actorName' not in event and 'actorMethod' not in event for event in private_off))
 
+            with patch.dict(COLLECTOR.os.environ, {'PRINTER_HISTORY_PRINT_USERS_ENABLED':'true'}, clear=True):
+                users_only=COLLECTOR.read_history(['replacement'],path)
+            self.assertEqual(next(e for e in users_only if e['eventType']=='printer_failed')['person'],'Fixture user')
+            self.assertTrue(all('actorName' not in e and 'actorMethod' not in e for e in users_only))
+
     def test_change_projection_handles_independent_edits_clear_and_unknown(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'station.sqlite'; db=sqlite3.connect(path)
@@ -94,7 +99,7 @@ class RegistryCollectorTests(unittest.TestCase):
             for i in (2,3): self.assertNotIn('actorMethod',events[f'station:condition:{i}'])
             self.assertEqual(events['station:condition:4']['actorMethod'],'printer_api')
             with patch.dict(COLLECTOR.os.environ, {}, clear=True):
-                redacted=COLLECTOR.read_history(['replacement'],path)
+                redacted=COLLECTOR.read_history(['replacement'],path,include_print_users=True)
             self.assertTrue(all('actorName' not in event and 'actorMethod' not in event for event in redacted))
             serialized=json.dumps(events)
             for private in ('secret-','private-user-id','accessRef','cardCsn','pin"'):

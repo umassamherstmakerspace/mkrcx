@@ -1,10 +1,10 @@
 package leash_backend_api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -31,8 +31,8 @@ func importPrinterSummary(c *fiber.Ctx) error {
 	}
 	input.Body = strings.TrimSpace(input.Body)
 	report, err := time.Parse("2006-01-02", input.ReportDate)
-	if !printerIDPattern.MatchString(id) || !strings.HasPrefix(input.SourceID, "standup:") || len(input.SourceID) <= 8 || !printerText(input.SourceID, 160) || input.Body == "" || !printerText(input.Body, 4000) || err != nil || report.After(time.Now().UTC()) || len(input.Sources) == 0 || len(input.Sources) > 10 {
-		return fiber.NewError(400, "A dated summary and its sources are required")
+	if !printerIDPattern.MatchString(id) || !strings.HasPrefix(input.SourceID, "standup:") || len(input.SourceID) <= 8 || !printerText(input.SourceID, 160) || input.Body == "" || !printerText(input.Body, 4000) || err != nil || report.After(time.Now().UTC()) || len(input.Sources) > 10 {
+		return fiber.NewError(400, "A dated summary with a stable ID is required; source links are optional")
 	}
 	for _, source := range input.Sources {
 		u, err := url.Parse(source.URL)
@@ -60,9 +60,7 @@ func importPrinterSummary(c *fiber.Ctx) error {
 	if err := db.First(&stored, "source_id = ?", input.SourceID).Error; err != nil {
 		return fiber.ErrInternalServerError
 	}
-	a, _ := json.Marshal(stored.Sources)
-	b, _ := json.Marshal(input.Sources)
-	if stored.PrinterID != id || stored.ReportDate != input.ReportDate || stored.Body != input.Body || string(a) != string(b) {
+	if stored.PrinterID != id || stored.ReportDate != input.ReportDate || stored.Body != input.Body || !slices.Equal(stored.Sources, input.Sources) {
 		return fiber.NewError(409, "This source ID already has a different summary; use a new ID for a correction")
 	}
 	c.Set("Cache-Control", "private, no-store")

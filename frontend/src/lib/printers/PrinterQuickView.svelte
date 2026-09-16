@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Printer } from './prototype-data';
+	import { printRecipient } from './printer-state';
 	export let printer: Printer;
 	const started = (value: string) => {
 		const date = new Date(value);
@@ -16,7 +17,7 @@
 		<dl class="detail-fields">
 			<div>
 				<dt>Printing for</dt>
-				<dd>{printer.job.person || 'Unavailable'}</dd>
+				<dd>{printRecipient(printer.job.person) || 'Not recorded'}</dd>
 			</div>
 			<div>
 				<dt>File</dt>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Printer } from './prototype-data';
-import { activityState, matchesFleetView, printerStates } from './printer-state';
+import { activityState, matchesFleetView, printerStates, printRecipient } from './printer-state';
 
 const working: Printer = {
 	id: 'arthur',
@@ -21,6 +21,11 @@ const shelved: Printer = {
 };
 
 describe('printer views', () => {
+	it('distinguishes a recorded recipient from anonymous authorization placeholders', () => {
+		expect(printRecipient('Fixture user')).toBe('Fixture user');
+		for (const value of ['Staff override', 'Unlinked UCard', 'Unknown / unassigned', '', undefined])
+			expect(printRecipient(value)).toBeUndefined();
+	});
 	it('surfaces an active machine error without changing the saved assessment', () => {
 		const printer = { ...working, fault: 'Heater not heating' };
 		expect(activityState(printer)).toBe('error');

@@ -1,4 +1,4 @@
-import { printerStates } from './printer-state';
+import { printerStates, printRecipient } from './printer-state';
 export type PrinterEvent = {
 	sourceId: string;
 	recordedAt: string;
@@ -34,7 +34,7 @@ export type PrinterHistoryData = {
 				sourceId: string;
 				reportDate: string;
 				body: string;
-				sources: { url: string; label: string }[];
+				sources?: { url: string; label: string }[] | null;
 				preparedBy: string;
 				importedAt: string;
 		  }[]
@@ -117,7 +117,7 @@ function eventItem(event: PrinterEvent): HistoryItem | null {
 		source: ['printer_error', 'printer_responding'].includes(event.eventType) ? 'Klipper' : '',
 		file: event.file,
 		material: event.material,
-		person: event.person,
+		person: printRecipient(event.person),
 		duration: printDuration(
 			event.durationSeconds ?? (legacyDuration ? Number(legacyDuration[1]) * 60 : undefined)
 		),
@@ -192,10 +192,10 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			dateOnly: true,
 			kind: 'summary',
 			title: 'Repair update',
-			source: 'Ship’s log',
+			source: 'Standup',
 			text: summary.body,
 			preparedBy: summary.preparedBy,
-			links: summary.sources.filter((source) => {
+			links: (summary.sources ?? []).filter((source) => {
 				try {
 					return new URL(source.url).protocol === 'https:';
 				} catch {

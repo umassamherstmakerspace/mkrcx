@@ -1,5 +1,13 @@
 import type { FleetPlacement, Maintenance, Printer } from './prototype-data';
 
+// Authorization placeholders in station records do not identify a print recipient.
+export function printRecipient(person: string | undefined): string | undefined {
+	const name = person?.trim();
+	return !name || ['Staff override', 'Unlinked UCard', 'Unknown / unassigned'].includes(name)
+		? undefined
+		: name;
+}
+
 export const fleetLabels = { active: 'In fleet', shelved: 'Shelved', retired: 'Retired' };
 export const maintenanceLabels = {
 	none: 'None',

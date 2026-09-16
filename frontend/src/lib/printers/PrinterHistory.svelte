@@ -70,12 +70,15 @@
 		{#if history.usage && history.usage.jobs > 0}
 			<p class="usage">
 				<strong>Recorded print time: {printDuration(history.usage.seconds)}</strong> · {history
-					.usage.jobs} prints
+					.usage.jobs} prints recorded{#if history.usage.firstOutcome}
+					since {new Date(history.usage.firstOutcome).toLocaleDateString(undefined, {
+						year: 'numeric',
+						month: 'short',
+						day: 'numeric'
+					})}{/if}
 			</p>
 			<p class="coverage">
-				Partial history{#if history.usage.firstOutcome}, since {new Date(
-						history.usage.firstOutcome
-					).toLocaleDateString()}{/if}. Includes completed, cancelled and failed prints.{#if history.usage.missingDurations}
+				Partial history. Includes completed, cancelled and failed prints.{#if history.usage.missingDurations}
 					{history.usage.missingDurations} missing durations.{/if}
 			</p>
 		{/if}
@@ -127,7 +130,7 @@
 						</div>
 						{#if item.user}<p class="entry-user">User: {item.user}</p>{/if}
 						{#if item.file || item.person || item.material || item.duration}<p class="job-details">
-								{[item.file, item.person || 'User unavailable', item.material, item.duration]
+								{[item.file, item.person || 'User not recorded', item.material, item.duration]
 									.filter(Boolean)
 									.join(' · ')}
 							</p>{/if}
@@ -135,8 +138,8 @@
 								{#if item.kind === 'note'}“{item.text}”{:else}{item.text}{/if}
 							</p>{/if}
 						{#each item.changes ?? [] as change}<p class="change-line">{change}</p>{/each}
-						{#if item.links}<p class="sources">
-								{#each item.links as link}<a
+						{#if item.links?.length || item.preparedBy}<p class="sources">
+								{#each item.links ?? [] as link}<a
 										href={link.url}
 										target="_blank"
 										rel="noopener noreferrer">{link.label}</a

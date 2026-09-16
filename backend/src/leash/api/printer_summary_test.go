@@ -50,6 +50,31 @@ func TestPrinterSummariesAreSourceLinkedIdempotentAndPrivate(t *testing.T) {
 	}
 }
 
+func TestPrinterSummaryLinksAreOptionalAndEquivalentWhenEmpty(t *testing.T) {
+	app, db := printerTestApp(t)
+	app.Post("/summary/:id", importPrinterSummary)
+	printerRequest(t, app, "PUT", "/records/composite", editFor("Composite"), "")
+	input := map[string]interface{}{"sourceId": "standup:composite:review-1", "reportDate": "2026-01-15", "body": "Several reports describe intermittent heating; verification remains open."}
+	for _, links := range []interface{}{nil, []models.PrinterSource{}} {
+		if links != nil {
+			input["sources"] = links
+		}
+		if status, _ := printerRequest(t, app, "POST", "/summary/composite", input, ""); status != 200 {
+			t.Fatal("link-free summary or equivalent retry rejected", status)
+		}
+	}
+	var count int64
+	db.Model(&models.PrinterSummary{}).Count(&count)
+	if count != 1 {
+		t.Fatal("link-free retry duplicated summary", count)
+	}
+	_, history := printerRequest(t, app, "GET", "/history/composite", nil, "")
+	entry := history["summaries"].([]interface{})[0].(map[string]interface{})
+	if entry["body"] != input["body"] || entry["preparedBy"] != "Staff fixture" {
+		t.Fatal("link-free summary lost text or attribution", entry)
+	}
+}
+
 func TestRecordedUsageCountsOutcomesAndMissingDurations(t *testing.T) {
 	_, db := printerTestApp(t)
 	now := time.Now().UTC()

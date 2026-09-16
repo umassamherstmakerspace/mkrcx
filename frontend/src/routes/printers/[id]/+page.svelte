@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
-	import { activityState, conditionLabels } from '$lib/printers/printer-state';
+	import { activityState, conditionLabels, printRecipient } from '$lib/printers/printer-state';
 	import FleetStamp from '$lib/printers/FleetStamp.svelte';
 	import PrinterHistory from '$lib/printers/PrinterHistory.svelte';
 	import { duration, type Printer } from '$lib/printers/prototype-data';
@@ -100,7 +100,8 @@
 				<section class="current" aria-label="Current print">
 					{#if printer.job?.file}<p class="file">{printer.job.file}</p>{/if}
 					{#if printer.job}<p>
-							Printing for {printer.job.person || 'Unavailable'}{#if printer.job.material}
+							Printing for {printRecipient(printer.job.person) ||
+								'Not recorded'}{#if printer.job.material}
 								· {printer.job.material}{/if}
 						</p>{/if}
 					{#if printer.job?.started}<p class="started">
