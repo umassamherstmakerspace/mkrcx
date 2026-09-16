@@ -265,7 +265,6 @@
 						<td class="table-note"
 							>{printer.note ?? ''}
 							{#if staffView && printer.printerNoteAt}<p class="next-action">
-									<strong>Printer note:</strong>
 									{printer.printerNote || 'Cleared at printer.'}
 								</p>{/if}
 							{#if staffView && printer.nextAction}<p class="next-action">
@@ -361,7 +360,6 @@
 						{printer.nextAction}
 					</p>{/if}
 				{#if staffView && printer.printerNoteAt}<p class="mobile-note table-note">
-						<strong>Printer note:</strong>
 						{printer.printerNote || 'Cleared at printer.'}
 					</p>{/if}
 
