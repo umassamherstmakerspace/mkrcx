@@ -12,7 +12,15 @@ import (
 var printerSeed []byte
 
 func MigratePrinterRegistry(db *gorm.DB) error {
-	if err := db.AutoMigrate(&PrinterRecord{}, &PrinterRecordEvent{}, &PrinterHistoryEvent{}, &PrinterSummary{}, &PrinterHistoricalEntry{}); err != nil {
+	if err := db.AutoMigrate(&PrinterRecord{}, &PrinterRecordEvent{}, &PrinterHistoryEvent{}, &PrinterSummary{}); err != nil {
+		return err
+	}
+	historyDB := db
+	if db.Dialector.Name() == "mysql" {
+		// Source reports can contain emoji even when the legacy database defaults to utf8mb3.
+		historyDB = db.Set("gorm:table_options", "CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci")
+	}
+	if err := historyDB.AutoMigrate(&PrinterHistoricalEntry{}); err != nil {
 		return err
 	}
 	var records []PrinterRecord
