@@ -194,7 +194,7 @@
 						{#if item.kind === 'note'}
 							<p class="text">
 								Status note update{#if item.user}
-									by {item.user.replace(' · Card tap', '')}{:else if item.automatic}
+									{' '}by {item.user.replace(' · Card tap', '')}{:else if item.automatic}
 									· Automatic{/if}: {item.text ? `“${item.text}”` : 'Note cleared.'}
 							</p>
 						{:else}
