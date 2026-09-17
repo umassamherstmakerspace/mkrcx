@@ -2,6 +2,14 @@ package models
 
 import "time"
 
+// Reviewed display aliases supplement account names without rewriting source evidence.
+// Loaded only for staff history; aliases never grant authentication or permissions.
+type PrinterIdentityAlias struct {
+	Alias  string `gorm:"primaryKey;size:200" json:"-"`
+	Name   string `gorm:"size:200;not null" json:"-"`
+	Source string `gorm:"type:text" json:"-"`
+}
+
 // Imported source evidence is separate from measured station outcomes and current state.
 // Sources and import IDs remain private operational provenance, not public fleet data.
 type PrinterHistoricalEntry struct {

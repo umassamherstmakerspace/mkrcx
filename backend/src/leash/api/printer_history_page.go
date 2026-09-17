@@ -232,12 +232,22 @@ func printerStaffHistoryPage(c *fiber.Ctx) error {
 		legacy.First = &firstSubmission[0].RecordedAt
 	}
 	var meters, origins []models.PrinterHistoricalEntry
-	if db.Where("printer_id = ? AND meter_hours IS NOT NULL", printer).Order("recorded_at DESC, source_id ASC").Limit(1).Find(&meters).Error != nil {
+	if db.Where("printer_id = ? AND meter_hours IS NOT NULL", printer).Order("recorded_at DESC, source_id ASC").Find(&meters).Error != nil {
 		return fiber.ErrInternalServerError
 	}
 	if db.Where("printer_id = ? AND kind = ?", printer, "origin").Order("recorded_at DESC").Limit(5).Find(&origins).Error != nil {
 		return fiber.ErrInternalServerError
 	}
+	estimate, err := readPrinterHistoryEstimate(db, printer, usage, legacy.Jobs, legacy.First, meters, origins)
+	if err != nil {
+		return fiber.ErrInternalServerError
+	}
+	if err := applyPrinterDisplayNames(db, visibleEvents, visibleHistory, changes); err != nil {
+		return fiber.ErrInternalServerError
+	}
+	if len(meters) > 1 {
+		meters = meters[:1]
+	}
 	c.Set("Cache-Control", "private, no-store")
-	return c.JSON(fiber.Map{"events": visibleEvents, "historical": visibleHistory, "summaries": visibleSummaries, "edits": changes, "pageIds": ids, "nextCursor": next, "usage": usage, "legacy": legacy, "meters": meters, "origins": origins, "lastSync": record.HistorySyncedAt})
+	return c.JSON(fiber.Map{"events": visibleEvents, "historical": visibleHistory, "summaries": visibleSummaries, "edits": changes, "pageIds": ids, "nextCursor": next, "usage": usage, "estimate": estimate, "legacy": legacy, "meters": meters, "origins": origins, "lastSync": record.HistorySyncedAt})
 }

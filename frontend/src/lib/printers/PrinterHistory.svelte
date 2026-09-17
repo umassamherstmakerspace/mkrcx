@@ -3,7 +3,6 @@
 	import {
 		historyItems,
 		filterHistoryItems,
-		printDuration,
 		type HistoryFilter,
 		type PrinterHistoryData
 	} from './history-view';
@@ -48,6 +47,11 @@
 			month: 'short',
 			day: 'numeric'
 		});
+	$: historySince = history?.estimate?.since
+		? /^\d{4}-\d{2}-\d{2}$/.test(history.estimate.since)
+			? day(history.estimate.since)
+			: history.estimate.since
+		: '';
 	async function refresh(more = false, background = false) {
 		if (!mounted || (more && (loading || !history?.nextCursor))) return;
 		const current = ++generation;
@@ -137,36 +141,15 @@
 	{#if loading && !history && !error}<p role="status">Loading…</p>{/if}
 	{#if error}<p role="status">{error}</p>{/if}
 	{#if history}
-		{#if history.usage && history.usage.jobs > 0}
+		{#if history.estimate}
 			<p class="usage">
-				<strong>Recorded print time: {printDuration(history.usage.seconds)}</strong> · {history
-					.usage.jobs} prints recorded{#if history.usage.firstOutcome}
-					{' '}since {new Date(history.usage.firstOutcome).toLocaleDateString(undefined, {
-						year: 'numeric',
-						month: 'short',
-						day: 'numeric'
-					})}{/if}
-			</p>
-			<p class="coverage">
-				Partial history. Includes completed, cancelled and failed prints.{#if history.usage.missingDurations}
-					{history.usage.missingDurations} missing durations.{/if}
+				{#if history.estimate.hours !== null}<strong
+						>Estimated {Math.round(history.estimate.hours).toLocaleString()} hours</strong
+					>{:else}<strong>Hours not recorded</strong>{/if}
+				({history.estimate.jobs.toLocaleString()} prints){#if historySince}
+					{' '}since {historySince}{/if}
 			</p>
 		{/if}
-		{#each history.origins ?? [] as origin}<p class="coverage">{origin.body}</p>{/each}
-		{#if history.legacy?.jobs}
-			<p class="coverage">
-				{history.legacy.jobs.toLocaleString()} earlier print submissions{#if history.legacy.first}
-					{' '}since {day(history.legacy.first)}{/if}. Outcomes and actual durations were not
-				recorded.
-			</p>
-		{/if}
-		{#each history.meters ?? [] as meter}
-			<p class="coverage">
-				Historical meter: <strong>{meter.meterHours?.toLocaleString()} hours</strong>{' '}recorded {day(
-					meter.recordedAt
-				)}. Meter readings may reset; this is not a lifetime total.
-			</p>
-		{/each}
 		<div class="history-filters" aria-label="History views">
 			{#each views as view}<button
 					class:active={filter === view.id}
@@ -251,11 +234,6 @@
 	.usage {
 		font-size: 0.85rem;
 	}
-	.coverage {
-		font-size: 0.75rem;
-		color: #66707c;
-		margin-top: 0.15rem;
-	}
 	.history-filters {
 		display: flex;
 		gap: 0.4rem;
@@ -274,7 +252,6 @@
 		margin-top: 0.3rem;
 		color: #66707c;
 	}
-	:global(.dark) .coverage,
 	:global(.dark) .sources {
 		color: #aab3c0;
 	}

@@ -207,6 +207,9 @@ func printerStaffHistory(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.ErrInternalServerError
 	}
+	if err := applyPrinterDisplayNames(db, events, nil, changes); err != nil {
+		return fiber.ErrInternalServerError
+	}
 	return c.JSON(fiber.Map{"events": events, "edits": changes, "summaries": summaries, "usage": usage, "lastSync": record.HistorySyncedAt, "stationCondition": record.ObservedCondition, "stationNote": record.ObservedNote, "stationReportedAt": record.ConditionObservedAt})
 }
 

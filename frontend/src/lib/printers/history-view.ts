@@ -29,6 +29,7 @@ export type PrinterEdit = {
 	name: string;
 };
 export type PrinterHistoryData = {
+	estimate?: { hours: number | null; jobs: number; since: string };
 	historical?: HistoricalEntry[];
 	pageIds?: string[];
 	nextCursor?: string;

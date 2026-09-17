@@ -20,7 +20,7 @@ func MigratePrinterRegistry(db *gorm.DB) error {
 		// Source reports can contain emoji even when the legacy database defaults to utf8mb3.
 		historyDB = db.Set("gorm:table_options", "CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci")
 	}
-	if err := historyDB.AutoMigrate(&PrinterHistoricalEntry{}); err != nil {
+	if err := historyDB.AutoMigrate(&PrinterHistoricalEntry{}, &PrinterIdentityAlias{}); err != nil {
 		return err
 	}
 	var records []PrinterRecord

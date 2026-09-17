@@ -19,7 +19,7 @@ func TestPrinterEditNamesPreserveSnapshotAndResolveLegacyAccounts(t *testing.T) 
 	if saved.ActorName != "Staff fixture" {
 		t.Fatal("missing name snapshot", saved)
 	}
-	db.Exec("INSERT INTO users VALUES (42, 'Renamed user'), (7, 'Legacy staff')")
+	db.Exec("INSERT INTO users (id, name) VALUES (42, 'Renamed user'), (7, 'Legacy staff')")
 	legacy := saved
 	legacy.ID = 0
 	legacy.Version = 2
