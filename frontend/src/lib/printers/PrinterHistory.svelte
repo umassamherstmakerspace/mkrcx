@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import {
 		historyItems,
 		filterHistoryItems,
@@ -72,6 +72,7 @@
 			const result: PrinterHistoryData = await response.json();
 			if (!mounted || current !== generation) return;
 			if (previous) {
+				const scrollTop = window.scrollY;
 				history = {
 					...result,
 					events: [...(previous.events ?? []), ...(result.events ?? [])],
@@ -88,6 +89,8 @@
 					pageIds: [...(previous.pageIds ?? []), ...(result.pageIds ?? [])]
 				};
 				pagesLoaded = true;
+				await tick();
+				if (mounted && current === generation) window.scrollTo({ top: scrollTop });
 			} else history = result;
 			error = '';
 		} catch (e) {
@@ -145,12 +148,13 @@
 		{#if history.legacy?.jobs}
 			<p class="coverage">
 				{history.legacy.jobs.toLocaleString()} earlier print submissions{#if history.legacy.first}
-					since {day(history.legacy.first)}{/if}. Outcomes and actual durations were not recorded.
+					{' '}since {day(history.legacy.first)}{/if}. Outcomes and actual durations were not
+				recorded.
 			</p>
 		{/if}
 		{#each history.meters ?? [] as meter}
 			<p class="coverage">
-				Historical meter: <strong>{meter.meterHours?.toLocaleString()} hours</strong> recorded {day(
+				Historical meter: <strong>{meter.meterHours?.toLocaleString()} hours</strong>{' '}recorded {day(
 					meter.recordedAt
 				)}. Meter readings may reset; this is not a lifetime total.
 			</p>
