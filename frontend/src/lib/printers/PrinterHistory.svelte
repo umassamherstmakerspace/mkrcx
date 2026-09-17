@@ -73,6 +73,11 @@
 			if (!mounted || current !== generation) return;
 			if (previous) {
 				const scrollTop = window.scrollY;
+				const scrollParents: [HTMLElement, number][] = [];
+				for (let parent = results?.parentElement; parent; parent = parent.parentElement) {
+					if (parent.scrollHeight > parent.clientHeight)
+						scrollParents.push([parent, parent.scrollTop]);
+				}
 				history = {
 					...result,
 					events: [...(previous.events ?? []), ...(result.events ?? [])],
@@ -90,7 +95,10 @@
 				};
 				pagesLoaded = true;
 				await tick();
-				if (mounted && current === generation) window.scrollTo({ top: scrollTop });
+				if (mounted && current === generation) {
+					for (const [parent, top] of scrollParents) parent.scrollTop = top;
+					window.scrollTo({ top: scrollTop });
+				}
 			} else history = result;
 			error = '';
 		} catch (e) {
