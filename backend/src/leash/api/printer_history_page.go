@@ -91,7 +91,7 @@ func printerStaffHistoryPage(c *fiber.Ctx) error {
 		through = cursor.Through
 	}
 	var events []models.PrinterHistoryEvent
-	q := printerPageQuery(db, printer, "event", "recorded_at", "source_id", cursor, through).Where("event_type <> ?", "started")
+	q := printerPageQuery(db, printer, "event", "recorded_at", "source_id", cursor, through).Where("event_type <> ? AND COALESCE(hidden_reason, '') = ''", "started")
 	if filter == "prints" {
 		q = q.Where("event_type IN ?", []string{"printer_completed", "printer_cancelled", "printer_failed"})
 	}

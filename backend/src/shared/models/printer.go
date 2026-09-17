@@ -5,20 +5,22 @@ import "time"
 // PrinterRecord follows a physical machine; display names and network addresses can change.
 // Staff records and observations have separate versions and timestamps.
 type PrinterRecord struct {
-	ID          string  `gorm:"primaryKey;size:80" json:"id"`
-	Name        string  `gorm:"size:120;not null" json:"name"`
-	Model       string  `gorm:"size:80;not null" json:"model"`
-	MachineID   string  `gorm:"size:120" json:"machineId"`
-	Location    string  `gorm:"size:120" json:"location"`
-	Lifecycle   string  `gorm:"size:24;not null" json:"lifecycle"`
-	Maintenance string  `gorm:"size:24;not null;default:none" json:"maintenance"`
-	Host        string  `gorm:"size:64" json:"host"`
-	MAC         string  `gorm:"size:17" json:"mac"`
-	HostKey     *string `gorm:"uniqueIndex;size:64" json:"-"`
-	MACKey      *string `gorm:"uniqueIndex;size:17" json:"-"`
-	Condition   string  `gorm:"size:24" json:"condition"`
-	Note        string  `gorm:"type:text" json:"note"`
-	NextAction  string  `gorm:"type:text" json:"nextAction"`
+	ID             string     `gorm:"primaryKey;size:80" json:"id"`
+	Name           string     `gorm:"size:120;not null" json:"name"`
+	Model          string     `gorm:"size:80;not null" json:"model"`
+	MachineID      string     `gorm:"size:120" json:"machineId"`
+	Location       string     `gorm:"size:120" json:"location"`
+	Lifecycle      string     `gorm:"size:24;not null" json:"lifecycle"`
+	Maintenance    string     `gorm:"size:24;not null;default:none" json:"maintenance"`
+	Host           string     `gorm:"size:64" json:"host"`
+	MAC            string     `gorm:"size:17" json:"mac"`
+	HostKey        *string    `gorm:"uniqueIndex;size:64" json:"-"`
+	MACKey         *string    `gorm:"uniqueIndex;size:17" json:"-"`
+	Condition      string     `gorm:"size:24" json:"condition"`
+	Note           string     `gorm:"type:text" json:"note"`
+	NextAction     string     `gorm:"type:text" json:"nextAction"`
+	ConditionSetAt *time.Time `json:"-"`
+	NoteSetAt      *time.Time `json:"-"`
 	// Website assessments are independent of printer permission and test-print telemetry.
 	Manual              bool       `json:"manual"`
 	Version             uint64     `gorm:"not null" json:"version"`
@@ -71,4 +73,6 @@ type PrinterHistoryEvent struct {
 	NoteChanged       *bool     `json:"noteChanged,omitempty"`
 	ConditionChanged  *bool     `json:"conditionChanged,omitempty"`
 	PreviousCondition string    `gorm:"size:80" json:"previousCondition,omitempty"`
+	// Operator-reviewed display exclusion; the immutable source remains retained.
+	HiddenReason string `gorm:"size:500" json:"-"`
 }

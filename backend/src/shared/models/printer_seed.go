@@ -66,6 +66,11 @@ func MigratePrinterRegistry(db *gorm.DB) error {
 				return err
 			}
 		}
+		for _, field := range []string{"condition_set_at", "note_set_at"} {
+			if err := tx.Model(&PrinterRecord{}).Where(field+" IS NULL").UpdateColumn(field, gorm.Expr("updated_at")).Error; err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 }

@@ -148,7 +148,7 @@ func printerStaffHistory(c *fiber.Ctx) error {
 	}
 	var events []models.PrinterHistoryEvent
 	var edits []models.PrinterRecordEvent
-	if err := db.Where("printer_id = ? AND event_type <> ?", record.ID, "started").Order("recorded_at DESC, source_id DESC").Limit(100).Find(&events).Error; err != nil {
+	if err := db.Where("printer_id = ? AND event_type <> ? AND COALESCE(hidden_reason, '') = ''", record.ID, "started").Order("recorded_at DESC, source_id DESC").Limit(100).Find(&events).Error; err != nil {
 		return fiber.ErrInternalServerError
 	}
 	if err := db.Where("printer_id = ?", record.ID).Order("id DESC").Limit(50).Find(&edits).Error; err != nil {
@@ -325,6 +325,12 @@ func savePrinterRecord(c *fiber.Ctx) error {
 		saved.Manual = true
 		saved.Version = edit.Version + 1
 		saved.UpdatedAt = time.Now().UTC()
+		if current.ConditionSetAt == nil || current.Condition != saved.Condition {
+			saved.ConditionSetAt = &saved.UpdatedAt
+		}
+		if current.NoteSetAt == nil || current.Note != saved.Note {
+			saved.NoteSetAt = &saved.UpdatedAt
+		}
 		saved.UpdatedBy = actor
 		saved.HostKey = nil
 		saved.MACKey = nil
@@ -342,7 +348,7 @@ func savePrinterRecord(c *fiber.Ctx) error {
 			// Explicit fields prevent telemetry ingest and record edits from overwriting one another.
 			result := tx.Model(&models.PrinterRecord{}).Where("id = ? AND version = ?", id, edit.Version).Updates(map[string]interface{}{
 				"name": saved.Name, "model": saved.Model, "machine_id": saved.MachineID, "location": saved.Location, "lifecycle": saved.Lifecycle, "maintenance": saved.Maintenance,
-				"host": saved.Host, "mac": saved.MAC, "host_key": saved.HostKey, "mac_key": saved.MACKey, "condition": saved.Condition, "note": saved.Note, "next_action": saved.NextAction, "manual": saved.Manual, "version": saved.Version, "updated_at": saved.UpdatedAt, "updated_by": actor,
+				"host": saved.Host, "mac": saved.MAC, "host_key": saved.HostKey, "mac_key": saved.MACKey, "condition": saved.Condition, "note": saved.Note, "condition_set_at": saved.ConditionSetAt, "note_set_at": saved.NoteSetAt, "next_action": saved.NextAction, "manual": saved.Manual, "version": saved.Version, "updated_at": saved.UpdatedAt, "updated_by": actor,
 			})
 			if result.Error != nil {
 				return result.Error
@@ -507,6 +513,13 @@ func ingestPrinterFleet(c *fiber.Ctx) error {
 					return err
 				}
 			}
+			var stored models.PrinterHistoryEvent
+			if err := tx.First(&stored, "source_id = ?", event.SourceID).Error; err != nil {
+				return err
+			}
+			if err := applyPrinterStationAssessment(tx, stored); err != nil {
+				return err
+			}
 		}
 		if snapshot.History != nil {
 			for id := range seen {
@@ -553,6 +566,9 @@ func respondPrinterFleet(c *fiber.Ctx, staff bool) error {
 			note = p.Note
 			source = "record"
 			updated = &p.UpdatedAt
+			if p.ConditionSetAt != nil {
+				updated = p.ConditionSetAt
+			}
 		}
 		if condition == "" {
 			condition = "unknown"
