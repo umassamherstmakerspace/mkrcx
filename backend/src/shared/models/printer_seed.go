@@ -15,6 +15,14 @@ func MigratePrinterRegistry(db *gorm.DB) error {
 	if err := db.AutoMigrate(&PrinterRecord{}, &PrinterRecordEvent{}, &PrinterHistoryEvent{}, &PrinterSummary{}); err != nil {
 		return err
 	}
+	historyDB := db
+	if db.Dialector.Name() == "mysql" {
+		// Source reports can contain emoji even when the legacy database defaults to utf8mb3.
+		historyDB = db.Set("gorm:table_options", "CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci")
+	}
+	if err := historyDB.AutoMigrate(&PrinterHistoricalEntry{}, &PrinterIdentityAlias{}); err != nil {
+		return err
+	}
 	var records []PrinterRecord
 	if err := json.Unmarshal(printerSeed, &records); err != nil {
 		return err
@@ -55,6 +63,11 @@ func MigratePrinterRegistry(db *gorm.DB) error {
 				updates["updated_at"] = *record.ConditionObservedAt
 			}
 			if err := tx.Model(&PrinterRecord{}).Where("id = ? AND manual = ?", record.ID, false).UpdateColumns(updates).Error; err != nil {
+				return err
+			}
+		}
+		for _, field := range []string{"condition_set_at", "note_set_at"} {
+			if err := tx.Model(&PrinterRecord{}).Where(field+" IS NULL").UpdateColumn(field, gorm.Expr("updated_at")).Error; err != nil {
 				return err
 			}
 		}

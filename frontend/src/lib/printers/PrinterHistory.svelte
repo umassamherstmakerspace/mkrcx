@@ -1,32 +1,38 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { historyItems, printDuration, type PrinterHistoryData } from './history-view';
+	import { onMount, tick } from 'svelte';
+	import {
+		historyItems,
+		filterHistoryItems,
+		type HistoryFilter,
+		type PrinterHistoryData
+	} from './history-view';
 	export let id: string;
 	let history: PrinterHistoryData | null = null;
 	let error = '';
 	let loading = false;
 	let mounted = false;
 	let request: AbortController | null = null;
-	let shown = 10;
-	let filter = 'all';
+	let filter: HistoryFilter = 'updates';
 	let results: HTMLOListElement;
 	let minResultsHeight = 0;
-	function selectFilter(next: string) {
+	let pagesLoaded = false;
+	let generation = 0;
+	function selectFilter(next: HistoryFilter) {
 		if (next === filter) return;
-		let scroller: HTMLElement | null = results.parentElement;
-		while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
-			scroller = scroller.parentElement;
-		}
-		// A short result list must not collapse the page beneath the current viewport.
-		const bottom = scroller?.getBoundingClientRect().bottom ?? window.innerHeight;
-		minResultsHeight = Math.max(0, bottom - results.getBoundingClientRect().top);
+		minResultsHeight = Math.max(
+			0,
+			window.innerHeight - (results?.getBoundingClientRect().top ?? 0)
+		);
 		filter = next;
-		shown = 10;
+		void refresh();
 	}
 	$: items = history ? historyItems(history) : [];
-	$: visible = items.filter(
-		(item) => filter === 'all' || (filter === 'prints' ? item.printOutcome : item.kind !== 'job')
-	);
+	$: visible = filterHistoryItems(items, filter);
+	const views: { id: HistoryFilter; label: string }[] = [
+		{ id: 'all', label: 'All' },
+		{ id: 'updates', label: 'Notes & errors' },
+		{ id: 'prints', label: 'Prints' }
+	];
 	const date = (value: string) =>
 		new Date(value).toLocaleString(undefined, {
 			year: 'numeric',
@@ -35,37 +41,88 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
-	async function refresh() {
-		if (loading || !mounted) return;
+	const day = (value: string) =>
+		new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		});
+	$: historySince = history?.estimate?.since
+		? /^\d{4}-\d{2}-\d{2}$/.test(history.estimate.since)
+			? day(history.estimate.since)
+			: history.estimate.since
+		: '';
+	async function refresh(more = false, background = false) {
+		if (!mounted || (more && (loading || !history?.nextCursor))) return;
+		const current = ++generation;
+		request?.abort();
+		const controller = new AbortController();
+		request = controller;
 		loading = true;
-		request = new AbortController();
-		const timeout = window.setTimeout(() => request?.abort(), 8_000);
+		const previous = more ? history : null;
+		if (!more && !background) {
+			history = null;
+			pagesLoaded = false;
+		}
+		const query = new URLSearchParams({ id, page: '1', filter });
+		if (previous?.nextCursor) query.set('cursor', previous.nextCursor);
+		const timeout = window.setTimeout(() => controller.abort(), 8_000);
 		try {
-			const response = await fetch(`/printers/history?id=${encodeURIComponent(id)}`, {
-				signal: request.signal
-			});
+			const response = await fetch(`/printers/history?${query}`, { signal: controller.signal });
 			if (!response.ok)
 				throw new Error(
 					[401, 403].includes(response.status) ? 'Staff access required.' : 'History unavailable.'
 				);
-			const result = await response.json();
-			if (!mounted) return;
-			history = result;
+			const result: PrinterHistoryData = await response.json();
+			if (!mounted || current !== generation) return;
+			if (previous) {
+				const scrollTop = window.scrollY;
+				const scrollParents: [HTMLElement, number][] = [];
+				for (let parent = results?.parentElement; parent; parent = parent.parentElement) {
+					if (parent.scrollHeight > parent.clientHeight)
+						scrollParents.push([parent, parent.scrollTop]);
+				}
+				history = {
+					...result,
+					events: [...(previous.events ?? []), ...(result.events ?? [])],
+					historical: [...(previous.historical ?? []), ...(result.historical ?? [])],
+					summaries: [...(previous.summaries ?? []), ...(result.summaries ?? [])],
+					edits: [
+						...new Map(
+							[...(previous.edits ?? []), ...(result.edits ?? [])].map((edit) => [
+								edit.version,
+								edit
+							])
+						).values()
+					],
+					pageIds: [...(previous.pageIds ?? []), ...(result.pageIds ?? [])]
+				};
+				pagesLoaded = true;
+				await tick();
+				if (mounted && current === generation) {
+					for (const [parent, top] of scrollParents) parent.scrollTop = top;
+					window.scrollTo({ top: scrollTop });
+				}
+			} else history = result;
 			error = '';
 		} catch (e) {
-			if (!mounted) return;
-			history = null;
+			if (!mounted || current !== generation) return;
 			error = e instanceof Error ? e.message : 'History unavailable.';
+			if (error === 'Staff access required.') history = null;
 		} finally {
 			window.clearTimeout(timeout);
-			request = null;
-			loading = false;
+			if (current === generation) {
+				loading = false;
+				request = null;
+			}
 		}
 	}
 	onMount(() => {
 		mounted = true;
 		void refresh();
-		const timer = window.setInterval(refresh, 15_000);
+		const timer = window.setInterval(() => {
+			if (!loading && !pagesLoaded) void refresh(false, true);
+		}, 15_000);
 		return () => {
 			mounted = false;
 			window.clearInterval(timer);
@@ -77,27 +134,24 @@
 <section class="history" aria-label="Printer history">
 	<div class="heading">
 		<h2>History</h2>
+		{#if pagesLoaded}<button type="button" disabled={loading} on:click={() => refresh()}
+				>Refresh history</button
+			>{/if}
 	</div>
 	{#if loading && !history && !error}<p role="status">Loading…</p>{/if}
 	{#if error}<p role="status">{error}</p>{/if}
 	{#if history}
-		{#if history.usage && history.usage.jobs > 0}
+		{#if history.estimate}
 			<p class="usage">
-				<strong>Recorded print time: {printDuration(history.usage.seconds)}</strong> · {history
-					.usage.jobs} prints recorded{#if history.usage.firstOutcome}
-					{' '}since {new Date(history.usage.firstOutcome).toLocaleDateString(undefined, {
-						year: 'numeric',
-						month: 'short',
-						day: 'numeric'
-					})}{/if}
-			</p>
-			<p class="coverage">
-				Partial history. Includes completed, cancelled and failed prints.{#if history.usage.missingDurations}
-					{history.usage.missingDurations} missing durations.{/if}
+				{#if history.estimate.hours !== null}<strong
+						>Estimated {Math.round(history.estimate.hours).toLocaleString()} hours</strong
+					>{:else}<strong>Hours not recorded</strong>{/if}
+				({history.estimate.jobs.toLocaleString()} prints){#if historySince}
+					{' '}since {historySince}{/if}
 			</p>
 		{/if}
 		<div class="history-filters" aria-label="History views">
-			{#each [{ id: 'all', label: 'All' }, { id: 'updates', label: 'Notes & errors' }, { id: 'prints', label: 'Prints' }] as view}<button
+			{#each views as view}<button
 					class:active={filter === view.id}
 					type="button"
 					aria-pressed={filter === view.id}
@@ -105,8 +159,12 @@
 				>{/each}
 		</div>
 		<ol bind:this={results} style:min-height={`${minResultsHeight}px`}>
-			{#each visible.slice(0, shown) as item (item.id)}
-				<li class={item.kind}>
+			{#each visible as item (item.id)}
+				<li
+					class={item.kind}
+					class:completed={item.outcome === 'completed'}
+					class:cancelled={item.outcome === 'cancelled'}
+				>
 					<span class="marker" aria-hidden="true">
 						{#if item.kind === 'note' || item.kind === 'summary'}
 							<svg
@@ -129,39 +187,47 @@
 						<div class="entry-heading">
 							<time datetime={item.dateOnly ? item.recordedAt.slice(0, 10) : item.recordedAt}
 								>{item.dateOnly
-									? new Date(item.recordedAt).toLocaleDateString(undefined, {
-											year: 'numeric',
-											month: 'short',
-											day: 'numeric'
-										})
+									? `${day(item.recordedAt)} · Time not recorded`
 									: date(item.recordedAt)}</time
 							>
-							{#if item.source}<span class="source">{item.source}</span>{/if}
-							<h3>{item.title}</h3>
 						</div>
-						{#if item.user}<p class="entry-user">User: {item.user}</p>{/if}
+						{#if item.kind === 'note'}
+							<p class="text">
+								{#if item.text}
+									Status note update{#if item.user}
+										{' '}by {item.user.replace(' · Card tap', '')}{:else if item.automatic}
+										· Automatic{/if}: “{item.text}”
+								{:else}Note cleared.{/if}
+							</p>
+						{:else}
+							{#if item.title}<h3>{item.title}</h3>{/if}
+							{#if item.user}<p class="entry-user">Reported by {item.user}</p>{/if}
+						{/if}
 						{#if item.file || item.person || item.material || item.duration}<p class="job-details">
 								{[item.person || 'User not recorded', item.material, item.duration, item.file]
 									.filter(Boolean)
 									.join(' · ')}
 							</p>{/if}
-						{#if item.text}<p class="text">
-								{#if item.kind === 'note'}“{item.text}”{:else}{item.text}{/if}
+						{#if item.text && item.kind !== 'note'}<p class="text">
+								{item.text}
 							</p>{/if}
 						{#each item.changes ?? [] as change}<p class="change-line">{change}</p>{/each}
-						{#if item.links?.length || item.preparedBy}<p class="sources">
-								{#each item.links ?? [] as link}<a
-										href={link.url}
-										target="_blank"
-										rel="noopener noreferrer">{link.label}</a
-									>{/each}{#if item.preparedBy}<span>Summary by {item.preparedBy}</span>{/if}
-							</p>{/if}
+						{#if item.preparedBy}<p class="sources">Summary by {item.preparedBy}</p>{/if}
 					</article>
 				</li>
-			{:else}<li class="empty">No history yet.</li>{/each}
+			{:else}<li class="empty">
+					{filter === 'updates'
+						? 'No notes or errors recorded.'
+						: filter === 'prints'
+							? 'No prints recorded.'
+							: 'No history yet.'}
+				</li>{/each}
 		</ol>
-		{#if visible.length > shown}<button class="more" type="button" on:click={() => (shown += 10)}
-				>Load more</button
+		{#if history.nextCursor}<button
+				class="more"
+				type="button"
+				disabled={loading}
+				on:click={() => refresh(true)}>{loading ? 'Loading…' : 'Load more'}</button
 			>{/if}
 	{/if}
 </section>
@@ -169,11 +235,6 @@
 <style>
 	.usage {
 		font-size: 0.85rem;
-	}
-	.coverage {
-		font-size: 0.75rem;
-		color: #66707c;
-		margin-top: 0.15rem;
 	}
 	.history-filters {
 		display: flex;
@@ -193,14 +254,6 @@
 		margin-top: 0.3rem;
 		color: #66707c;
 	}
-	.sources a {
-		color: #881c1c;
-		text-decoration: underline;
-	}
-	:global(.dark) .sources a {
-		color: #f0a0a0;
-	}
-	:global(.dark) .coverage,
 	:global(.dark) .sources {
 		color: #aab3c0;
 	}
@@ -268,12 +321,6 @@
 		font-size: 0.8rem;
 		font-weight: 650;
 	}
-	.source {
-		color: #66707c;
-		font-size: 0.75rem;
-		font-weight: 650;
-		overflow-wrap: anywhere;
-	}
 	.entry-user {
 		font-size: 0.8rem;
 		margin-top: 0.15rem;
@@ -290,6 +337,16 @@
 		font-size: 0.9rem;
 		line-height: 1.35;
 		margin-top: 0.15rem;
+	}
+	.completed .marker {
+		background: #e4f4e9;
+		color: #15723a;
+		font-weight: 700;
+	}
+	.cancelled .marker {
+		background: #fde9ec;
+		color: #a11d2d;
+		font-weight: 700;
 	}
 	.error .marker {
 		background: #fde9ec;
@@ -319,7 +376,6 @@
 	:global(.dark) li {
 		border-color: #424b58;
 	}
-	:global(.dark) .source,
 	:global(.dark) time,
 	:global(.dark) .job-details,
 	:global(.dark) .empty {

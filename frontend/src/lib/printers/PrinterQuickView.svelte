@@ -9,7 +9,9 @@
 </script>
 
 <div class="print-details">
-	{#if printer.fault && !printer.stale}
+	{#if printer.lifecycle === 'retired'}
+		<p class="detail-empty">Retired printer. Open its name to view historical records.</p>
+	{:else if printer.fault && !printer.stale}
 		<p class="fault">{printer.fault}</p>
 	{:else if printer.stale || printer.connected === false}
 		<p class="detail-empty">Current print details are unavailable until the printer reconnects.</p>

@@ -24,7 +24,7 @@ func printerTestApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	if err = models.MigratePrinterRegistry(db); err != nil {
 		t.Fatal(err)
 	}
-	if err = db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)").Error; err != nil {
+	if err = db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)").Error; err != nil {
 		t.Fatal(err)
 	}
 	app := fiber.New()

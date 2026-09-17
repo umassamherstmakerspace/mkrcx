@@ -9,10 +9,18 @@ export const GET: RequestHandler = async ({ cookies, fetch, url }) => {
 	if (!id || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(id))
 		return new Response('Invalid printer', { status: 400, headers });
 	try {
-		const response = await fetch(`${env.PUBLIC_LEASH_ENDPOINT}/api/printer-fleet/history/${id}`, {
-			headers: { Authorization: `Bearer ${token}` },
-			signal: AbortSignal.timeout(5000)
-		});
+		const query = new URLSearchParams();
+		for (const key of ['page', 'filter', 'cursor']) {
+			const value = url.searchParams.get(key);
+			if (value !== null) query.set(key, value);
+		}
+		const response = await fetch(
+			`${env.PUBLIC_LEASH_ENDPOINT}/api/printer-fleet/history/${id}?${query}`,
+			{
+				headers: { Authorization: `Bearer ${token}` },
+				signal: AbortSignal.timeout(5000)
+			}
+		);
 		return new Response(await response.text(), {
 			status: response.status,
 			headers: { ...headers, 'Content-Type': response.headers.get('Content-Type') ?? 'text/plain' }

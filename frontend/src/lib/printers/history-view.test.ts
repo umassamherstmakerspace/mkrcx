@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	historyItems,
+	filterHistoryItems,
 	printDuration,
 	type PrinterEdit,
 	type PrinterHistoryData
@@ -22,6 +23,72 @@ const history = (
 	events: PrinterHistoryData['events'] = []
 ): PrinterHistoryData => ({ edits, events, lastSync: null });
 
+describe('historical pages', () => {
+	it('does not show a duration for missing estimates or service records', () => {
+		for (const estimatedSeconds of [null, undefined, -1, NaN]) {
+			const items = historyItems({
+				...history(),
+				historical: [
+					{
+						sourceId: 'form:1',
+						recordedAt: edit.recordedAt,
+						dateOnly: false,
+						kind: 'submission',
+						body: '',
+						estimatedSeconds
+					}
+				]
+			});
+			expect(items[0].duration).toBeUndefined();
+		}
+	});
+	it('keeps legacy submissions unknown and estimates separate from measured outcomes', () => {
+		const items = historyItems({
+			...history(),
+			historical: [
+				{
+					sourceId: 'form:1',
+					recordedAt: edit.recordedAt,
+					dateOnly: false,
+					kind: 'submission',
+					body: '',
+					estimatedSeconds: 3600
+				}
+			]
+		});
+		expect(items[0]).toMatchObject({
+			outcome: 'unknown',
+			icon: '·',
+			title: 'Print logged · outcome unknown'
+		});
+		expect(items[0].duration).toContain('estimate');
+		expect(filterHistoryItems(items, 'prints')).toHaveLength(1);
+		expect(filterHistoryItems(items, 'updates')).toHaveLength(0);
+	});
+	it('uses adjacent edits as context without displaying them and preserves server page order', () => {
+		const items = historyItems({
+			...history([
+				edit,
+				{ ...edit, version: 2, note: 'Fixed', recordedAt: '2026-09-15T12:00:00Z' }
+			]),
+			historical: [
+				{
+					sourceId: 'service:1',
+					recordedAt: edit.recordedAt,
+					dateOnly: true,
+					kind: 'service',
+					body: 'Rails oiled.',
+					preparedBy: 'Codex'
+				}
+			],
+			pageIds: ['historical:service:1', 'edit:2']
+		});
+		expect(items.map((item) => item.id)).toEqual(['historical:service:1', 'edit:2']);
+		expect(items[0]).toMatchObject({ dateOnly: true, text: 'Rails oiled.', preparedBy: 'Codex' });
+		expect(items[1].text).toBe('Fixed');
+	});
+});
+
 describe('printer timeline', () => {
 	it('renders composite summaries without links and preserves their author', () => {
 		for (const sources of [undefined, null, []]) {
@@ -41,7 +108,7 @@ describe('printer timeline', () => {
 			expect(item).toMatchObject({
 				text: 'Composite review from several reports.',
 				preparedBy: 'Codex',
-				source: 'Standup',
+				source: '',
 				links: []
 			});
 		}
@@ -66,7 +133,7 @@ describe('printer timeline', () => {
 		expect(items[0]).toMatchObject({
 			kind: 'summary',
 			dateOnly: true,
-			recordedAt: '2026-09-10T12:00:00',
+			recordedAt: '2026-09-10T00:00:00Z',
 			preparedBy: 'Codex',
 			text: 'Sam replaced the cable; verification remains open.'
 		});
@@ -218,7 +285,7 @@ describe('printer timeline', () => {
 		expect(item).toMatchObject({
 			kind: 'note',
 			source: 'Printer',
-			user: 'Unavailable',
+			user: undefined,
 			title: 'Status recorded',
 			text: 'Fan broken.\nReplacement ordered.',
 			changes: ['Condition: Out of service']
@@ -257,11 +324,18 @@ describe('printer timeline', () => {
 		};
 		expect(
 			historyItems(history([], [{ ...base, actorMethod: 'ucard', actorName: 'Alex' }]))[0]
-		).toMatchObject({ source: 'Printer', user: 'Alex' });
+		).toMatchObject({ source: 'Printer', user: 'Alex · Card tap' });
 		expect(historyItems(history([], [{ ...base, actorMethod: 'local_pin' }]))[0].user).toBe(
-			'Staff PIN'
+			'Staff (local PIN)'
 		);
-		expect(historyItems(history([], [base]))[0].user).toBe('Unavailable');
+		expect(historyItems(history([], [base]))[0].user).toBeUndefined();
+		expect(historyItems(history([], [{ ...base, actorMethod: 'ucard' }]))[0].user).toBeUndefined();
+		expect(historyItems(history([edit]))[0].user).toBeUndefined();
+		for (const eventType of ['printer_runtime_changed', 'system_runtime_changed']) {
+			const automatic = historyItems(history([], [{ ...base, eventType }]))[0];
+			expect(automatic.automatic).toBe(true);
+			expect(automatic.user).toBeUndefined();
+		}
 		expect(historyItems(history([{ ...edit, actorName: 'Alex' }]))[0]).toMatchObject({
 			source: 'mkr.cx',
 			user: 'Alex'
@@ -272,6 +346,67 @@ describe('printer timeline', () => {
 	});
 	it('accepts an empty collected history', () => {
 		expect(historyItems({ events: null, edits: null, lastSync: null })).toEqual([]);
+	});
+	it('keeps routine condition changes and reconnects out of notes and errors without losing the full log', () => {
+		const base = { recordedAt: edit.recordedAt, detail: '' };
+		const items = historyItems({
+			...history(
+				[],
+				[
+					{
+						...base,
+						sourceId: 'condition',
+						eventType: 'staff_runtime_changed',
+						detail: 'Condition: working\nNote: Existing note',
+						conditionChanged: true,
+						noteChanged: false
+					},
+					{
+						...base,
+						sourceId: 'note',
+						eventType: 'staff_runtime_changed',
+						detail: 'Condition: working\nNote: Fan replaced',
+						conditionChanged: false,
+						noteChanged: true
+					},
+					{
+						...base,
+						sourceId: 'cleared',
+						eventType: 'staff_runtime_changed',
+						detail: 'Condition: working\nNote: ',
+						conditionChanged: false,
+						noteChanged: true
+					},
+					{ ...base, sourceId: 'reconnect', eventType: 'printer_responding' },
+					{ ...base, sourceId: 'error', eventType: 'printer_error', detail: 'Heater fault' },
+					{ ...base, sourceId: 'complete', eventType: 'printer_completed' },
+					{ ...base, sourceId: 'failed', eventType: 'printer_failed', detail: 'Heater fault' }
+				]
+			),
+			summaries: [
+				{
+					sourceId: 'review',
+					reportDate: '2026-09-16',
+					body: 'Test still pending.',
+					preparedBy: 'Codex',
+					importedAt: edit.recordedAt
+				}
+			]
+		});
+		expect(
+			filterHistoryItems(items, 'updates')
+				.map((item) => item.id)
+				.sort()
+		).toEqual(
+			['event:note', 'event:cleared', 'event:error', 'event:failed', 'summary:review'].sort()
+		);
+		expect(
+			filterHistoryItems(items, 'prints')
+				.map((item) => item.id)
+				.sort()
+		).toEqual(['event:complete', 'event:failed']);
+		expect(filterHistoryItems(items, 'all')).toEqual(items);
+		expect(items.find((item) => item.id === 'event:reconnect')).toMatchObject({ automatic: true });
 	});
 	it('does not mistake an imported human note for an automatic event', () => {
 		const item = historyItems(history([{ ...edit, actor: 'service-user:7' }]))[0];

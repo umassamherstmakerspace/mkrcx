@@ -22,6 +22,7 @@ export const conditionLabels = {
 	unknown: 'Unknown'
 };
 export const activityLabels = {
+	retired: 'Retired',
 	error: 'Error',
 	idle: 'Idle',
 	printing: 'Printing',
@@ -44,6 +45,7 @@ export function printerStates(record: { lifecycle?: string; maintenance?: string
 }
 
 export function activityState(printer: Printer, disconnected = false): keyof typeof activityLabels {
+	if (printerStates(printer).lifecycle === 'retired') return 'retired';
 	if (disconnected || printer.stale) return 'unavailable';
 	if (printer.fault) return 'error';
 	if (printer.connected === false || printer.activity === 'unknown') return 'offline';
@@ -53,13 +55,14 @@ export function activityState(printer: Printer, disconnected = false): keyof typ
 export const fleetViews = [
 	{ id: 'active', label: 'In fleet' },
 	{ id: 'attention', label: 'Needs attention' },
-	{ id: 'shelved', label: 'Shelved' }
+	{ id: 'shelved', label: 'Shelved' },
+	{ id: 'retired', label: 'Retired' }
 ] as const;
 export type FleetView = (typeof fleetViews)[number]['id'];
 
 export function matchesFleetView(printer: Printer, view: FleetView): boolean {
 	const { lifecycle } = printerStates(printer);
-	if (lifecycle === 'retired') return false;
+	if (lifecycle === 'retired') return view === 'retired';
 	if (view === 'attention')
 		return printer.condition === 'limited' || printer.condition === 'out' || !!printer.fault;
 	return lifecycle === view;
