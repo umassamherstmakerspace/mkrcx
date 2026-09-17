@@ -62,7 +62,7 @@ export type HistoricalEntry = {
 	file?: string;
 	material?: string;
 	meterHours?: number;
-	estimatedSeconds?: number;
+	estimatedSeconds?: number | null;
 };
 export type HistoryItem = {
 	id: string;
@@ -221,6 +221,7 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 		.filter((item): item is HistoryItem => item !== null);
 	for (const entry of history.historical ?? []) {
 		const submission = entry.kind === 'submission';
+		const estimate = submission ? printDuration(entry.estimatedSeconds ?? undefined) : undefined;
 		items.push({
 			id: `historical:${entry.sourceId}`,
 			recordedAt: entry.recordedAt,
@@ -236,10 +237,7 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			person: entry.person,
 			file: entry.file,
 			material: entry.material,
-			duration:
-				entry.estimatedSeconds === undefined
-					? undefined
-					: `${printDuration(entry.estimatedSeconds)} estimated`,
+			duration: estimate ? `${estimate} estimated` : undefined,
 			icon: submission ? '·' : undefined
 		});
 	}

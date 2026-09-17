@@ -24,6 +24,24 @@ const history = (
 ): PrinterHistoryData => ({ edits, events, lastSync: null });
 
 describe('historical pages', () => {
+	it('does not show a duration for missing estimates or service records', () => {
+		for (const estimatedSeconds of [null, undefined, -1, NaN]) {
+			const items = historyItems({
+				...history(),
+				historical: [
+					{
+						sourceId: 'form:1',
+						recordedAt: edit.recordedAt,
+						dateOnly: false,
+						kind: 'submission',
+						body: '',
+						estimatedSeconds
+					}
+				]
+			});
+			expect(items[0].duration).toBeUndefined();
+		}
+	});
 	it('keeps legacy submissions unknown and estimates separate from measured outcomes', () => {
 		const items = historyItems({
 			...history(),
