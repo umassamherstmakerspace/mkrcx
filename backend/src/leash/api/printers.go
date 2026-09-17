@@ -132,6 +132,9 @@ func registerPrinterEndpoints(api fiber.Router) {
 }
 
 func printerStaffHistory(c *fiber.Ctx) error {
+	if c.Query("page") == "1" {
+		return printerStaffHistoryPage(c)
+	}
 	if !printerIDPattern.MatchString(c.Params("id")) {
 		return fiber.ErrBadRequest
 	}

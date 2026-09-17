@@ -23,6 +23,54 @@ const history = (
 	events: PrinterHistoryData['events'] = []
 ): PrinterHistoryData => ({ edits, events, lastSync: null });
 
+describe('historical pages', () => {
+	it('keeps legacy submissions unknown and estimates separate from measured outcomes', () => {
+		const items = historyItems({
+			...history(),
+			historical: [
+				{
+					sourceId: 'form:1',
+					recordedAt: edit.recordedAt,
+					dateOnly: false,
+					kind: 'submission',
+					body: '',
+					estimatedSeconds: 3600
+				}
+			]
+		});
+		expect(items[0]).toMatchObject({
+			outcome: 'unknown',
+			icon: '·',
+			title: 'Print logged · outcome unknown'
+		});
+		expect(items[0].duration).toContain('estimate');
+		expect(filterHistoryItems(items, 'prints')).toHaveLength(1);
+		expect(filterHistoryItems(items, 'updates')).toHaveLength(0);
+	});
+	it('uses adjacent edits as context without displaying them and preserves server page order', () => {
+		const items = historyItems({
+			...history([
+				edit,
+				{ ...edit, version: 2, note: 'Fixed', recordedAt: '2026-09-15T12:00:00Z' }
+			]),
+			historical: [
+				{
+					sourceId: 'service:1',
+					recordedAt: edit.recordedAt,
+					dateOnly: true,
+					kind: 'service',
+					body: 'Rails oiled.',
+					preparedBy: 'Codex'
+				}
+			],
+			pageIds: ['historical:service:1', 'edit:2']
+		});
+		expect(items.map((item) => item.id)).toEqual(['historical:service:1', 'edit:2']);
+		expect(items[0]).toMatchObject({ dateOnly: true, text: 'Rails oiled.', preparedBy: 'Codex' });
+		expect(items[1].text).toBe('Fixed');
+	});
+});
+
 describe('printer timeline', () => {
 	it('renders composite summaries without links and preserves their author', () => {
 		for (const sources of [undefined, null, []]) {
@@ -42,7 +90,7 @@ describe('printer timeline', () => {
 			expect(item).toMatchObject({
 				text: 'Composite review from several reports.',
 				preparedBy: 'Codex',
-				source: 'Standup',
+				source: '',
 				links: []
 			});
 		}
@@ -67,7 +115,7 @@ describe('printer timeline', () => {
 		expect(items[0]).toMatchObject({
 			kind: 'summary',
 			dateOnly: true,
-			recordedAt: '2026-09-10T12:00:00',
+			recordedAt: '2026-09-10T00:00:00Z',
 			preparedBy: 'Codex',
 			text: 'Sam replaced the cable; verification remains open.'
 		});

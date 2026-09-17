@@ -29,6 +29,12 @@ export type PrinterEdit = {
 	name: string;
 };
 export type PrinterHistoryData = {
+	historical?: HistoricalEntry[];
+	pageIds?: string[];
+	nextCursor?: string;
+	legacy?: { jobs: number; first: string | null };
+	meters?: HistoricalEntry[];
+	origins?: HistoricalEntry[];
 	summaries?:
 		| {
 				sourceId: string;
@@ -43,6 +49,20 @@ export type PrinterHistoryData = {
 	events: PrinterEvent[] | null;
 	edits: PrinterEdit[] | null;
 	lastSync: string | null;
+};
+export type HistoricalEntry = {
+	sourceId: string;
+	recordedAt: string;
+	dateOnly: boolean;
+	kind: 'submission' | 'service' | 'report' | 'meter' | 'origin' | 'retirement';
+	body: string;
+	reporter?: string;
+	preparedBy?: string;
+	person?: string;
+	file?: string;
+	material?: string;
+	meterHours?: number;
+	estimatedSeconds?: number;
 };
 export type HistoryItem = {
 	id: string;
@@ -64,6 +84,7 @@ export type HistoryItem = {
 	person?: string;
 	duration?: string;
 	icon?: string;
+	outcome?: 'completed' | 'cancelled' | 'failed' | 'unknown';
 };
 
 export function printDuration(seconds: number | undefined): string | undefined {
@@ -107,6 +128,14 @@ function eventItem(event: PrinterEvent): HistoryItem | null {
 	const legacyDuration = event.detail.match(/(?:^|\n)Print duration: (\d+) min(?:\n|$)/);
 	const detail = event.detail.replace(/(?:^|\n)Print duration: \d+ min(?=\n|$)/, '').trim();
 	const item: HistoryItem = {
+		outcome:
+			event.eventType === 'printer_completed'
+				? 'completed'
+				: event.eventType === 'printer_cancelled'
+					? 'cancelled'
+					: event.eventType === 'printer_failed'
+						? 'failed'
+						: undefined,
 		printOutcome: ['printer_completed', 'printer_cancelled', 'printer_failed'].includes(
 			event.eventType
 		),
@@ -190,14 +219,38 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 		.filter((event) => event.eventType !== 'started')
 		.map(eventItem)
 		.filter((item): item is HistoryItem => item !== null);
+	for (const entry of history.historical ?? []) {
+		const submission = entry.kind === 'submission';
+		items.push({
+			id: `historical:${entry.sourceId}`,
+			recordedAt: entry.recordedAt,
+			dateOnly: entry.dateOnly,
+			kind: submission ? 'job' : entry.kind === 'meter' ? 'change' : 'summary',
+			printOutcome: submission,
+			outcome: submission ? 'unknown' : undefined,
+			title: submission ? 'Print logged · outcome unknown' : '',
+			source: '',
+			text: entry.body,
+			user: entry.reporter,
+			preparedBy: entry.preparedBy,
+			person: entry.person,
+			file: entry.file,
+			material: entry.material,
+			duration:
+				entry.estimatedSeconds === undefined
+					? undefined
+					: `${printDuration(entry.estimatedSeconds)} estimated`,
+			icon: submission ? '·' : undefined
+		});
+	}
 	for (const summary of history.summaries ?? []) {
 		items.push({
 			id: `summary:${summary.sourceId}`,
-			recordedAt: `${summary.reportDate}T12:00:00`,
+			recordedAt: `${summary.reportDate}T00:00:00Z`,
 			dateOnly: true,
 			kind: 'summary',
-			title: 'Repair update',
-			source: 'Standup',
+			title: '',
+			source: '',
 			text: summary.body,
 			preparedBy: summary.preparedBy,
 			links: (summary.sources ?? []).filter((source) => {
@@ -266,9 +319,14 @@ export function historyItems(history: PrinterHistoryData): HistoryItem[] {
 			changes
 		});
 	}
-	return items.sort(
-		(a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt) || a.id.localeCompare(b.id)
-	);
+	const pageOrder = new Map(history.pageIds?.map((id, index) => [id, index]));
+	return items
+		.filter((item) => !history.pageIds || history.pageIds.includes(item.id))
+		.sort((a, b) =>
+			history.pageIds
+				? pageOrder.get(a.id)! - pageOrder.get(b.id)!
+				: Date.parse(b.recordedAt) - Date.parse(a.recordedAt) || a.id.localeCompare(b.id)
+		);
 }
 
 export type HistoryFilter = 'all' | 'updates' | 'prints';

@@ -84,7 +84,7 @@
 		sortDirection,
 		disconnected
 	);
-	$: if (!staffView && filter === 'shelved') filter = 'active';
+	$: if (!staffView && (filter === 'shelved' || filter === 'retired')) filter = 'active';
 	function changeSort(key: SortKey) {
 		sortDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
 		sortKey = key;
@@ -129,7 +129,7 @@
 		</div>{/if}
 	<div class="toolbar">
 		<div class="filters" role="group" aria-label="Filter printers">
-			{#each fleetViews.filter((view) => staffView || view.id !== 'shelved') as view}
+			{#each fleetViews.filter((view) => staffView || (view.id !== 'shelved' && view.id !== 'retired')) as view}
 				<Button
 					color="none"
 					size="sm"
