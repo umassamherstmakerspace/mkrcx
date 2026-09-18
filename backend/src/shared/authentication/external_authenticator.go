@@ -24,7 +24,7 @@ type GoogleAuthenticator struct {
 var _ ExternalAuthenticator = (*GoogleAuthenticator)(nil)
 
 func (g *GoogleAuthenticator) GetAuthURL(state string) string {
-	return g.googleOauth.AuthCodeURL(state)
+	return g.googleOauth.AuthCodeURL(state, oauth2.SetAuthURLParam("prompt", "select_account"))
 }
 
 func (g *GoogleAuthenticator) Callback(ctx context.Context, code string) (string, error) {

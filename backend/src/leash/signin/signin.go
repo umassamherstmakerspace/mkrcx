@@ -68,6 +68,35 @@ func origin(value *url.URL) string {
 	return (&url.URL{Scheme: strings.ToLower(value.Scheme), Host: strings.ToLower(value.Host)}).String()
 }
 
+func registrationURL(loginReturn string) string {
+	parsed, err := url.Parse(loginReturn)
+	if err == nil && parsed.IsAbs() && parsed.Host != "" {
+		return (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: "/register"}).String()
+	}
+	return "https://mkr.cx/register"
+}
+
+func unknownUserLoginPage(email, loginReturn, retryURL string) string {
+	return fmt.Sprintf(`
+		<html>
+			<head>
+				<meta name="viewport" content="width=device-width, initial-scale=1">
+				<title>Choose your Google account · mkr.cx</title>
+			</head>
+
+			<body>
+				<main>
+					<h1>Use the Google account you registered with</h1>
+					<p>Google signed you in as <strong>%s</strong>, but mkr.cx does not have an account with that exact email address.</p>
+					<p>Choose a different Google account, or register for the first time if you have not created an account yet.</p>
+					<p><a href="%s">Choose a different Google account</a></p>
+					<p><a href="%s">Register for the first time</a></p>
+				</main>
+			</body>
+		</html>
+	`, html.EscapeString(email), html.EscapeString(retryURL), html.EscapeString(registrationURL(loginReturn)))
+}
+
 func (policy loginReturnPolicy) validate(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	parsed, err := url.Parse(raw)
@@ -356,24 +385,7 @@ func RegisterAuthenticationEndpoints(auth_ep fiber.Router) {
 			// The user does not exist
 			c.Set("Content-Type", "text/html")
 			retryURL := "/auth/login?return=" + url.QueryEscape(ret)
-			return c.Status(fiber.StatusUnauthorized).SendString(
-				fmt.Sprintf(`
-				<html>
-					<head>
-						<title>Unauthorized</title>
-					</head>
-
-					<body>
-						<h1>Unauthorized</h1>
-						<br>
-						<p>You need to create an account before you can log in.</p>
-						<br>
-						<p>If you already have an account, please log in with the email you used to create your account.</p>
-						<br>
-						<a href="%s">Retry Login</a>
-					</body>
-				</html>
-			`, html.EscapeString(retryURL)))
+			return c.Status(fiber.StatusUnauthorized).SendString(unknownUserLoginPage(email, ret, retryURL))
 		}
 
 		// Check if the user signed in with a pending email
