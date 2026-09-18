@@ -3,6 +3,7 @@ package leash_signin
 import (
 	"errors"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,32 @@ import (
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
 )
+
+func TestUnknownUserLoginPageExplainsSelectedAccount(t *testing.T) {
+	page := unknownUserLoginPage(
+		"person+test@example.com",
+		"https://staging.mkr.cx/login",
+		"/auth/login?return=https%3A%2F%2Fstaging.mkr.cx%2Flogin",
+	)
+
+	for _, expected := range []string{
+		"Use the Google account you registered with",
+		"person+test@example.com",
+		"Choose a different Google account",
+		"https://staging.mkr.cx/register",
+	} {
+		if !strings.Contains(page, expected) {
+			t.Errorf("login page does not contain %q", expected)
+		}
+	}
+}
+
+func TestUnknownUserLoginPageEscapesUntrustedValues(t *testing.T) {
+	page := unknownUserLoginPage(`<script>alert("email")</script>`, "https://mkr.cx/login", `"><script>alert("url")</script>`)
+	if strings.Contains(page, "<script>") {
+		t.Fatal("login page contains unescaped script markup")
+	}
+}
 
 func TestLoginReturnPolicy(t *testing.T) {
 	policy, err := newLoginReturnPolicy("https://mkr.cx, https://staging.mkr.cx, http://localhost:5173")
