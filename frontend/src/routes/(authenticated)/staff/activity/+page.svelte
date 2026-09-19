@@ -85,16 +85,20 @@
 					<dl
 						class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800"
 					>
+						{#if window.key !== 'today'}
+							<div>
+								<dt class="text-xs text-gray-500 dark:text-gray-400">Unique visitors</dt>
+								<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
+									{window.unique_visitors.toLocaleString()}{window.unique_visitors_is_minimum
+										? '+'
+										: ''}
+								</dd>
+							</div>
+						{/if}
 						<div>
-							<dt class="text-xs text-gray-500 dark:text-gray-400">New members</dt>
+							<dt class="text-xs text-gray-500 dark:text-gray-400">New registrations</dt>
 							<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
 								{window.new_accounts.toLocaleString()}
-							</dd>
-						</div>
-						<div>
-							<dt class="text-xs text-gray-500 dark:text-gray-400">Card taps</dt>
-							<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
-								{window.checkins.toLocaleString()}
 							</dd>
 						</div>
 					</dl>
@@ -171,7 +175,7 @@
 		aria-labelledby="years-heading"
 	>
 		<h2 id="years-heading" class="text-lg font-bold text-gray-950 dark:text-white">
-			New members by year
+			New registrations by year
 		</h2>
 		<dl class="mt-2 grid grid-cols-3 gap-2 text-center">
 			{#each activity.academic_years as year}

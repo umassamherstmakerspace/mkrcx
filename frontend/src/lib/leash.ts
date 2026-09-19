@@ -393,6 +393,8 @@ export interface ActivityPulse {
 	checkins: number;
 	new_accounts: number;
 	newly_linked_cards: number;
+	unique_visitors: number;
+	unique_visitors_is_minimum: boolean;
 }
 
 export interface ActivityResponse {

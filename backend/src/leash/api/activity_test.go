@@ -202,6 +202,9 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 	if today := response.Pulse[0]; today.OpenDays != 0 || today.People != 0 {
 		t.Fatalf("unexpected today pulse: %+v", today)
 	}
+	if week.UniqueVisitors != 4 || week.UniqueVisitorsIsMinimum || !response.Pulse[2].UniqueVisitorsIsMinimum {
+		t.Fatalf("unexpected unique visitors: %+v / %+v", week, response.Pulse[2])
+	}
 	// Two distinct unknown cards and two members in the past seven days.
 	if response.StillUnlinked.Cards != 2 || response.StillUnlinked.Visitors != 4 || response.StillUnlinked.Percent != 50 {
 		t.Fatalf("unexpected still-unlinked summary: %+v", response.StillUnlinked)

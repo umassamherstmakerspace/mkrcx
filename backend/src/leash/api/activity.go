@@ -65,6 +65,11 @@ type activityPulse struct {
 	Checkins         int     `json:"checkins"`
 	NewAccounts      int     `json:"new_accounts"`
 	NewlyLinkedCards int     `json:"newly_linked_cards"`
+	// UniqueVisitors counts each person once across the whole window. Unknown
+	// cards can only be told apart for seven days, so a longer window is a
+	// minimum and says so.
+	UniqueVisitors          int  `json:"unique_visitors"`
+	UniqueVisitorsIsMinimum bool `json:"unique_visitors_is_minimum"`
 }
 
 // activityStillUnlinked covers the past seven local days, the span for which
@@ -521,7 +526,14 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		days       int
 	}{{"today", "Today", 1}, {"7_days", "Past 7 days", 7}, {"30_days", "Past 30 days", 30}} {
 		start := todayStart.AddDate(0, 0, -(window.days - 1))
-		response.Pulse = append(response.Pulse, pulseFor(window.key, window.label, events, accounts, links, unknownCards, start, rangeEnd, location))
+		pulse := pulseFor(window.key, window.label, events, accounts, links, unknownCards, start, rangeEnd, location)
+		unique, err := stillUnlinkedFor(db, events, start, rangeEnd)
+		if err != nil {
+			return activityResponse{}, err
+		}
+		pulse.UniqueVisitors = unique.Visitors
+		pulse.UniqueVisitorsIsMinimum = window.days > 7
+		response.Pulse = append(response.Pulse, pulse)
 	}
 
 	stillUnlinked, err := stillUnlinkedFor(db, events, todayStart.AddDate(0, 0, -6), rangeEnd)
