@@ -10,7 +10,8 @@ This is the one handoff for the stats page. Update it in place; do not create da
   `umassamherstmakerspace/mkrcx`). Do not start new dated clones under
   `C:\Users\shira\Claude\Makerspace\.scratch\`.
 - Branch: `stats/activity-dashboard-20260918`. Local only, not pushed, no upstream set on purpose.
-- Page: `frontend/src/routes/(authenticated)/staff/activity/+page.svelte` (one ~570-line file).
+  Until it is pushed, this laptop is the only copy.
+- Page: `frontend/src/routes/(authenticated)/staff/activity/+page.svelte` (one ~240-line file).
 - Backend: `backend/src/leash/api/activity.go`, `activity_test.go`,
   `backend/src/leash/commands/activity_snapshot.go`.
 
@@ -28,7 +29,7 @@ Do not add charts, filters, or data sources without a new settled decision below
   conflicts. The original branch is still pushed and untouched.
 - Backend: `go test ./...` passes (run offline with the Go 1.26.7 toolchain and module cache under
   `C:\Users\shira\Claude\Makerspace\.scratch\`).
-- Frontend: NOT verified. Node and pnpm are not installed for the `shira` Windows user. CI
+- Frontend: verified later the same day, see below. CI
   equivalents: pnpm 9.15.5 / Node 22, `pnpm install --frozen-lockfile`, `pnpm run lint`,
   `pnpm run test:unit -- --run`, `pnpm run check`, `pnpm run build`.
 - Staging: `/staff/activity` returns 404. Later main-based staging rollouts replaced the
@@ -67,16 +68,37 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
   fingerprint in the durable row). Only needed to follow one unlinked card over weeks. Privacy
   decision for Shira; do not build without her.
 
-## Built on this branch, not yet verified end to end
+## Built and verified locally on this branch (2026-09-18)
 
-- Backend (tests pass): unknown-card daily counts, `pulse` windows, taps per weekday-hour.
+- Backend: unknown-card daily counts, `pulse` windows, taps per weekday-hour. `go vet` clean,
+  `go test ./...` passes.
 - Frontend: page rewritten to pulse cards, "Anything to fix?", "When are we busy?" heatmap,
-  academic-year new members. NOT type-checked, linted, or built yet (no Node on this machine).
-- Warning thresholds in the page are first guesses: 25% not-linked share, 4 quiet days.
+  academic-year new members. `svelte-check` 0 errors, prettier and eslint clean on the changed
+  files, 134 unit tests pass, production build succeeds.
+- An open day needs at least 5 people (`activityOpenDayMinimumPeople`), so a staff member tapping
+  in on a closed day does not divide the average.
+- NOT yet seen in a browser with data. Warning thresholds are first guesses: 25% not-linked share,
+  4 quiet days.
+- Repo-wide `pnpm run lint` reports about 135 files on a fresh Windows clone. That is CRLF line
+  endings from checkout, not code; lint the changed files directly. For the same reason, never run
+  `go fmt` on a whole package and then `git add -A`; stage named files.
+
+## Local tooling (no system installs)
+
+- Go: `C:\Users\shira\Claude\Makerspace\.scratch\go-toolchain-1.26.7\go\bin\go.exe` with
+  `GOMODCACHE` = `.scratch\go-mod-cache-1.26.7`, `GOPROXY=off`, `GOFLAGS=-mod=readonly`.
+- Node 24: `.scratch\mkrcx-feed\.tools\node-v24.18.0-win-x64`; pnpm through
+  `corepack pnpm@9.15.5` with `COREPACK_HOME=C:\Users\shira\Makerspace\.corepack`.
+- Unit tests: `pnpm exec vitest run`. `pnpm run test:unit -- --run` falls into watch mode and hangs.
 
 ## Next action
 
-Run the frontend checks, then stage it together with the login-account-chooser change (see hazard
-above). Staging has no real taps: the September 3 deployment served a production aggregate
-snapshot through `ACTIVITY_SNAPSHOT_FILE`, produced by the `activity_snapshot` command. A fresh
-snapshot must come from a build that includes this branch, or the pulse section will be empty.
+1. Show Shira the page with sample numbers (local preview) and adjust layout and thresholds.
+2. Stage it together with the login-account-chooser change (see hazard above): push a staging
+   branch = this branch + `427eb13`, dispatch the `Docker` workflow, deploy by digest with rollback
+   digests saved. Shira approved the staging route on 2026-09-18; SSH to the cluster may be blocked
+   for Claude sessions, in which case hand her or Codex one prepared command.
+3. Staging has no real taps. The September 3 deployment served a production aggregate snapshot
+   through `ACTIVITY_SNAPSHOT_FILE`, produced by the `activity_snapshot` command. A fresh snapshot
+   must come from a build that includes this branch, or the pulse cards will be empty. Reading
+   production for that snapshot needs Shira's explicit approval each time.
