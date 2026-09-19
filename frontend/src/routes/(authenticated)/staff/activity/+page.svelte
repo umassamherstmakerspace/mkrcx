@@ -41,18 +41,31 @@
 	const heatMax = Math.max(1, ...heatAverages.values());
 	const busiest = [...heatAverages.entries()].sort((a, b) => b[1] - a[1])[0];
 
-	// Fading maroon toward white gives pinks, so maroon is never faded: ordinary
-	// hours are a gray scale and only the busiest hours are solid maroon.
-	const heatBusyShare = 0.75;
-
-	function heatIsBusy(value: number): boolean {
-		return value > 0 && value / heatMax >= heatBusyShare;
-	}
+	// One maroon scale. Fading maroon toward white gives pinks, so the light end
+	// is a warm gray that loses its color as it lightens, and the dark end runs
+	// past UMass maroon to a deeper maroon. Most of the range is true maroon.
+	const heatStops: [number, [number, number, number]][] = [
+		[0, [236, 232, 229]],
+		[0.2, [205, 190, 190]],
+		[0.4, [160, 110, 122]],
+		[0.6, [132, 0, 40]],
+		[1, [70, 0, 22]]
+	];
 
 	function heatBackground(value: number): string {
 		if (value <= 0) return 'transparent';
-		if (heatIsBusy(value)) return '#840028';
-		return `rgba(75, 85, 99, ${0.1 + 0.5 * (value / heatMax / heatBusyShare)})`;
+		const share = Math.min(1, value / heatMax);
+		let upper = heatStops.findIndex(([stop]) => share <= stop);
+		if (upper <= 0) upper = 1;
+		const [fromStop, from] = heatStops[upper - 1];
+		const [toStop, to] = heatStops[upper];
+		const mix = (share - fromStop) / (toStop - fromStop);
+		const channel = (index: number) => Math.round(from[index] + (to[index] - from[index]) * mix);
+		return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+	}
+
+	function heatIsDark(value: number): boolean {
+		return value / heatMax >= 0.35;
 	}
 
 	function heatAverage(weekday: number, hour: number): number {
@@ -152,7 +165,7 @@
 			{#if busiest}
 				{@const [weekday, hour] = busiest[0].split('-').map(Number)}
 				Busiest: {weekdays.find((day) => day.value === weekday)?.label}
-				{hourLabel(hour)}. Maroon marks the busiest hours.
+				{hourLabel(hour)}.
 			{/if}
 		</p>
 		<div class="mt-3 overflow-x-auto">
@@ -174,9 +187,9 @@
 							{#each hours as hour}
 								{@const value = heatAverage(day.value, hour)}
 								<td
-									class="h-7 rounded tabular-nums {heatIsBusy(value)
-										? 'font-semibold text-white'
-										: 'text-gray-900 dark:text-gray-100'}"
+									class="h-7 rounded tabular-nums {heatIsDark(value)
+										? 'text-white'
+										: 'text-gray-900'}"
 									style="background-color: {heatBackground(value)};"
 									title="{day.label} {hourLabel(hour)}: {value.toFixed(1)} card taps"
 									>{value >= 0.5 ? Math.round(value) : ''}</td

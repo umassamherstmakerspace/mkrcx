@@ -93,9 +93,23 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
   all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
   linked do not count. Seven days is the limit because that is how long fingerprints exist.
-- Heatmap color (Shira, 2026-09-19): never fade maroon toward white; the in-between shades are
-  pink and read as a makeup palette, not UMass maroon. Ordinary hours are a gray scale; hours at
-  75 percent or more of the busiest hour are solid maroon with white numbers.
+- Heatmap color (Shira, 2026-09-19): one maroon scale, no second color. Shira rejected both
+  maroon-to-white (in-between shades are pink, "makeup palette") and gray-plus-maroon
+  ("confusing"). Current scale: warm gray at the quiet end, UMass maroon at 60 percent of the
+  peak, deeper maroon at the peak (`heatStops` in the page).
+- OPEN, NOT BUILT: visitors for past academic years. The page counts visitors from mkr.cx
+  `checkin_events`, which only holds recent taps, so past years show a dash. Shira has the
+  history outside mkr.cx: `C:\Users\shira\Claude\Makerspace\.scratch\attendance_authoritative_build\`
+  (33,067 taps, Sep 2024 to Aug 2026, best-effort person ids; coverage notes in
+  `attendance_data/COVERAGE.md`). Counted from it on 2026-09-19, tap-storm day excluded:
+  2024-25 Fall 1,328 / Spring 1,278; 2025-26 Fall 1,066 / Spring 1,346 / Summer 199; 2025-26
+  whole year 2,079. The 2024-25 whole-year figure (2,438) is NOT reliable: fall and spring came
+  from separately anonymized exports, so a person who came both semesters is mostly counted
+  twice. 2025-26 has data holes (Aug to Oct 6 2025 lost; Dec 2025 to Jan 2026 reader down), so it
+  is a floor. Recommended route: store these as fixed historical totals per semester (counts
+  only), not by importing taps, because the old exports cannot be tied to mkr.cx members.
+  `backend/cmd/checkin-backfill` exists but reads the card-server database, which no longer has
+  anything before October 2025.
 - PARKED IDEA (Shira, 2026-09-19, registration not stats): let a first-time visitor tap their
   card to start registration, so the card is linked in the same step as the QR sign-up. Would
   shrink "Card not linked". Belongs to the registration simplification work, not this page.
