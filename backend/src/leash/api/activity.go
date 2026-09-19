@@ -648,7 +648,7 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 // activityHistoricalVisitors holds reasoned unique-visitor totals for academic
 // years whose taps predate mkr.cx check-in records. They come from the old
 // card-server exports, which cannot be tied to mkr.cx members, so only the
-// totals are kept. Method and ranges: docs/stats-page-handoff.md.
+// totals are kept. The method and ranges are recorded in the maintainers' notes.
 var activityHistoricalVisitors = map[string]int{
 	"2024–25": 2000,
 	"2025–26": 2250,
