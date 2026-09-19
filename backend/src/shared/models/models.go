@@ -230,6 +230,15 @@ type CheckinEvent struct {
 	IdempotencyKey     string `gorm:"size:128;uniqueIndex:idx_checkin_events_idempotency,priority:2" json:"-"`
 }
 
+// CheckinUnknownDaily keeps only the number of distinct unknown cards tapped on
+// one local day. It is computed while the short-lived card fingerprints still
+// exist and never stores a fingerprint or card identifier.
+type CheckinUnknownDaily struct {
+	UpdatedAt     time.Time
+	Day           string `gorm:"primaryKey;size:10"`
+	DistinctCards int
+}
+
 // CheckinExportAudit records the scope of a privileged export without copying
 // any exported identity or event content into logs.
 type CheckinExportAudit struct {

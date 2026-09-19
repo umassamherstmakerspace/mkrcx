@@ -252,6 +252,11 @@ func MigrateSchema(db *gorm.DB) error {
 		return err
 	}
 
+	err = db.AutoMigrate(&models.CheckinUnknownDaily{})
+	if err != nil {
+		return err
+	}
+
 	err = db.AutoMigrate(&models.CheckinExportAudit{})
 	if err != nil {
 		return err

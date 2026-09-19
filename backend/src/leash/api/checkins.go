@@ -364,6 +364,12 @@ func StartCheckinFeedMaintenance(db *gorm.DB, secret []byte, runtime *FeedRuntim
 	var stopOnce sync.Once
 	run := func() {
 		now := time.Now().UTC()
+		// Count unknown cards first: the purge below removes their fingerprints.
+		if location, err := time.LoadLocation(activityTimezone); err != nil {
+			log.Printf("check-in unknown-card daily count skipped: %v", err)
+		} else if _, err := recordUnknownCardDailyCounts(db, now, location); err != nil {
+			log.Printf("check-in unknown-card daily count failed: %v", err)
+		}
 		if count, err := purgeExpiredCheckinFeedItems(db, now); err != nil {
 			log.Printf("check-in feed retention sweep failed: %v", err)
 		} else if count > 0 {

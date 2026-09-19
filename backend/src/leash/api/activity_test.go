@@ -133,3 +133,75 @@ func TestBuildActivityResponseSeparatesLinkedAndUnlinkedMembers(t *testing.T) {
 		t.Fatalf("unexpected academic-year comparison: %+v", response.AcademicYears)
 	}
 }
+
+func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
+	db := newCheckinExportTestDB(t)
+	if err := db.AutoMigrate(&models.UserUpdate{}, &models.Feed{}, &models.FeedMessage{}, &models.CheckinUnknownDaily{}); err != nil {
+		t.Fatal(err)
+	}
+	location, err := time.LoadLocation(activityTimezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, time.September, 3, 14, 0, 0, 0, location)
+	yesterday := time.Date(2026, time.September, 2, 10, 0, 0, 0, location).UTC()
+	expiredDay := time.Date(2026, time.August, 27, 10, 0, 0, 0, location).UTC()
+
+	feed := models.Feed{Name: checkinFeedName}
+	if err := db.Create(&feed).Error; err != nil {
+		t.Fatal(err)
+	}
+	cardOne, cardTwo := "fingerprint-one", "fingerprint-two"
+	items := []models.FeedMessage{
+		{Model: models.Model{CreatedAt: yesterday}, FeedID: feed.ID, PendingCardFingerprint: &cardOne},
+		{Model: models.Model{CreatedAt: yesterday.Add(time.Hour)}, FeedID: feed.ID, PendingCardFingerprint: &cardOne},
+		{Model: models.Model{CreatedAt: yesterday.Add(2 * time.Hour)}, FeedID: feed.ID, PendingCardFingerprint: &cardTwo},
+		// August 27 began before the seven-day cutoff, so its saved count must stay frozen.
+		{Model: models.Model{CreatedAt: expiredDay.Add(6 * time.Hour)}, FeedID: feed.ID, PendingCardFingerprint: &cardTwo},
+	}
+	if err := db.Create(&items).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.CheckinUnknownDaily{Day: "2026-08-27", DistinctCards: 9}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := recordUnknownCardDailyCounts(db, now, location); err != nil {
+		t.Fatal(err)
+	}
+	var saved []models.CheckinUnknownDaily
+	if err := db.Order("day ASC").Find(&saved).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(saved) != 2 || saved[0].DistinctCards != 9 || saved[1].Day != "2026-09-02" || saved[1].DistinctCards != 2 {
+		t.Fatalf("unexpected saved unknown-card counts: %+v", saved)
+	}
+
+	events := []models.CheckinEvent{
+		{OccurredAt: yesterday, IdempotencyScope: "test", IdempotencyKey: "u1"},
+		{OccurredAt: yesterday.Add(time.Hour), IdempotencyScope: "test", IdempotencyKey: "u2"},
+		{OccurredAt: yesterday.Add(2 * time.Hour), IdempotencyScope: "test", IdempotencyKey: "u3"},
+		{OccurredAt: yesterday.Add(3 * time.Hour), MemberUUID: "member-a", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "m1"},
+		{OccurredAt: yesterday.Add(4 * time.Hour), MemberUUID: "member-b", LinkedAtTap: false, IdempotencyScope: "test", IdempotencyKey: "m2"},
+	}
+	if err := db.Create(&events).Error; err != nil {
+		t.Fatal(err)
+	}
+	response, err := BuildActivityResponse(db, "semester", now, location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Pulse) != 3 {
+		t.Fatalf("pulse windows = %d, want 3", len(response.Pulse))
+	}
+	week := response.Pulse[1]
+	// One open day: member-a, member-b (not linked), and two unknown cards.
+	if week.Key != "7_days" || week.OpenDays != 1 || week.People != 4 || week.AvgDailyPeople != 4 || week.NotLinkedPeople != 3 || week.NotLinkedPercent != 75 || week.Checkins != 5 {
+		t.Fatalf("unexpected 7-day pulse: %+v", week)
+	}
+	if today := response.Pulse[0]; today.OpenDays != 0 || today.People != 0 {
+		t.Fatalf("unexpected today pulse: %+v", today)
+	}
+	if response.HeatmapOpenDays[int(time.Wednesday)] != 1 {
+		t.Fatalf("unexpected heatmap open days: %+v", response.HeatmapOpenDays)
+	}
+}

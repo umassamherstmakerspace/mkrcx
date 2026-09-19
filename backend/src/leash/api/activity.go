@@ -2,6 +2,7 @@ package leash_backend_api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	leash_auth "github.com/mkrcx/mkrcx/src/shared/authentication"
 	"github.com/mkrcx/mkrcx/src/shared/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -46,12 +48,30 @@ type activityPoint struct {
 	NewAccounts         int    `json:"new_accounts"`
 	NewlyLinkedCards    int    `json:"newly_linked_cards"`
 	CumulativeVisitors  int    `json:"cumulative_visitors"`
+	UnknownCards        int    `json:"unknown_cards"`
+}
+
+// activityPulse is one fixed look-back window for the at-a-glance page.
+// People counts one person per day: members linked at the tap, members whose
+// card was not linked yet, and distinct unknown cards.
+type activityPulse struct {
+	Key              string  `json:"key"`
+	Label            string  `json:"label"`
+	OpenDays         int     `json:"open_days"`
+	People           int     `json:"people"`
+	AvgDailyPeople   float64 `json:"avg_daily_people"`
+	NotLinkedPeople  int     `json:"not_linked_people"`
+	NotLinkedPercent float64 `json:"not_linked_percent"`
+	Checkins         int     `json:"checkins"`
+	NewAccounts      int     `json:"new_accounts"`
+	NewlyLinkedCards int     `json:"newly_linked_cards"`
 }
 
 type activityHeatCell struct {
 	Weekday int `json:"weekday"`
 	Hour    int `json:"hour"`
 	Members int `json:"members"`
+	Taps    int `json:"taps"`
 }
 
 type activityCoverage struct {
@@ -81,6 +101,8 @@ type activityResponse struct {
 	Daily        []activityPoint        `json:"daily"`
 	Weekly       []activityPoint        `json:"weekly"`
 	Heatmap      []activityHeatCell     `json:"heatmap"`
+	HeatmapOpenDays [7]int              `json:"heatmap_open_days"`
+	Pulse        []activityPulse        `json:"pulse"`
 	AcademicYears []activityAcademicYear `json:"academic_years"`
 	Coverage     activityCoverage       `json:"coverage"`
 }
@@ -203,6 +225,55 @@ func summaryFor(events []activityEvent, accounts []activityAccount, links []acti
 	}
 }
 
+// pulseFor counts one person per local day in [start, end). A day is open
+// when it has at least one tap, so closed days do not pull the average down.
+func pulseFor(key, label string, events []activityEvent, accounts []activityAccount, links []activityCardLink, unknownCards map[string]int, start, end time.Time, location *time.Location) activityPulse {
+	linked := map[string]map[string]struct{}{}
+	notLinked := map[string]map[string]struct{}{}
+	openDays := map[string]struct{}{}
+	for _, event := range events {
+		if event.OccurredAt.Before(start) || !event.OccurredAt.Before(end) {
+			continue
+		}
+		dayKey := event.OccurredAt.In(location).Format("2006-01-02")
+		openDays[dayKey] = struct{}{}
+		if event.MemberUUID == "" {
+			continue
+		}
+		target := notLinked
+		if event.LinkedAtTap {
+			target = linked
+		}
+		if target[dayKey] == nil {
+			target[dayKey] = map[string]struct{}{}
+		}
+		target[dayKey][event.MemberUUID] = struct{}{}
+	}
+	summary := summaryFor(events, accounts, links, start, end)
+	pulse := activityPulse{
+		Key: key, Label: label, OpenDays: len(openDays), Checkins: summary.Checkins,
+		NewAccounts: summary.NewAccounts, NewlyLinkedCards: summary.NewlyLinkedCards,
+	}
+	for dayKey := range openDays {
+		// A member who tapped both before and after linking on one day is one person.
+		unlinkedOnly := 0
+		for member := range notLinked[dayKey] {
+			if _, both := linked[dayKey][member]; !both {
+				unlinkedOnly++
+			}
+		}
+		pulse.NotLinkedPeople += unlinkedOnly + unknownCards[dayKey]
+		pulse.People += len(linked[dayKey]) + unlinkedOnly + unknownCards[dayKey]
+	}
+	if pulse.OpenDays > 0 {
+		pulse.AvgDailyPeople = float64(pulse.People) / float64(pulse.OpenDays)
+	}
+	if pulse.People > 0 {
+		pulse.NotLinkedPercent = float64(pulse.NotLinkedPeople) * 100 / float64(pulse.People)
+	}
+	return pulse
+}
+
 func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, location *time.Location) (activityResponse, error) {
 	key, label, rangeStart, rangeEnd := activityPreset(requested, now, location)
 	todayStart := localDayStart(now, location)
@@ -210,6 +281,10 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 	eventQueryStart := rangeStart
 	if weekStart.Before(eventQueryStart) {
 		eventQueryStart = weekStart
+	}
+	pulseStart := todayStart.AddDate(0, 0, -29)
+	if pulseStart.Before(eventQueryStart) {
+		eventQueryStart = pulseStart
 	}
 	currentAcademicYear := academicYearStart(now, location)
 	comparisonStart := currentAcademicYear.AddDate(-2, 0, 0)
@@ -250,6 +325,18 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		}
 	}
 
+	unknownCards := map[string]int{}
+	if db.Migrator().HasTable(&models.CheckinUnknownDaily{}) {
+		var unknownRows []models.CheckinUnknownDaily
+		if err := db.Where("day >= ? AND day < ?", eventQueryStart.Format("2006-01-02"), rangeEnd.Format("2006-01-02")).
+			Find(&unknownRows).Error; err != nil {
+			return activityResponse{}, err
+		}
+		for _, row := range unknownRows {
+			unknownCards[row.Day] = row.DistinctCards
+		}
+	}
+
 	response := activityResponse{
 		Timezone: activityTimezone,
 		Range: activityRange{
@@ -262,6 +349,7 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		Daily:         []activityPoint{},
 		Weekly:        []activityPoint{},
 		Heatmap:       []activityHeatCell{},
+		Pulse:         []activityPulse{},
 		AcademicYears: []activityAcademicYear{},
 	}
 
@@ -276,6 +364,8 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 	weeklyAccounts := map[string]int{}
 	weeklyLinks := map[string]map[uint]struct{}{}
 	heat := map[[2]int]map[string]struct{}{}
+	heatTaps := map[[2]int]int{}
+	heatDays := map[string]int{}
 	identified := 0
 	var firstCheckin time.Time
 	for _, event := range events {
@@ -291,9 +381,11 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		weekKey := week.Format("2006-01-02")
 		dailyCheckins[dayKey]++
 		weeklyCheckins[weekKey]++
+		heatKey := [2]int{int(local.Weekday()), local.Hour()}
+		heatTaps[heatKey]++
+		heatDays[dayKey] = int(local.Weekday())
 		if event.MemberUUID != "" {
 			identified++
-			heatKey := [2]int{int(local.Weekday()), local.Hour()}
 			if heat[heatKey] == nil {
 				heat[heatKey] = map[string]struct{}{}
 			}
@@ -366,6 +458,7 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 			Start: dayKey, Visitors: len(dailyVisitors[dayKey]), UnlinkedCardHolders: len(dailyUnlinked[dayKey]),
 			Checkins: dailyCheckins[dayKey], NewAccounts: dailyAccounts[dayKey],
 			NewlyLinkedCards: len(dailyLinks[dayKey]), CumulativeVisitors: len(cumulative),
+			UnknownCards: unknownCards[dayKey],
 		})
 	}
 
@@ -382,9 +475,12 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		})
 	}
 
-	keys := make([][2]int, 0, len(heat))
-	for cell := range heat {
+	keys := make([][2]int, 0, len(heatTaps))
+	for cell := range heatTaps {
 		keys = append(keys, cell)
+	}
+	for _, weekday := range heatDays {
+		response.HeatmapOpenDays[weekday]++
 	}
 	sort.Slice(keys, func(i, j int) bool {
 		if keys[i][0] == keys[j][0] {
@@ -393,7 +489,15 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		return keys[i][0] < keys[j][0]
 	})
 	for _, cell := range keys {
-		response.Heatmap = append(response.Heatmap, activityHeatCell{Weekday: cell[0], Hour: cell[1], Members: len(heat[cell])})
+		response.Heatmap = append(response.Heatmap, activityHeatCell{Weekday: cell[0], Hour: cell[1], Members: len(heat[cell]), Taps: heatTaps[cell]})
+	}
+
+	for _, window := range []struct {
+		key, label string
+		days       int
+	}{{"today", "Today", 1}, {"7_days", "Past 7 days", 7}, {"30_days", "Past 30 days", 30}} {
+		start := todayStart.AddDate(0, 0, -(window.days - 1))
+		response.Pulse = append(response.Pulse, pulseFor(window.key, window.label, events, accounts, links, unknownCards, start, rangeEnd, location))
 	}
 
 	for index := 0; index < 3; index++ {
@@ -422,6 +526,62 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		response.Coverage.FirstCardLink = links[0].CreatedAt.In(location).Format("2006-01-02")
 	}
 	return response, nil
+}
+
+// recordUnknownCardDailyCounts saves how many distinct unknown cards tapped on
+// each local day, while the seven-day card fingerprints still exist. Only the
+// count is kept. A day is rewritten only while it lies wholly inside the
+// retention window, so a count can fall when a card is later linked (that
+// person then counts as a member) but never because old rows were purged.
+func recordUnknownCardDailyCounts(db *gorm.DB, now time.Time, location *time.Location) (int, error) {
+	var feed models.Feed
+	if result := db.Where("name = ?", checkinFeedName).First(&feed); errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return 0, nil
+	} else if result.Error != nil {
+		return 0, result.Error
+	}
+	cutoff := now.UTC().Add(-checkinFeedRetention)
+	var pending []struct {
+		CreatedAt              time.Time
+		PendingCardFingerprint string
+	}
+	if err := db.Model(&models.FeedMessage{}).
+		Select("created_at", "pending_card_fingerprint").
+		Where("feed_id = ? AND user_id = 0 AND pending_card_fingerprint IS NOT NULL AND created_at >= ?", feed.ID, cutoff).
+		Scan(&pending).Error; err != nil {
+		return 0, err
+	}
+	cards := map[string]map[string]struct{}{}
+	for _, item := range pending {
+		dayKey := item.CreatedAt.In(location).Format("2006-01-02")
+		if cards[dayKey] == nil {
+			cards[dayKey] = map[string]struct{}{}
+		}
+		cards[dayKey][item.PendingCardFingerprint] = struct{}{}
+	}
+
+	written := 0
+	today := localDayStart(now, location)
+	for day := today; !day.Before(cutoff); day = day.AddDate(0, 0, -1) {
+		dayKey := day.Format("2006-01-02")
+		row := models.CheckinUnknownDaily{Day: dayKey, DistinctCards: len(cards[dayKey]), UpdatedAt: now.UTC()}
+		if row.DistinctCards == 0 {
+			result := db.Model(&models.CheckinUnknownDaily{}).Where("day = ?", dayKey).
+				Updates(map[string]interface{}{"distinct_cards": 0, "updated_at": row.UpdatedAt})
+			if result.Error != nil {
+				return written, result.Error
+			}
+			continue
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "day"}},
+			DoUpdates: clause.AssignmentColumns([]string{"distinct_cards", "updated_at"}),
+		}).Create(&row).Error; err != nil {
+			return written, err
+		}
+		written++
+	}
+	return written, nil
 }
 
 func authorizeActivity(c *fiber.Ctx) error {
