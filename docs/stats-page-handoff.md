@@ -155,12 +155,18 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 
 ## Next action
 
-1. Show Shira the local preview (see above) and adjust layout and the two warning thresholds.
-2. Stage it together with the login-account-chooser change (see hazard above): push a staging
-   branch = this branch + `427eb13`, dispatch the `Docker` workflow, deploy by digest with rollback
-   digests saved. Shira approved the staging route on 2026-09-18; SSH to the cluster may be blocked
-   for Claude sessions, in which case hand her or Codex one prepared command.
-3. Staging has no real taps. The September 3 deployment served a production aggregate snapshot
-   through `ACTIVITY_SNAPSHOT_FILE`, produced by the `activity_snapshot` command. A fresh snapshot
-   must come from a build that includes this branch, or the pulse cards will be empty. Reading
-   production for that snapshot needs Shira's explicit approval each time.
+Design is accepted by Shira as of 2026-09-19 (layout, wording, colors, dark mode). Both branches are
+pushed: `stats/activity-dashboard-20260918` (clean, for the eventual pull request) and
+`staging/stats-plus-login-20260919` (the same plus login commit `427eb13`; all backend tests,
+type check, 134 unit tests and the production build pass on it).
+
+1. Shira: in GitHub, Actions, Docker, Run workflow on `staging/stats-plus-login-20260919` with
+   component `both`. Claude cannot do this (no GitHub CLI or login in the session).
+2. Read the two image digests, prepare the staging deploy with saved rollback digests. SSH to the
+   cluster may be blocked for Claude sessions; if so hand Shira one prepared command.
+3. Real numbers on staging need a fresh production aggregate snapshot made with this build
+   (`activity_snapshot`, served through `ACTIVITY_SNAPSHOT_FILE`). How the September 3 snapshot
+   was produced and mounted is not recorded in this repo: ask Codex. Reading production needs
+   Shira's explicit yes each time.
+4. Before release: confirm the six professional accounts have type `employee`; replace nothing
+   else. Then pull request from the clean stats branch (after the login change has merged to main).
