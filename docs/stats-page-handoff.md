@@ -81,8 +81,13 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
   (role `staff` or `admin` on a non-employee account) ARE visitors, because they use the space
   off shift too; they get their own group. No calendar or shift matching: decided too complicated.
   CHECK BEFORE RELEASE: confirm the six professional accounts really have type `employee`.
-- Bottom "Totals" table: visitors and new registrations for the current semester and each
-  academic year. Years before tap records existed show a dash for visitors.
+- Card breakdown display (Shira, 2026-09-19): a thin stacked bar plus a labeled list, so it is
+  obvious the four groups add up to the total. Labels: New members, Returning members, Student
+  staff, Card not linked (never "Unknown"). Window titles are bold and close in weight to the
+  totals.
+- Bottom "By academic year": one box per academic year, oldest first, current year tinted and
+  marked "so far"; each shows Visitors and New registrations. Years before tap records existed
+  show a dash for visitors. A fall/spring split of past years was offered and left for later.
 - Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
   all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
   linked do not count. Seven days is the limit because that is how long fingerprints exist.

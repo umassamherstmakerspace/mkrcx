@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ActivityPulse } from '$lib/leash';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -18,6 +19,17 @@
 	const hours = Array.from({ length: 15 }, (_, index) => index + 8);
 
 	const activity = data.activity;
+
+	// The four groups add up to a card's visitor total. "Card not linked" shares
+	// its amber with the line below the cards, which is about the same people.
+	function visitorGroups(window: ActivityPulse) {
+		return [
+			{ label: 'New members', value: window.new_visitors, color: '#059669' },
+			{ label: 'Returning members', value: window.returning_visitors, color: '#840028' },
+			{ label: 'Student staff', value: window.staff_visitors, color: '#64748b' },
+			{ label: 'Card not linked', value: window.unknown_visitors, color: '#f59e0b' }
+		];
+	}
 	const pulse = activity.pulse ?? [];
 	const unlinked = activity.still_unlinked;
 
@@ -64,25 +76,39 @@
 		<h2 id="pulse-heading" class="sr-only">Visitors</h2>
 		<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
 			{#each pulse as window}
+				{@const groups = visitorGroups(window)}
 				<article
 					class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 				>
-					<h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300">{window.label}</h3>
-					<strong class="mt-1 block text-5xl font-bold tabular-nums text-gray-950 dark:text-white"
+					<h3 class="text-base font-bold text-gray-950 dark:text-white">{window.label}</h3>
+					<strong class="mt-2 block text-4xl font-bold tabular-nums text-gray-950 dark:text-white"
 						>{window.visitors.toLocaleString()}</strong
 					>
 					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
 						visitors{#if (window.key === '7_days' || window.key === '30_days') && window.open_days > 0},
 							about {Math.round(window.avg_daily_people).toLocaleString()} a day{/if}
 					</p>
-					<dl
-						class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800"
+					<div
+						class="mt-3 flex h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
+						aria-hidden="true"
 					>
-						{#each [{ label: 'New', value: window.new_visitors }, { label: 'Returning', value: window.returning_visitors }, { label: 'Student staff', value: window.staff_visitors }, { label: 'Unknown', value: window.unknown_visitors }] as part}
-							<div>
-								<dt class="text-xs text-gray-500 dark:text-gray-400">{part.label}</dt>
+						{#each groups as group}
+							{#if group.value > 0}
+								<span style="flex: {group.value} 1 0%; background-color: {group.color};"></span>
+							{/if}
+						{/each}
+					</div>
+					<dl class="mt-2 flex flex-col gap-1 text-sm">
+						{#each groups as group}
+							<div class="flex items-center gap-2">
+								<span
+									class="h-2 w-2 shrink-0 rounded-full"
+									style="background-color: {group.color};"
+									aria-hidden="true"
+								></span>
+								<dt class="grow text-gray-600 dark:text-gray-300">{group.label}</dt>
 								<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
-									{part.value.toLocaleString()}
+									{group.value.toLocaleString()}
 								</dd>
 							</div>
 						{/each}
@@ -159,28 +185,37 @@
 		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 		aria-labelledby="years-heading"
 	>
-		<h2 id="years-heading" class="text-lg font-bold text-gray-950 dark:text-white">Totals</h2>
-		<table class="mt-2 w-full text-sm">
-			<thead>
-				<tr class="text-right text-xs text-gray-500 dark:text-gray-400">
-					<th class="text-left font-medium"></th>
-					<th class="font-medium">Visitors</th>
-					<th class="font-medium">New registrations</th>
-				</tr>
-			</thead>
-			<tbody class="tabular-nums text-gray-950 dark:text-white">
-				{#each [{ label: activity.semester.label, visitors: activity.semester.visitors, registrations: activity.semester.new_accounts }, ...[...activity.academic_years]
-						.reverse()
-						.map( (year) => ({ label: year.label, visitors: year.visitors, registrations: year.new_accounts }) )] as row}
-					<tr class="border-t border-gray-100 text-right dark:border-gray-800">
-						<th class="py-1.5 text-left font-medium text-gray-600 dark:text-gray-300"
-							>{row.label}</th
-						>
-						<td class="font-semibold">{row.visitors > 0 ? row.visitors.toLocaleString() : '–'}</td>
-						<td class="font-semibold">{row.registrations.toLocaleString()}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
+		<h2 id="years-heading" class="text-lg font-bold text-gray-950 dark:text-white">
+			By academic year
+		</h2>
+		<div class="mt-2 grid gap-2 sm:grid-cols-3">
+			{#each activity.academic_years as year}
+				<div
+					class="rounded-xl px-4 py-3 {year.current
+						? 'border border-[#840028]/30 bg-[#840028]/5 dark:border-[#e07a9a]/40 dark:bg-[#840028]/20'
+						: 'bg-gray-50 dark:bg-gray-800'}"
+				>
+					<h3 class="text-base font-bold text-gray-950 dark:text-white">
+						{year.label}{#if year.current}<span
+								class="ml-1 text-sm font-medium text-gray-600 dark:text-gray-300">so far</span
+							>{/if}
+					</h3>
+					<dl class="mt-2 flex flex-col gap-1 text-sm">
+						<div class="flex items-baseline justify-between gap-2">
+							<dt class="text-gray-600 dark:text-gray-300">Visitors</dt>
+							<dd class="text-xl font-bold tabular-nums text-gray-950 dark:text-white">
+								{year.visitors > 0 ? year.visitors.toLocaleString() : '–'}
+							</dd>
+						</div>
+						<div class="flex items-baseline justify-between gap-2">
+							<dt class="text-gray-600 dark:text-gray-300">New registrations</dt>
+							<dd class="text-xl font-bold tabular-nums text-gray-950 dark:text-white">
+								{year.new_accounts.toLocaleString()}
+							</dd>
+						</div>
+					</dl>
+				</div>
+			{/each}
+		</div>
 	</section>
 </main>
