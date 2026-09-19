@@ -202,6 +202,10 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 	if today := response.Pulse[0]; today.OpenDays != 0 || today.People != 0 {
 		t.Fatalf("unexpected today pulse: %+v", today)
 	}
+	// Two distinct unknown cards and two members in the past seven days.
+	if response.StillUnlinked.Cards != 2 || response.StillUnlinked.Visitors != 4 || response.StillUnlinked.Percent != 50 {
+		t.Fatalf("unexpected still-unlinked summary: %+v", response.StillUnlinked)
+	}
 	if response.HeatmapOpenDays[int(time.Wednesday)] != 1 {
 		t.Fatalf("unexpected heatmap open days: %+v", response.HeatmapOpenDays)
 	}

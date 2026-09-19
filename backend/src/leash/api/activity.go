@@ -67,6 +67,15 @@ type activityPulse struct {
 	NewlyLinkedCards int     `json:"newly_linked_cards"`
 }
 
+// activityStillUnlinked covers the past seven local days, the span for which
+// unknown-card fingerprints exist. Cards counts distinct unknown cards that
+// nobody has linked since; a card linked after its tap is a member instead.
+type activityStillUnlinked struct {
+	Cards    int     `json:"cards"`
+	Visitors int     `json:"visitors"`
+	Percent  float64 `json:"percent"`
+}
+
 type activityHeatCell struct {
 	Weekday int `json:"weekday"`
 	Hour    int `json:"hour"`
@@ -103,6 +112,7 @@ type activityResponse struct {
 	Heatmap         []activityHeatCell     `json:"heatmap"`
 	HeatmapOpenDays [7]int                 `json:"heatmap_open_days"`
 	Pulse           []activityPulse        `json:"pulse"`
+	StillUnlinked   activityStillUnlinked  `json:"still_unlinked"`
 	AcademicYears   []activityAcademicYear `json:"academic_years"`
 	Coverage        activityCoverage       `json:"coverage"`
 }
@@ -514,6 +524,12 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		response.Pulse = append(response.Pulse, pulseFor(window.key, window.label, events, accounts, links, unknownCards, start, rangeEnd, location))
 	}
 
+	stillUnlinked, err := stillUnlinkedFor(db, events, todayStart.AddDate(0, 0, -6), rangeEnd)
+	if err != nil {
+		return activityResponse{}, err
+	}
+	response.StillUnlinked = stillUnlinked
+
 	for index := 0; index < 3; index++ {
 		start := comparisonStart.AddDate(index, 0, 0)
 		end := start.AddDate(1, 0, 0)
@@ -540,6 +556,37 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		response.Coverage.FirstCardLink = links[0].CreatedAt.In(location).Format("2006-01-02")
 	}
 	return response, nil
+}
+
+func stillUnlinkedFor(db *gorm.DB, events []activityEvent, start, end time.Time) (activityStillUnlinked, error) {
+	members := map[string]struct{}{}
+	for _, event := range events {
+		if event.MemberUUID != "" && !event.OccurredAt.Before(start) && event.OccurredAt.Before(end) {
+			members[event.MemberUUID] = struct{}{}
+		}
+	}
+	result := activityStillUnlinked{Visitors: len(members)}
+	if !db.Migrator().HasTable(&models.FeedMessage{}) {
+		return result, nil
+	}
+	var feed models.Feed
+	if found := db.Where("name = ?", checkinFeedName).First(&feed); errors.Is(found.Error, gorm.ErrRecordNotFound) {
+		return result, nil
+	} else if found.Error != nil {
+		return result, found.Error
+	}
+	var cards int64
+	if err := db.Model(&models.FeedMessage{}).
+		Where("feed_id = ? AND user_id = 0 AND pending_card_fingerprint IS NOT NULL AND created_at >= ? AND created_at < ?", feed.ID, start.UTC(), end.UTC()).
+		Distinct("pending_card_fingerprint").Count(&cards).Error; err != nil {
+		return result, err
+	}
+	result.Cards = int(cards)
+	result.Visitors += result.Cards
+	if result.Visitors > 0 {
+		result.Percent = float64(result.Cards) * 100 / float64(result.Visitors)
+	}
+	return result, nil
 }
 
 // recordUnknownCardDailyCounts saves how many distinct unknown cards tapped on

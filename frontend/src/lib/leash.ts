@@ -407,6 +407,7 @@ export interface ActivityResponse {
 	heatmap: { weekday: number; hour: number; members: number; taps: number }[];
 	heatmap_open_days: number[];
 	pulse: ActivityPulse[];
+	still_unlinked: { cards: number; visitors: number; percent: number };
 	academic_years: {
 		label: string;
 		start: string;

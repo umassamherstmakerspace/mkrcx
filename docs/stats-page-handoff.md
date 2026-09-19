@@ -64,6 +64,12 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Unknown cards: keep only a per-day count of distinct unknown cards, computed by the hourly
   check-in maintenance while the seven-day fingerprints exist (`checkin_unknown_dailies` table).
   No change to the approved seven-day fingerprint retention.
+- Wording (Shira, 2026-09-19): minimal. No explanatory sentences, footnotes, or method notes on
+  the page. Say "visitors" and "card taps". Insights are one short line with the numbers in it.
+  No card-reader status here; the front desk HUD already shows Live.
+- Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
+  all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
+  linked do not count. Seven days is the limit because that is how long fingerprints exist.
 - OPEN FORK, parked on purpose: keeping unknown-card fingerprints longer (or a daily-rotating
   fingerprint in the durable row). Only needed to follow one unlinked card over weeks. Privacy
   decision for Shira; do not build without her.
@@ -81,8 +87,7 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
   intended. Not yet seen with real data. To repeat: in the docs repo, `.claude/launch.json` has
   `mkrcx-frontend-preview` (vite dev on port 5199, no backend); open `/zz-preview-activity`. That
   route is a local, git-excluded file (`.git/info/exclude`) holding sample data; it is not in any
-  commit and must never be committed. Warning thresholds are first guesses: 25% not-linked share,
-  4 quiet days.
+  commit and must never be committed. The amber threshold (25% still unlinked) is a first guess.
 - Repo-wide `pnpm run lint` reports about 135 files on a fresh Windows clone. That is CRLF line
   endings from checkout, not code; lint the changed files directly. For the same reason, never run
   `go fmt` on a whole package and then `git add -A`; stage named files.
