@@ -94,9 +94,10 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Colors (Shira, 2026-09-19, FINAL): ordinary colors, not the UMass palette. Several maroon-only
   attempts were tried and dropped (maroon faded to white reads pink; gray plus maroon was
   confusing; warm-gray and white-to-red low ends were also rejected). Do not reopen this.
-  Heatmap = the standard yellow-orange-red scale (ColorBrewer YlOrRd). Card groups = solid
-  green (New members), blue (Returning members), purple (Student staff), amber (Card not
-  linked, matching the amber line about the same people). Maroon stays only as the border of the
+  Heatmap = the standard yellow-orange-red scale (ColorBrewer YlOrRd). Card groups = a calm set, because
+  green/blue/purple/amber looked "clowny": light blue (New members), dark blue (Returning
+  members), gray (Student staff), amber (Card not linked, matching the amber line about the same
+  people). Dark mode checked in a browser on 2026-09-19: fine. Maroon stays only as the border of the
   current academic-year box.
 - Past academic years (Shira, 2026-09-19): show a reasoned static visitor total, labeled
   "about". Values live in `activityHistoricalVisitors` in `activity.go` and apply only to a past

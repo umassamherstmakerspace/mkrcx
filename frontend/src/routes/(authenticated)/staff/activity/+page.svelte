@@ -242,16 +242,21 @@
 </main>
 
 <style>
+	/* Calm on purpose: two blues for members, gray for staff, and amber only for
+	   the group the amber line below is about. */
 	.swatch-new {
-		background-color: #16a34a;
+		background-color: #38bdf8;
 	}
 	.swatch-returning {
-		background-color: #2563eb;
+		background-color: #1e40af;
 	}
 	.swatch-staff {
-		background-color: #7c3aed;
+		background-color: #94a3b8;
 	}
 	.swatch-unlinked {
 		background-color: #f59e0b;
+	}
+	:global(.dark) .swatch-returning {
+		background-color: #3b82f6;
 	}
 </style>
