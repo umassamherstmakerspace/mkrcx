@@ -187,6 +187,13 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 	if err := db.Create(&events).Error; err != nil {
 		t.Fatal(err)
 	}
+	newMember := models.User{Model: models.Model{CreatedAt: yesterday.Add(-time.Hour)}, Email: "new@example.com", Role: "member"}
+	if err := db.Create(&newMember).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.CheckinIdentity{UserID: newMember.ID, MemberUUID: "member-a"}).Error; err != nil {
+		t.Fatal(err)
+	}
 	response, err := BuildActivityResponse(db, "semester", now, location)
 	if err != nil {
 		t.Fatal(err)
@@ -202,8 +209,9 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 	if today := response.Pulse[0]; today.OpenDays != 0 || today.People != 0 {
 		t.Fatalf("unexpected today pulse: %+v", today)
 	}
-	if week.UniqueVisitors != 4 || week.UniqueVisitorsIsMinimum || !response.Pulse[2].UniqueVisitorsIsMinimum {
-		t.Fatalf("unexpected unique visitors: %+v / %+v", week, response.Pulse[2])
+	// member-a registered inside the window (new); member-b has no record here (returning).
+	if week.Visitors != 4 || week.NewVisitors != 1 || week.ReturningVisitors != 1 || week.UnknownVisitors != 2 {
+		t.Fatalf("unexpected visitor breakdown: %+v", week)
 	}
 	// Two distinct unknown cards and two members in the past seven days.
 	if response.StillUnlinked.Cards != 2 || response.StillUnlinked.Visitors != 4 || response.StillUnlinked.Percent != 50 {

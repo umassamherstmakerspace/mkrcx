@@ -67,10 +67,11 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Wording (Shira, 2026-09-19): minimal. No explanatory sentences, footnotes, or method notes on
   the page. Say "visitors" and "card taps". Insights are one short line with the numbers in it.
   No card-reader status here; the front desk HUD already shows Live.
-- Cards show visitors per open day (today: visitors so far), unique visitors in the window, and
-  new registrations. Raw (non-unique) card tap counts are NOT shown anywhere; Shira does not care
-  about them. Unique visitors beyond 7 days is a minimum ("N+") because unknown cards can only be
-  told apart for seven days.
+- Cards (Shira, 2026-09-19): each window (today, past 7 days, past 30 days) shows total unique
+  visitors, split into New (account created inside the window), Returning, and Unknown (distinct
+  unlinked cards). Totals, not averages. No raw card-tap counts on the cards; the heatmap is the
+  one place raw taps are right (door busyness). No "+" marker: Unknown beyond 7 days undercounts
+  until Shira extends fingerprint retention, which she plans to do separately.
 - Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
   all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
   linked do not count. Seven days is the limit because that is how long fingerprints exist.

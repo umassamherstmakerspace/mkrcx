@@ -65,11 +65,14 @@ type activityPulse struct {
 	Checkins         int     `json:"checkins"`
 	NewAccounts      int     `json:"new_accounts"`
 	NewlyLinkedCards int     `json:"newly_linked_cards"`
-	// UniqueVisitors counts each person once across the whole window. Unknown
-	// cards can only be told apart for seven days, so a longer window is a
-	// minimum and says so.
-	UniqueVisitors          int  `json:"unique_visitors"`
-	UniqueVisitorsIsMinimum bool `json:"unique_visitors_is_minimum"`
+	// Visitors counts each person once across the whole window: members whose
+	// account was created inside the window (new), earlier members (returning),
+	// and distinct unknown cards. Unknown cards can only be told apart while
+	// their seven-day fingerprints exist.
+	Visitors          int `json:"visitors"`
+	NewVisitors       int `json:"new_visitors"`
+	ReturningVisitors int `json:"returning_visitors"`
+	UnknownVisitors   int `json:"unknown_visitors"`
 }
 
 // activityStillUnlinked covers the past seven local days, the span for which
@@ -521,18 +524,37 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		response.Heatmap = append(response.Heatmap, activityHeatCell{Weekday: cell[0], Hour: cell[1], Members: len(heat[cell]), Taps: heatTaps[cell]})
 	}
 
+	memberCreated, err := memberCreationTimes(db, events, pulseStart)
+	if err != nil {
+		return activityResponse{}, err
+	}
 	for _, window := range []struct {
 		key, label string
 		days       int
 	}{{"today", "Today", 1}, {"7_days", "Past 7 days", 7}, {"30_days", "Past 30 days", 30}} {
 		start := todayStart.AddDate(0, 0, -(window.days - 1))
+		windowMembers := map[string]struct{}{}
 		pulse := pulseFor(window.key, window.label, events, accounts, links, unknownCards, start, rangeEnd, location)
 		unique, err := stillUnlinkedFor(db, events, start, rangeEnd)
 		if err != nil {
 			return activityResponse{}, err
 		}
-		pulse.UniqueVisitors = unique.Visitors
-		pulse.UniqueVisitorsIsMinimum = window.days > 7
+		pulse.Visitors = unique.Visitors
+		pulse.UnknownVisitors = unique.Cards
+		for _, event := range events {
+			if event.MemberUUID == "" || event.OccurredAt.Before(start) || !event.OccurredAt.Before(rangeEnd) {
+				continue
+			}
+			if _, counted := windowMembers[event.MemberUUID]; counted {
+				continue
+			}
+			windowMembers[event.MemberUUID] = struct{}{}
+			if created, known := memberCreated[event.MemberUUID]; known && !created.Before(start) {
+				pulse.NewVisitors++
+			} else {
+				pulse.ReturningVisitors++
+			}
+		}
 		response.Pulse = append(response.Pulse, pulse)
 	}
 
@@ -568,6 +590,47 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		response.Coverage.FirstCardLink = links[0].CreatedAt.In(location).Format("2006-01-02")
 	}
 	return response, nil
+}
+
+// memberCreationTimes returns when each member who tapped since start first
+// registered, so a window can split its visitors into new and returning.
+func memberCreationTimes(db *gorm.DB, events []activityEvent, start time.Time) (map[string]time.Time, error) {
+	seen := map[string]struct{}{}
+	uuids := []string{}
+	for _, event := range events {
+		if event.MemberUUID == "" || event.OccurredAt.Before(start) {
+			continue
+		}
+		if _, exists := seen[event.MemberUUID]; !exists {
+			seen[event.MemberUUID] = struct{}{}
+			uuids = append(uuids, event.MemberUUID)
+		}
+	}
+	created := map[string]time.Time{}
+	if len(uuids) == 0 || !db.Migrator().HasTable(&models.CheckinIdentity{}) {
+		return created, nil
+	}
+	var rows []struct {
+		MemberUUID string
+		CreatedAt  time.Time
+	}
+	for offset := 0; offset < len(uuids); offset += 500 {
+		end := offset + 500
+		if end > len(uuids) {
+			end = len(uuids)
+		}
+		if err := db.Table("checkin_identities").
+			Select("checkin_identities.member_uuid AS member_uuid", "users.created_at AS created_at").
+			Joins("JOIN users ON users.id = checkin_identities.user_id").
+			Where("checkin_identities.member_uuid IN ?", uuids[offset:end]).
+			Scan(&rows).Error; err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			created[row.MemberUUID] = row.CreatedAt
+		}
+	}
+	return created, nil
 }
 
 func stillUnlinkedFor(db *gorm.DB, events []activityEvent, start, end time.Time) (activityStillUnlinked, error) {

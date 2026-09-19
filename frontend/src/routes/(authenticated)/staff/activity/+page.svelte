@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { ActivityPulse } from '$lib/leash';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -29,15 +28,6 @@
 	}
 	const heatMax = Math.max(1, ...heatAverages.values());
 	const busiest = [...heatAverages.entries()].sort((a, b) => b[1] - a[1])[0];
-
-	function headline(window: ActivityPulse): string {
-		if (window.key === 'today') return window.people.toLocaleString();
-		return window.open_days > 0 ? Math.round(window.avg_daily_people).toLocaleString() : '–';
-	}
-
-	function headlineCaption(window: ActivityPulse): string {
-		return window.key === 'today' ? 'visitors so far' : 'visitors per open day';
-	}
 
 	function heatAverage(weekday: number, hour: number): number {
 		return heatAverages.get(`${weekday}-${hour}`) ?? 0;
@@ -79,28 +69,20 @@
 				>
 					<h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300">{window.label}</h3>
 					<strong class="mt-1 block text-5xl font-bold tabular-nums text-gray-950 dark:text-white"
-						>{headline(window)}</strong
+						>{window.visitors.toLocaleString()}</strong
 					>
-					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{headlineCaption(window)}</p>
+					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">visitors</p>
 					<dl
-						class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800"
+						class="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800"
 					>
-						{#if window.key !== 'today'}
+						{#each [{ label: 'New', value: window.new_visitors }, { label: 'Returning', value: window.returning_visitors }, { label: 'Unknown', value: window.unknown_visitors }] as part}
 							<div>
-								<dt class="text-xs text-gray-500 dark:text-gray-400">Unique visitors</dt>
+								<dt class="text-xs text-gray-500 dark:text-gray-400">{part.label}</dt>
 								<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
-									{window.unique_visitors.toLocaleString()}{window.unique_visitors_is_minimum
-										? '+'
-										: ''}
+									{part.value.toLocaleString()}
 								</dd>
 							</div>
-						{/if}
-						<div>
-							<dt class="text-xs text-gray-500 dark:text-gray-400">New registrations</dt>
-							<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
-								{window.new_accounts.toLocaleString()}
-							</dd>
-						</div>
+						{/each}
 					</dl>
 				</article>
 			{/each}
