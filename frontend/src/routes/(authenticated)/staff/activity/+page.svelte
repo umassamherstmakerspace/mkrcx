@@ -4,10 +4,8 @@
 
 	export let data: PageData;
 
-	// Share of people without a linked card above which the page asks staff to act.
-	const notLinkedWarnPercent = 25;
-	// Days without any tap before the page suggests checking the reader.
-	const quietWarnDays = 4;
+	// Share of the week's visitors with no linked card above which the line turns amber.
+	const unlinkedWarnPercent = 25;
 
 	const weekdays = [
 		{ value: 1, label: 'Mon' },
@@ -21,8 +19,19 @@
 	const hours = Array.from({ length: 15 }, (_, index) => index + 8);
 
 	const activity = data.activity;
+
+	// The four groups add up to a card's visitor total. "Card not linked" shares
+	// its amber with the line below the cards, which is about the same people.
+	function visitorGroups(window: ActivityPulse) {
+		return [
+			{ label: 'New members', value: window.new_visitors, swatch: 'swatch-new' },
+			{ label: 'Returning members', value: window.returning_visitors, swatch: 'swatch-returning' },
+			{ label: 'Student staff', value: window.staff_visitors, swatch: 'swatch-staff' },
+			{ label: 'Card not linked', value: window.unknown_visitors, swatch: 'swatch-unlinked' }
+		];
+	}
 	const pulse = activity.pulse ?? [];
-	const week = pulse.find((window) => window.key === '7_days');
+	const unlinked = activity.still_unlinked;
 
 	const heatAverages = new Map<string, number>();
 	for (const cell of activity.heatmap) {
@@ -32,24 +41,29 @@
 	const heatMax = Math.max(1, ...heatAverages.values());
 	const busiest = [...heatAverages.entries()].sort((a, b) => b[1] - a[1])[0];
 
-	const lastTapDay = [...activity.daily].reverse().find((day) => day.checkins > 0)?.start;
-	const quietDays = lastTapDay
-		? Math.round(
-				(new Date(`${activity.range.end}T12:00:00`).getTime() -
-					new Date(`${lastTapDay}T12:00:00`).getTime()) /
-					86_400_000
-			)
-		: null;
+	// The standard yellow-orange-red heatmap scale (ColorBrewer YlOrRd).
+	const heatStops: [number, [number, number, number]][] = [
+		[0, [255, 255, 204]],
+		[0.25, [254, 217, 118]],
+		[0.5, [253, 141, 60]],
+		[0.75, [227, 26, 28]],
+		[1, [128, 0, 38]]
+	];
 
-	function headline(window: ActivityPulse): string {
-		if (window.key === 'today') return window.people.toLocaleString();
-		return window.open_days > 0 ? Math.round(window.avg_daily_people).toLocaleString() : '–';
+	function heatBackground(value: number): string {
+		if (value <= 0) return 'transparent';
+		const share = Math.min(1, value / heatMax);
+		let upper = heatStops.findIndex(([stop]) => share <= stop);
+		if (upper <= 0) upper = 1;
+		const [fromStop, from] = heatStops[upper - 1];
+		const [toStop, to] = heatStops[upper];
+		const mix = (share - fromStop) / (toStop - fromStop);
+		const channel = (index: number) => Math.round(from[index] + (to[index] - from[index]) * mix);
+		return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
 	}
 
-	function headlineCaption(window: ActivityPulse): string {
-		if (window.key === 'today') return 'people so far today';
-		const days = `${window.open_days} open day${window.open_days === 1 ? '' : 's'}`;
-		return `people per open day (${days})`;
+	function heatIsDark(value: number): boolean {
+		return value / heatMax >= 0.65;
 	}
 
 	function heatAverage(weekday: number, hour: number): number {
@@ -59,12 +73,6 @@
 	function hourLabel(hour: number): string {
 		if (hour === 12) return '12p';
 		return hour < 12 ? `${hour}a` : `${hour - 12}p`;
-	}
-
-	function fullDate(value: string): string {
-		return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
-			new Date(`${value}T12:00:00`)
-		);
 	}
 
 	function snapshotLabel(value: string): string {
@@ -82,86 +90,66 @@
 <main class="mx-auto flex w-full max-w-5xl flex-col gap-4 px-2 pb-6 md:px-6">
 	<header>
 		<h1 class="text-2xl font-bold text-gray-950 dark:text-white">Activity</h1>
-		<p class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
-			One person counts once per day, whether or not their card is linked.
-			{#if activity.snapshot_at}Numbers as of {snapshotLabel(activity.snapshot_at)}.{/if}
-		</p>
+		{#if activity.snapshot_at}
+			<p class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
+				As of {snapshotLabel(activity.snapshot_at)}
+			</p>
+		{/if}
 	</header>
 
 	<section aria-labelledby="pulse-heading">
 		<h2 id="pulse-heading" class="sr-only">Visitors</h2>
-		<div class="grid gap-2 sm:grid-cols-3">
+		<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
 			{#each pulse as window}
+				{@const groups = visitorGroups(window)}
 				<article
 					class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 				>
-					<h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300">{window.label}</h3>
-					<strong class="mt-1 block text-5xl font-bold tabular-nums text-gray-950 dark:text-white"
-						>{headline(window)}</strong
+					<h3 class="text-base font-bold text-gray-950 dark:text-white">{window.label}</h3>
+					<strong class="mt-2 block text-4xl font-bold tabular-nums text-gray-950 dark:text-white"
+						>{window.visitors.toLocaleString()}</strong
 					>
-					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{headlineCaption(window)}</p>
-					<dl
-						class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800"
+					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+						visitors{#if (window.key === '7_days' || window.key === '30_days') && window.open_days > 0},
+							about {Math.round(window.avg_daily_people).toLocaleString()} a day{/if}
+					</p>
+					<div
+						class="mt-3 flex h-3 gap-px overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
+						aria-hidden="true"
 					>
-						<div>
-							<dt class="text-xs text-gray-500 dark:text-gray-400">New members</dt>
-							<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
-								{window.new_accounts.toLocaleString()}
-							</dd>
-						</div>
-						<div>
-							<dt class="text-xs text-gray-500 dark:text-gray-400">Taps</dt>
-							<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
-								{window.checkins.toLocaleString()}
-							</dd>
-						</div>
+						{#each groups as group}
+							{#if group.value > 0}
+								<span class={group.swatch} style="flex: {group.value} 1 0%;"></span>
+							{/if}
+						{/each}
+					</div>
+					<dl class="mt-2 flex flex-col gap-1 text-sm">
+						{#each groups as group}
+							<div class="flex items-center gap-2">
+								<span class="h-3 w-3 shrink-0 rounded-sm {group.swatch}" aria-hidden="true"></span>
+								<dt class="grow text-gray-600 dark:text-gray-300">{group.label}</dt>
+								<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
+									{group.value.toLocaleString()}
+								</dd>
+							</div>
+						{/each}
 					</dl>
 				</article>
 			{/each}
 		</div>
 	</section>
 
-	<section
-		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-		aria-labelledby="signals-heading"
-	>
-		<h2 id="signals-heading" class="text-lg font-bold text-gray-950 dark:text-white">
-			Anything to fix?
-		</h2>
-		<ul class="mt-2 flex flex-col gap-2 text-sm">
-			{#if week}
-				{@const warn = week.not_linked_percent >= notLinkedWarnPercent}
-				<li
-					class="rounded-lg px-3 py-2 {warn
-						? 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100'
-						: 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200'}"
-				>
-					<strong class="tabular-nums">{Math.round(week.not_linked_percent)}%</strong> of people in
-					the past 7 days tapped without a linked card ({week.not_linked_people.toLocaleString()}
-					of {week.people.toLocaleString()}).
-					{#if warn}Ask the front desk to help people link their UCard.{/if}
-					<span class="text-gray-500 dark:text-gray-400">
-						{week.newly_linked_cards.toLocaleString()} card{week.newly_linked_cards === 1
-							? ''
-							: 's'} newly linked in the same period.</span
-					>
-				</li>
-			{/if}
-			{#if quietDays !== null && quietDays >= quietWarnDays && lastTapDay}
-				<li
-					class="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
-				>
-					No taps since {fullDate(lastTapDay)}. If the space was open, check the card reader.
-				</li>
-			{:else if lastTapDay}
-				<li
-					class="rounded-lg bg-gray-50 px-3 py-2 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
-				>
-					Card reader is reporting. Last tap: {fullDate(lastTapDay)}.
-				</li>
-			{/if}
-		</ul>
-	</section>
+	{#if unlinked && unlinked.visitors > 0}
+		<p
+			class="rounded-2xl px-4 py-3 text-sm {unlinked.percent >= unlinkedWarnPercent
+				? 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100'
+				: 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200'}"
+		>
+			<strong class="tabular-nums">{Math.round(unlinked.percent)}%</strong>
+			({unlinked.cards.toLocaleString()}/{unlinked.visitors.toLocaleString()}) of visitors in the
+			past 7 days have not linked their card.
+		</p>
+	{/if}
 
 	<section
 		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
@@ -171,11 +159,11 @@
 			When are we busy?
 		</h2>
 		<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-			Average taps per hour, {activity.range.label}.
+			Average card taps per hour, {activity.range.label}.
 			{#if busiest}
 				{@const [weekday, hour] = busiest[0].split('-').map(Number)}
 				Busiest: {weekdays.find((day) => day.value === weekday)?.label}
-				{hourLabel(hour)}, about {Math.round(busiest[1])} taps.
+				{hourLabel(hour)}.
 			{/if}
 		</p>
 		<div class="mt-3 overflow-x-auto">
@@ -197,13 +185,11 @@
 							{#each hours as hour}
 								{@const value = heatAverage(day.value, hour)}
 								<td
-									class="h-7 rounded tabular-nums {value / heatMax > 0.4
+									class="h-7 rounded tabular-nums {heatIsDark(value)
 										? 'text-white'
-										: 'text-gray-700 dark:text-gray-200'}"
-									style="background-color: rgba(132, 0, 40, {value > 0
-										? 0.08 + 0.92 * (value / heatMax)
-										: 0});"
-									title="{day.label} {hourLabel(hour)}: about {value.toFixed(1)} taps"
+										: 'text-gray-900'}"
+									style="background-color: {heatBackground(value)};"
+									title="{day.label} {hourLabel(hour)}: {value.toFixed(1)} card taps"
 									>{value >= 0.5 ? Math.round(value) : ''}</td
 								>
 							{/each}
@@ -219,25 +205,58 @@
 		aria-labelledby="years-heading"
 	>
 		<h2 id="years-heading" class="text-lg font-bold text-gray-950 dark:text-white">
-			New members by academic year
+			By academic year
 		</h2>
-		<dl class="mt-2 grid grid-cols-3 gap-2 text-center">
-			{#each activity.academic_years as year}
-				<div class="rounded-lg bg-gray-50 px-2 py-2 dark:bg-gray-800">
-					<dt class="text-xs text-gray-500 dark:text-gray-400">
-						{year.label}{year.current ? ' so far' : ''}
-					</dt>
-					<dd class="text-2xl font-bold tabular-nums text-gray-950 dark:text-white">
-						{year.new_accounts.toLocaleString()}
-					</dd>
+		<div class="mt-2 grid gap-2 sm:grid-cols-3">
+			{#each [...activity.academic_years].reverse() as year}
+				<div
+					class="rounded-xl px-4 py-3 {year.current
+						? 'border-2 border-[#840028] bg-white dark:border-[#e07a9a] dark:bg-gray-900'
+						: 'border-2 border-transparent bg-gray-50 dark:bg-gray-800'}"
+				>
+					<h3 class="text-base font-bold text-gray-950 dark:text-white">
+						{year.label}{#if year.current}<span
+								class="ml-1 text-sm font-medium text-gray-600 dark:text-gray-300">so far</span
+							>{/if}
+					</h3>
+					<dl class="mt-2 flex flex-col gap-1 text-sm">
+						<div class="flex items-baseline justify-between gap-2">
+							<dt class="text-gray-600 dark:text-gray-300">Visitors</dt>
+							<dd class="text-xl font-bold tabular-nums text-gray-950 dark:text-white">
+								{year.visitors > 0
+									? `${year.visitors_estimated ? 'about ' : ''}${year.visitors.toLocaleString()}`
+									: '–'}
+							</dd>
+						</div>
+						<div class="flex items-baseline justify-between gap-2">
+							<dt class="text-gray-600 dark:text-gray-300">New registrations</dt>
+							<dd class="text-xl font-bold tabular-nums text-gray-950 dark:text-white">
+								{year.new_accounts.toLocaleString()}
+							</dd>
+						</div>
+					</dl>
 				</div>
 			{/each}
-		</dl>
+		</div>
 	</section>
-
-	<p class="px-1 text-xs text-gray-500 dark:text-gray-400">
-		Unknown cards are counted per day and only the count is kept. Days before that counting began
-		show members only, so older averages are "at least" figures. For exact date ranges, use the
-		check-in export.
-	</p>
 </main>
+
+<style>
+	/* Calm on purpose: two blues for members, gray for staff, and amber only for
+	   the group the amber line below is about. */
+	.swatch-new {
+		background-color: #38bdf8;
+	}
+	.swatch-returning {
+		background-color: #1e40af;
+	}
+	.swatch-staff {
+		background-color: #94a3b8;
+	}
+	.swatch-unlinked {
+		background-color: #f59e0b;
+	}
+	:global(.dark) .swatch-returning {
+		background-color: #3b82f6;
+	}
+</style>

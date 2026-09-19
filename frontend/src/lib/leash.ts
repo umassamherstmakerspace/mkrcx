@@ -383,7 +383,7 @@ export interface ActivityPoint extends ActivitySummary {
 }
 
 export interface ActivityPulse {
-	key: 'today' | '7_days' | '30_days';
+	key: 'today' | 'yesterday' | '7_days' | '30_days';
 	label: string;
 	open_days: number;
 	people: number;
@@ -393,6 +393,11 @@ export interface ActivityPulse {
 	checkins: number;
 	new_accounts: number;
 	newly_linked_cards: number;
+	visitors: number;
+	new_visitors: number;
+	returning_visitors: number;
+	unknown_visitors: number;
+	staff_visitors: number;
 }
 
 export interface ActivityResponse {
@@ -407,6 +412,7 @@ export interface ActivityResponse {
 	heatmap: { weekday: number; hour: number; members: number; taps: number }[];
 	heatmap_open_days: number[];
 	pulse: ActivityPulse[];
+	still_unlinked: { cards: number; visitors: number; percent: number };
 	academic_years: {
 		label: string;
 		start: string;
@@ -414,7 +420,10 @@ export interface ActivityResponse {
 		new_accounts: number;
 		newly_linked_cards: number;
 		current: boolean;
+		visitors: number;
+		visitors_estimated: boolean;
 	}[];
+	semester: { label: string; visitors: number; new_accounts: number };
 	coverage: {
 		identified_checkins: number;
 		total_checkins: number;

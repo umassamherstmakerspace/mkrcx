@@ -64,6 +64,65 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Unknown cards: keep only a per-day count of distinct unknown cards, computed by the hourly
   check-in maintenance while the seven-day fingerprints exist (`checkin_unknown_dailies` table).
   No change to the approved seven-day fingerprint retention.
+- Wording (Shira, 2026-09-19): minimal. No explanatory sentences, footnotes, or method notes on
+  the page. Say "visitors" and "card taps". Insights are one short line with the numbers in it.
+  No card-reader status here; the front desk HUD already shows Live.
+- Cards (Shira, 2026-09-19): four windows: today so far, yesterday, past 7 days, past 30 days.
+  Each shows total unique visitors, split into New (account created inside the window; people
+  register in person, so on the Today card this correctly means registered today), Returning,
+  Student staff, and Unknown (distinct unlinked cards). The 7-day and 30-day cards add a small
+  "about N a day" (average over open days; an open day has at least 5 visitors). No raw card-tap
+  counts on the cards; the heatmap is the one place raw taps are right (door busyness). No "+"
+  marker: Unknown beyond 7 days undercounts until Shira extends fingerprint retention, which she
+  plans to do separately.
+- Staff (Shira, 2026-09-19): professional staff are not visitors and are dropped from every
+  number, heatmap included. They are identified by account fields, never by name: type
+  `employee` with role `staff` or `admin` (same rule as the check-in export). Student staff
+  (role `staff` or `admin` on a non-employee account) ARE visitors, because they use the space
+  off shift too; they get their own group. No calendar or shift matching: decided too complicated.
+  CHECK BEFORE RELEASE: confirm the six professional accounts really have type `employee`.
+- Card breakdown display (Shira, 2026-09-19): a thin stacked bar plus a labeled list, so it is
+  obvious the four groups add up to the total. Labels: New members, Returning members, Student
+  staff, Card not linked (never "Unknown"). Colors: see the Colors decision below. Window titles are bold and close in weight to the
+  totals.
+- Bottom "By academic year": one box per academic year, oldest first, current year tinted and
+  marked "so far"; each shows Visitors and New registrations. Years before tap records existed
+  show a dash for visitors. A fall/spring split of past years was offered and left for later.
+- Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
+  all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
+  linked do not count. Seven days is the limit because that is how long fingerprints exist.
+- Colors (Shira, 2026-09-19, FINAL): ordinary colors, not the UMass palette. Several maroon-only
+  attempts were tried and dropped (maroon faded to white reads pink; gray plus maroon was
+  confusing; warm-gray and white-to-red low ends were also rejected). Do not reopen this.
+  Heatmap = the standard yellow-orange-red scale (ColorBrewer YlOrRd). Card groups = a calm set, because
+  green/blue/purple/amber looked "clowny": light blue (New members), dark blue (Returning
+  members), gray (Student staff), amber (Card not linked, matching the amber line about the same
+  people). Dark mode checked in a browser on 2026-09-19: fine. Maroon stays only as the border of the
+  current academic-year box.
+- Past academic years (Shira, 2026-09-19): show a reasoned static visitor total, labeled
+  "about". Values live in `activityHistoricalVisitors` in `activity.go` and apply only to a past
+  year, and only when larger than what mkr.cx itself recorded. Source: the merged tap history in
+  `C:\Users\shira\Claude\Makerspace\.scratch\attendance_authoritative_build\` (33,067 taps,
+  Sep 2024 to Aug 2026; coverage notes in `attendance_data/COVERAGE.md`), tap-storm day excluded.
+  - 2024-25 = about 2,000. The fall export (1,093 people, Sep 3 to Nov 21) and the May export
+    (1,400 people, Nov 22 to May 23) were anonymized separately; only 55 people could be matched
+    by timestamp, because the exports overlap by three days. The overlap was therefore estimated
+    from 2025-26, where one export covers the whole year: of people seen Oct 7 to Nov 21, 28
+    percent of one-day visitors, 57 percent of 2-3 day visitors and 68 percent of 4+ day visitors
+    came back after Nov 22. Applied to the fall 2024 mix that is about 488 repeat people:
+    1,093 + 1,400 - 488 = about 2,005. If the return rates are off by a quarter either way the
+    range is 1,880 to 2,130.
+  - 2025-26 = about 2,250. Observed 2,079, but Aug to Oct 6 2025 is lost. In fall 2024, 257 of
+    the people seen before Oct 7 were not seen again that fall; about 72 percent of one-time
+    visitors never return, so roughly 185 people are missing: 2,079 + 185 = about 2,260, rounded
+    down. The Dec 2025 to Jan 2026 reader outage adds few people who came at no other time.
+  - Per-semester observed counts, for reference: 2024-25 Fall 1,328 / Spring 1,278; 2025-26 Fall
+    1,066 / Spring 1,346 / Summer 199.
+  - `backend/cmd/checkin-backfill` does not help here: it reads the card-server database, which
+    has nothing before October 2025, and the old exports cannot be tied to mkr.cx members.
+- PARKED IDEA (Shira, 2026-09-19, registration not stats): let a first-time visitor tap their
+  card to start registration, so the card is linked in the same step as the QR sign-up. Would
+  shrink "Card not linked". Belongs to the registration simplification work, not this page.
 - OPEN FORK, parked on purpose: keeping unknown-card fingerprints longer (or a daily-rotating
   fingerprint in the durable row). Only needed to follow one unlinked card over weeks. Privacy
   decision for Shira; do not build without her.
@@ -81,8 +140,7 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
   intended. Not yet seen with real data. To repeat: in the docs repo, `.claude/launch.json` has
   `mkrcx-frontend-preview` (vite dev on port 5199, no backend); open `/zz-preview-activity`. That
   route is a local, git-excluded file (`.git/info/exclude`) holding sample data; it is not in any
-  commit and must never be committed. Warning thresholds are first guesses: 25% not-linked share,
-  4 quiet days.
+  commit and must never be committed. The amber threshold (25% still unlinked) is a first guess.
 - Repo-wide `pnpm run lint` reports about 135 files on a fresh Windows clone. That is CRLF line
   endings from checkout, not code; lint the changed files directly. For the same reason, never run
   `go fmt` on a whole package and then `git add -A`; stage named files.
