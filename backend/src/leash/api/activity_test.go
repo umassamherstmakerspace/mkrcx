@@ -1,6 +1,7 @@
 package leash_backend_api
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -97,7 +98,7 @@ func TestBuildActivityResponseSeparatesLinkedAndUnlinkedMembers(t *testing.T) {
 		t.Fatal(err)
 	}
 	link := models.UserUpdate{
-		Model: models.Model{CreatedAt: time.Date(2026, time.September, 3, 12, 30, 0, 0, location).UTC()},
+		Model:  models.Model{CreatedAt: time.Date(2026, time.September, 3, 12, 30, 0, 0, location).UTC()},
 		UserID: accounts[1].ID, Field: "card_id", NewValue: "example-card",
 	}
 	if err := db.Create(&link).Error; err != nil {
@@ -194,8 +195,8 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 		t.Fatalf("pulse windows = %d, want 3", len(response.Pulse))
 	}
 	week := response.Pulse[1]
-	// One open day: member-a, member-b (not linked), and two unknown cards.
-	if week.Key != "7_days" || week.OpenDays != 1 || week.People != 4 || week.AvgDailyPeople != 4 || week.NotLinkedPeople != 3 || week.NotLinkedPercent != 75 || week.Checkins != 5 {
+	// Four people is below the open-day minimum: counted, but not averaged.
+	if week.Key != "7_days" || week.OpenDays != 0 || week.People != 4 || week.AvgDailyPeople != 0 || week.NotLinkedPeople != 3 || week.NotLinkedPercent != 75 || week.Checkins != 5 {
 		t.Fatalf("unexpected 7-day pulse: %+v", week)
 	}
 	if today := response.Pulse[0]; today.OpenDays != 0 || today.People != 0 {
@@ -203,5 +204,24 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 	}
 	if response.HeatmapOpenDays[int(time.Wednesday)] != 1 {
 		t.Fatalf("unexpected heatmap open days: %+v", response.HeatmapOpenDays)
+	}
+}
+
+func TestPulseAveragesOnlyOpenDays(t *testing.T) {
+	location, err := time.LoadLocation(activityTimezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Date(2026, time.September, 1, 0, 0, 0, 0, location)
+	var events []activityEvent
+	for index := 0; index < 6; index++ {
+		events = append(events, activityEvent{OccurredAt: start.Add(10 * time.Hour), MemberUUID: fmt.Sprintf("member-%d", index), LinkedAtTap: true})
+	}
+	// A lone staff tap on a closed day.
+	events = append(events, activityEvent{OccurredAt: start.AddDate(0, 0, 1).Add(10 * time.Hour), MemberUUID: "member-0", LinkedAtTap: true})
+
+	pulse := pulseFor("7_days", "Past 7 days", events, nil, nil, map[string]int{}, start, start.AddDate(0, 0, 7), location)
+	if pulse.OpenDays != 1 || pulse.People != 7 || pulse.AvgDailyPeople != 6 || pulse.Checkins != 7 {
+		t.Fatalf("unexpected pulse: %+v", pulse)
 	}
 }

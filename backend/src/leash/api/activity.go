@@ -33,11 +33,11 @@ type activityRange struct {
 }
 
 type activitySummary struct {
-	Visitors           int `json:"visitors"`
+	Visitors            int `json:"visitors"`
 	UnlinkedCardHolders int `json:"unlinked_card_holders"`
-	Checkins           int `json:"checkins"`
-	NewAccounts        int `json:"new_accounts"`
-	NewlyLinkedCards   int `json:"newly_linked_cards"`
+	Checkins            int `json:"checkins"`
+	NewAccounts         int `json:"new_accounts"`
+	NewlyLinkedCards    int `json:"newly_linked_cards"`
 }
 
 type activityPoint struct {
@@ -92,19 +92,19 @@ type activityAcademicYear struct {
 }
 
 type activityResponse struct {
-	Timezone     string                 `json:"timezone"`
-	SnapshotAt   string                 `json:"snapshot_at,omitempty"`
-	Range        activityRange          `json:"range"`
-	Today        activitySummary        `json:"today"`
-	Week         activitySummary        `json:"week"`
-	Selected     activitySummary        `json:"selected"`
-	Daily        []activityPoint        `json:"daily"`
-	Weekly       []activityPoint        `json:"weekly"`
-	Heatmap      []activityHeatCell     `json:"heatmap"`
-	HeatmapOpenDays [7]int              `json:"heatmap_open_days"`
-	Pulse        []activityPulse        `json:"pulse"`
-	AcademicYears []activityAcademicYear `json:"academic_years"`
-	Coverage     activityCoverage       `json:"coverage"`
+	Timezone        string                 `json:"timezone"`
+	SnapshotAt      string                 `json:"snapshot_at,omitempty"`
+	Range           activityRange          `json:"range"`
+	Today           activitySummary        `json:"today"`
+	Week            activitySummary        `json:"week"`
+	Selected        activitySummary        `json:"selected"`
+	Daily           []activityPoint        `json:"daily"`
+	Weekly          []activityPoint        `json:"weekly"`
+	Heatmap         []activityHeatCell     `json:"heatmap"`
+	HeatmapOpenDays [7]int                 `json:"heatmap_open_days"`
+	Pulse           []activityPulse        `json:"pulse"`
+	AcademicYears   []activityAcademicYear `json:"academic_years"`
+	Coverage        activityCoverage       `json:"coverage"`
 }
 
 func loadActivitySnapshot(path, requested string) (activityResponse, error) {
@@ -225,8 +225,13 @@ func summaryFor(events []activityEvent, accounts []activityAccount, links []acti
 	}
 }
 
-// pulseFor counts one person per local day in [start, end). A day is open
-// when it has at least one tap, so closed days do not pull the average down.
+// activityOpenDayMinimumPeople is how many people must come through for a day
+// to count as open. Below it (a staff member tapping in on a closed day) the
+// day's people and taps still count, but it does not divide the average.
+const activityOpenDayMinimumPeople = 5
+
+// pulseFor counts one person per local day in [start, end). Only open days
+// divide the average, so closed days and stray taps do not pull it down.
 func pulseFor(key, label string, events []activityEvent, accounts []activityAccount, links []activityCardLink, unknownCards map[string]int, start, end time.Time, location *time.Location) activityPulse {
 	linked := map[string]map[string]struct{}{}
 	notLinked := map[string]map[string]struct{}{}
@@ -254,7 +259,10 @@ func pulseFor(key, label string, events []activityEvent, accounts []activityAcco
 		Key: key, Label: label, OpenDays: len(openDays), Checkins: summary.Checkins,
 		NewAccounts: summary.NewAccounts, NewlyLinkedCards: summary.NewlyLinkedCards,
 	}
-	for dayKey := range openDays {
+	tapDays := openDays
+	openDays = map[string]struct{}{}
+	averagedPeople := 0
+	for dayKey := range tapDays {
 		// A member who tapped both before and after linking on one day is one person.
 		unlinkedOnly := 0
 		for member := range notLinked[dayKey] {
@@ -263,10 +271,16 @@ func pulseFor(key, label string, events []activityEvent, accounts []activityAcco
 			}
 		}
 		pulse.NotLinkedPeople += unlinkedOnly + unknownCards[dayKey]
-		pulse.People += len(linked[dayKey]) + unlinkedOnly + unknownCards[dayKey]
+		dayPeople := len(linked[dayKey]) + unlinkedOnly + unknownCards[dayKey]
+		pulse.People += dayPeople
+		if dayPeople >= activityOpenDayMinimumPeople {
+			openDays[dayKey] = struct{}{}
+			averagedPeople += dayPeople
+		}
 	}
+	pulse.OpenDays = len(openDays)
 	if pulse.OpenDays > 0 {
-		pulse.AvgDailyPeople = float64(pulse.People) / float64(pulse.OpenDays)
+		pulse.AvgDailyPeople = float64(averagedPeople) / float64(pulse.OpenDays)
 	}
 	if pulse.People > 0 {
 		pulse.NotLinkedPercent = float64(pulse.NotLinkedPeople) * 100 / float64(pulse.People)

@@ -148,11 +148,15 @@
 				</li>
 			{/if}
 			{#if quietDays !== null && quietDays >= quietWarnDays && lastTapDay}
-				<li class="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+				<li
+					class="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+				>
 					No taps since {fullDate(lastTapDay)}. If the space was open, check the card reader.
 				</li>
 			{:else if lastTapDay}
-				<li class="rounded-lg bg-gray-50 px-3 py-2 text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+				<li
+					class="rounded-lg bg-gray-50 px-3 py-2 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+				>
 					Card reader is reporting. Last tap: {fullDate(lastTapDay)}.
 				</li>
 			{/if}
