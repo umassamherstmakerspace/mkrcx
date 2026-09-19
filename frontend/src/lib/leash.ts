@@ -379,6 +379,20 @@ export interface ActivitySummary {
 export interface ActivityPoint extends ActivitySummary {
 	start: string;
 	cumulative_visitors: number;
+	unknown_cards: number;
+}
+
+export interface ActivityPulse {
+	key: 'today' | '7_days' | '30_days';
+	label: string;
+	open_days: number;
+	people: number;
+	avg_daily_people: number;
+	not_linked_people: number;
+	not_linked_percent: number;
+	checkins: number;
+	new_accounts: number;
+	newly_linked_cards: number;
 }
 
 export interface ActivityResponse {
@@ -390,7 +404,9 @@ export interface ActivityResponse {
 	selected: ActivitySummary;
 	daily: ActivityPoint[];
 	weekly: ActivityPoint[];
-	heatmap: { weekday: number; hour: number; members: number }[];
+	heatmap: { weekday: number; hour: number; members: number; taps: number }[];
+	heatmap_open_days: number[];
+	pulse: ActivityPulse[];
 	academic_years: {
 		label: string;
 		start: string;
