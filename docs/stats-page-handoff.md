@@ -83,7 +83,9 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
   CHECK BEFORE RELEASE: confirm the six professional accounts really have type `employee`.
 - Card breakdown display (Shira, 2026-09-19): a thin stacked bar plus a labeled list, so it is
   obvious the four groups add up to the total. Labels: New members, Returning members, Student
-  staff, Card not linked (never "Unknown"). Window titles are bold and close in weight to the
+  staff, Card not linked (never "Unknown"). UMass palette only (maroon, black, gray, white):
+  Returning = solid maroon, New = maroon and red stripes, Student staff = near black, Card not
+  linked = gray and white stripes. No green, no amber in the bar. Window titles are bold and close in weight to the
   totals.
 - Bottom "By academic year": one box per academic year, oldest first, current year tinted and
   marked "so far"; each shows Visitors and New registrations. Years before tap records existed
@@ -91,6 +93,9 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
   all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
   linked do not count. Seven days is the limit because that is how long fingerprints exist.
+- PARKED IDEA (Shira, 2026-09-19, registration not stats): let a first-time visitor tap their
+  card to start registration, so the card is linked in the same step as the QR sign-up. Would
+  shrink "Card not linked". Belongs to the registration simplification work, not this page.
 - OPEN FORK, parked on purpose: keeping unknown-card fingerprints longer (or a daily-rotating
   fingerprint in the durable row). Only needed to follow one unlinked card over weeks. Privacy
   decision for Shira; do not build without her.

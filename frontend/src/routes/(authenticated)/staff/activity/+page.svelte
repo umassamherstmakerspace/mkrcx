@@ -20,14 +20,14 @@
 
 	const activity = data.activity;
 
-	// The four groups add up to a card's visitor total. "Card not linked" shares
-	// its amber with the line below the cards, which is about the same people.
+	// The four groups add up to a card's visitor total. UMass palette only:
+	// maroon, black, gray and white, with stripes to tell groups apart.
 	function visitorGroups(window: ActivityPulse) {
 		return [
-			{ label: 'New members', value: window.new_visitors, color: '#059669' },
-			{ label: 'Returning members', value: window.returning_visitors, color: '#840028' },
-			{ label: 'Student staff', value: window.staff_visitors, color: '#64748b' },
-			{ label: 'Card not linked', value: window.unknown_visitors, color: '#f59e0b' }
+			{ label: 'New members', value: window.new_visitors, swatch: 'swatch-new' },
+			{ label: 'Returning members', value: window.returning_visitors, swatch: 'swatch-returning' },
+			{ label: 'Student staff', value: window.staff_visitors, swatch: 'swatch-staff' },
+			{ label: 'Card not linked', value: window.unknown_visitors, swatch: 'swatch-unlinked' }
 		];
 	}
 	const pulse = activity.pulse ?? [];
@@ -89,23 +89,19 @@
 							about {Math.round(window.avg_daily_people).toLocaleString()} a day{/if}
 					</p>
 					<div
-						class="mt-3 flex h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
+						class="mt-3 flex h-3 gap-px overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
 						aria-hidden="true"
 					>
 						{#each groups as group}
 							{#if group.value > 0}
-								<span style="flex: {group.value} 1 0%; background-color: {group.color};"></span>
+								<span class={group.swatch} style="flex: {group.value} 1 0%;"></span>
 							{/if}
 						{/each}
 					</div>
 					<dl class="mt-2 flex flex-col gap-1 text-sm">
 						{#each groups as group}
 							<div class="flex items-center gap-2">
-								<span
-									class="h-2 w-2 shrink-0 rounded-full"
-									style="background-color: {group.color};"
-									aria-hidden="true"
-								></span>
+								<span class="h-3 w-3 shrink-0 rounded-sm {group.swatch}" aria-hidden="true"></span>
 								<dt class="grow text-gray-600 dark:text-gray-300">{group.label}</dt>
 								<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
 									{group.value.toLocaleString()}
@@ -219,3 +215,32 @@
 		</div>
 	</section>
 </main>
+
+<style>
+	.swatch-returning {
+		background-color: #840028;
+	}
+	.swatch-new {
+		background-image: repeating-linear-gradient(135deg, #840028 0 3px, #e0435a 3px 6px);
+	}
+	.swatch-staff {
+		background-color: #1f2937;
+	}
+	.swatch-unlinked {
+		background-image: repeating-linear-gradient(135deg, #9ca3af 0 3px, #ffffff 3px 6px);
+		box-shadow: inset 0 0 0 1px #9ca3af;
+	}
+	:global(.dark) .swatch-returning {
+		background-color: #b8325a;
+	}
+	:global(.dark) .swatch-new {
+		background-image: repeating-linear-gradient(135deg, #b8325a 0 3px, #f4a3b5 3px 6px);
+	}
+	:global(.dark) .swatch-staff {
+		background-color: #e5e7eb;
+	}
+	:global(.dark) .swatch-unlinked {
+		background-image: repeating-linear-gradient(135deg, #6b7280 0 3px, #111827 3px 6px);
+		box-shadow: inset 0 0 0 1px #6b7280;
+	}
+</style>
