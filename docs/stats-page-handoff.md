@@ -83,9 +83,7 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
   CHECK BEFORE RELEASE: confirm the six professional accounts really have type `employee`.
 - Card breakdown display (Shira, 2026-09-19): a thin stacked bar plus a labeled list, so it is
   obvious the four groups add up to the total. Labels: New members, Returning members, Student
-  staff, Card not linked (never "Unknown"). UMass palette only (maroon, black, gray, white):
-  Returning = solid maroon, New = maroon and white stripes, Student staff = near black, Card not
-  linked = gray and white stripes. No green, no amber in the bar. Window titles are bold and close in weight to the
+  staff, Card not linked (never "Unknown"). Colors: see the Colors decision below. Window titles are bold and close in weight to the
   totals.
 - Bottom "By academic year": one box per academic year, oldest first, current year tinted and
   marked "so far"; each shows Visitors and New registrations. Years before tap records existed
@@ -93,11 +91,13 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
   all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
   linked do not count. Seven days is the limit because that is how long fingerprints exist.
-- Heatmap color (Shira, 2026-09-19, after four tries): white to red to maroon, with NO pale
-  tints. Rejected: maroon faded toward white (pink, "makeup palette"), gray plus maroon
-  ("confusing"), warm gray low end ("gray/blush not good"). Accepted: a quiet hour (under about a
-  third of the peak) is a white cell with a maroon outline and number; fill starts at full red
-  (200,16,46), reaches UMass maroon at two thirds of the peak, and deep maroon at the peak.
+- Colors (Shira, 2026-09-19, FINAL): ordinary colors, not the UMass palette. Several maroon-only
+  attempts were tried and dropped (maroon faded to white reads pink; gray plus maroon was
+  confusing; warm-gray and white-to-red low ends were also rejected). Do not reopen this.
+  Heatmap = the standard yellow-orange-red scale (ColorBrewer YlOrRd). Card groups = solid
+  green (New members), blue (Returning members), purple (Student staff), amber (Card not
+  linked, matching the amber line about the same people). Maroon stays only as the border of the
+  current academic-year box.
 - Past academic years (Shira, 2026-09-19): show a reasoned static visitor total, labeled
   "about". Values live in `activityHistoricalVisitors` in `activity.go` and apply only to a past
   year, and only when larger than what mkr.cx itself recorded. Source: the merged tap history in

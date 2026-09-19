@@ -20,8 +20,8 @@
 
 	const activity = data.activity;
 
-	// The four groups add up to a card's visitor total. UMass palette only:
-	// maroon, black, gray and white, with stripes to tell groups apart.
+	// The four groups add up to a card's visitor total. "Card not linked" shares
+	// its amber with the line below the cards, which is about the same people.
 	function visitorGroups(window: ActivityPulse) {
 		return [
 			{ label: 'New members', value: window.new_visitors, swatch: 'swatch-new' },
@@ -41,21 +41,17 @@
 	const heatMax = Math.max(1, ...heatAverages.values());
 	const busiest = [...heatAverages.entries()].sort((a, b) => b[1] - a[1])[0];
 
-	// White to red to maroon, skipping the pale tints that read as pink: a quiet
-	// hour is a white cell with a maroon number, and color starts at a full red.
-	const heatFillFrom = 0.34;
+	// The standard yellow-orange-red heatmap scale (ColorBrewer YlOrRd).
 	const heatStops: [number, [number, number, number]][] = [
-		[heatFillFrom, [200, 16, 46]],
-		[0.67, [132, 0, 40]],
-		[1, [70, 0, 22]]
+		[0, [255, 255, 204]],
+		[0.25, [254, 217, 118]],
+		[0.5, [253, 141, 60]],
+		[0.75, [227, 26, 28]],
+		[1, [128, 0, 38]]
 	];
 
-	function heatIsFilled(value: number): boolean {
-		return value / heatMax >= heatFillFrom;
-	}
-
 	function heatBackground(value: number): string {
-		if (!heatIsFilled(value)) return 'transparent';
+		if (value <= 0) return 'transparent';
 		const share = Math.min(1, value / heatMax);
 		let upper = heatStops.findIndex(([stop]) => share <= stop);
 		if (upper <= 0) upper = 1;
@@ -64,6 +60,10 @@
 		const mix = (share - fromStop) / (toStop - fromStop);
 		const channel = (index: number) => Math.round(from[index] + (to[index] - from[index]) * mix);
 		return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+	}
+
+	function heatIsDark(value: number): boolean {
+		return value / heatMax >= 0.65;
 	}
 
 	function heatAverage(weekday: number, hour: number): number {
@@ -185,11 +185,9 @@
 							{#each hours as hour}
 								{@const value = heatAverage(day.value, hour)}
 								<td
-									class="h-7 rounded tabular-nums {heatIsFilled(value)
+									class="h-7 rounded tabular-nums {heatIsDark(value)
 										? 'text-white'
-										: value > 0
-											? 'border border-[#840028]/40 text-[#840028] dark:border-[#e07a9a]/50 dark:text-[#e07a9a]'
-											: ''}"
+										: 'text-gray-900'}"
 									style="background-color: {heatBackground(value)};"
 									title="{day.label} {hourLabel(hour)}: {value.toFixed(1)} card taps"
 									>{value >= 0.5 ? Math.round(value) : ''}</td
@@ -244,32 +242,16 @@
 </main>
 
 <style>
-	.swatch-returning {
-		background-color: #840028;
-	}
 	.swatch-new {
-		background-image: repeating-linear-gradient(135deg, #840028 0 3px, #ffffff 3px 6px);
-		box-shadow: inset 0 0 0 1px #840028;
+		background-color: #16a34a;
+	}
+	.swatch-returning {
+		background-color: #2563eb;
 	}
 	.swatch-staff {
-		background-color: #1f2937;
+		background-color: #7c3aed;
 	}
 	.swatch-unlinked {
-		background-image: repeating-linear-gradient(135deg, #9ca3af 0 3px, #ffffff 3px 6px);
-		box-shadow: inset 0 0 0 1px #9ca3af;
-	}
-	:global(.dark) .swatch-returning {
-		background-color: #b8325a;
-	}
-	:global(.dark) .swatch-new {
-		background-image: repeating-linear-gradient(135deg, #b8325a 0 3px, #111827 3px 6px);
-		box-shadow: inset 0 0 0 1px #b8325a;
-	}
-	:global(.dark) .swatch-staff {
-		background-color: #e5e7eb;
-	}
-	:global(.dark) .swatch-unlinked {
-		background-image: repeating-linear-gradient(135deg, #6b7280 0 3px, #111827 3px 6px);
-		box-shadow: inset 0 0 0 1px #6b7280;
+		background-color: #f59e0b;
 	}
 </style>
