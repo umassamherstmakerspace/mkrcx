@@ -197,7 +197,7 @@
 							{#each hours as hour}
 								{@const value = heatAverage(day.value, hour)}
 								<td
-									class="h-7 rounded tabular-nums {value / heatMax > 0.55
+									class="h-7 rounded tabular-nums {value / heatMax > 0.4
 										? 'text-white'
 										: 'text-gray-700 dark:text-gray-200'}"
 									style="background-color: rgba(132, 0, 40, {value > 0

@@ -77,7 +77,11 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
   files, 134 unit tests pass, production build succeeds.
 - An open day needs at least 5 people (`activityOpenDayMinimumPeople`), so a staff member tapping
   in on a closed day does not divide the average.
-- NOT yet seen in a browser with data. Warning thresholds are first guesses: 25% not-linked share,
+- Seen in a browser with invented numbers on 2026-09-18 (phone and desktop width): renders as
+  intended. Not yet seen with real data. To repeat: in the docs repo, `.claude/launch.json` has
+  `mkrcx-frontend-preview` (vite dev on port 5199, no backend); open `/zz-preview-activity`. That
+  route is a local, git-excluded file (`.git/info/exclude`) holding sample data; it is not in any
+  commit and must never be committed. Warning thresholds are first guesses: 25% not-linked share,
   4 quiet days.
 - Repo-wide `pnpm run lint` reports about 135 files on a fresh Windows clone. That is CRLF line
   endings from checkout, not code; lint the changed files directly. For the same reason, never run
@@ -93,7 +97,7 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 
 ## Next action
 
-1. Show Shira the page with sample numbers (local preview) and adjust layout and thresholds.
+1. Show Shira the local preview (see above) and adjust layout and the two warning thresholds.
 2. Stage it together with the login-account-chooser change (see hazard above): push a staging
    branch = this branch + `427eb13`, dispatch the `Docker` workflow, deploy by digest with rollback
    digests saved. Shira approved the staging route on 2026-09-18; SSH to the cluster may be blocked
