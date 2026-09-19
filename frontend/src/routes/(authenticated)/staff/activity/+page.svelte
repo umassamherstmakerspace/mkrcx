@@ -189,11 +189,11 @@
 			By academic year
 		</h2>
 		<div class="mt-2 grid gap-2 sm:grid-cols-3">
-			{#each activity.academic_years as year}
+			{#each [...activity.academic_years].reverse() as year}
 				<div
 					class="rounded-xl px-4 py-3 {year.current
-						? 'border border-[#840028]/30 bg-[#840028]/5 dark:border-[#e07a9a]/40 dark:bg-[#840028]/20'
-						: 'bg-gray-50 dark:bg-gray-800'}"
+						? 'border-2 border-[#840028] bg-white dark:border-[#e07a9a] dark:bg-gray-900'
+						: 'border-2 border-transparent bg-gray-50 dark:bg-gray-800'}"
 				>
 					<h3 class="text-base font-bold text-gray-950 dark:text-white">
 						{year.label}{#if year.current}<span
