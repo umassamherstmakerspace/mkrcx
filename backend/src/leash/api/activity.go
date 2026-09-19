@@ -110,6 +110,8 @@ type activityAcademicYear struct {
 	NewlyLinkedCards int    `json:"newly_linked_cards"`
 	Current          bool   `json:"current"`
 	Visitors         int    `json:"visitors"`
+	// VisitorsEstimated marks a reasoned historical figure, shown as "about".
+	VisitorsEstimated bool `json:"visitors_estimated"`
 }
 
 // activitySemester is the running total for the current semester.
@@ -622,7 +624,12 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		if err != nil {
 			return activityResponse{}, err
 		}
-		response.AcademicYears[len(response.AcademicYears)-1].Visitors = yearVisitors
+		year := &response.AcademicYears[len(response.AcademicYears)-1]
+		year.Visitors = yearVisitors
+		if historical, exists := activityHistoricalVisitors[year.Label]; exists && !current && historical > yearVisitors {
+			year.Visitors = historical
+			year.VisitorsEstimated = true
+		}
 	}
 	response.Coverage = activityCoverage{
 		IdentifiedCheckins: identified,
@@ -636,6 +643,15 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		response.Coverage.FirstCardLink = links[0].CreatedAt.In(location).Format("2006-01-02")
 	}
 	return response, nil
+}
+
+// activityHistoricalVisitors holds reasoned unique-visitor totals for academic
+// years whose taps predate mkr.cx check-in records. They come from the old
+// card-server exports, which cannot be tied to mkr.cx members, so only the
+// totals are kept. Method and ranges: docs/stats-page-handoff.md.
+var activityHistoricalVisitors = map[string]int{
+	"2024–25": 2000,
+	"2025–26": 2250,
 }
 
 type activityMember struct {

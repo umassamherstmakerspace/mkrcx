@@ -421,6 +421,7 @@ export interface ActivityResponse {
 		newly_linked_cards: number;
 		current: boolean;
 		visitors: number;
+		visitors_estimated: boolean;
 	}[];
 	semester: { label: string; visitors: number; new_accounts: number };
 	coverage: {

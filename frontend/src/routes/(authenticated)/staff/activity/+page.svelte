@@ -41,19 +41,21 @@
 	const heatMax = Math.max(1, ...heatAverages.values());
 	const busiest = [...heatAverages.entries()].sort((a, b) => b[1] - a[1])[0];
 
-	// One maroon scale. Fading maroon toward white gives pinks, so the light end
-	// is a warm gray that loses its color as it lightens, and the dark end runs
-	// past UMass maroon to a deeper maroon. Most of the range is true maroon.
+	// White to red to maroon, skipping the pale tints that read as pink: a quiet
+	// hour is a white cell with a maroon number, and color starts at a full red.
+	const heatFillFrom = 0.34;
 	const heatStops: [number, [number, number, number]][] = [
-		[0, [236, 232, 229]],
-		[0.2, [205, 190, 190]],
-		[0.4, [160, 110, 122]],
-		[0.6, [132, 0, 40]],
+		[heatFillFrom, [200, 16, 46]],
+		[0.67, [132, 0, 40]],
 		[1, [70, 0, 22]]
 	];
 
+	function heatIsFilled(value: number): boolean {
+		return value / heatMax >= heatFillFrom;
+	}
+
 	function heatBackground(value: number): string {
-		if (value <= 0) return 'transparent';
+		if (!heatIsFilled(value)) return 'transparent';
 		const share = Math.min(1, value / heatMax);
 		let upper = heatStops.findIndex(([stop]) => share <= stop);
 		if (upper <= 0) upper = 1;
@@ -62,10 +64,6 @@
 		const mix = (share - fromStop) / (toStop - fromStop);
 		const channel = (index: number) => Math.round(from[index] + (to[index] - from[index]) * mix);
 		return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
-	}
-
-	function heatIsDark(value: number): boolean {
-		return value / heatMax >= 0.35;
 	}
 
 	function heatAverage(weekday: number, hour: number): number {
@@ -187,9 +185,11 @@
 							{#each hours as hour}
 								{@const value = heatAverage(day.value, hour)}
 								<td
-									class="h-7 rounded tabular-nums {heatIsDark(value)
+									class="h-7 rounded tabular-nums {heatIsFilled(value)
 										? 'text-white'
-										: 'text-gray-900'}"
+										: value > 0
+											? 'border border-[#840028]/40 text-[#840028] dark:border-[#e07a9a]/50 dark:text-[#e07a9a]'
+											: ''}"
 									style="background-color: {heatBackground(value)};"
 									title="{day.label} {hourLabel(hour)}: {value.toFixed(1)} card taps"
 									>{value >= 0.5 ? Math.round(value) : ''}</td
@@ -225,7 +225,9 @@
 						<div class="flex items-baseline justify-between gap-2">
 							<dt class="text-gray-600 dark:text-gray-300">Visitors</dt>
 							<dd class="text-xl font-bold tabular-nums text-gray-950 dark:text-white">
-								{year.visitors > 0 ? year.visitors.toLocaleString() : '–'}
+								{year.visitors > 0
+									? `${year.visitors_estimated ? 'about ' : ''}${year.visitors.toLocaleString()}`
+									: '–'}
 							</dd>
 						</div>
 						<div class="flex items-baseline justify-between gap-2">

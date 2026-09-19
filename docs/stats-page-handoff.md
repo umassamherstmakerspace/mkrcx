@@ -93,23 +93,32 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
   all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
   linked do not count. Seven days is the limit because that is how long fingerprints exist.
-- Heatmap color (Shira, 2026-09-19): one maroon scale, no second color. Shira rejected both
-  maroon-to-white (in-between shades are pink, "makeup palette") and gray-plus-maroon
-  ("confusing"). Current scale: warm gray at the quiet end, UMass maroon at 60 percent of the
-  peak, deeper maroon at the peak (`heatStops` in the page).
-- OPEN, NOT BUILT: visitors for past academic years. The page counts visitors from mkr.cx
-  `checkin_events`, which only holds recent taps, so past years show a dash. Shira has the
-  history outside mkr.cx: `C:\Users\shira\Claude\Makerspace\.scratch\attendance_authoritative_build\`
-  (33,067 taps, Sep 2024 to Aug 2026, best-effort person ids; coverage notes in
-  `attendance_data/COVERAGE.md`). Counted from it on 2026-09-19, tap-storm day excluded:
-  2024-25 Fall 1,328 / Spring 1,278; 2025-26 Fall 1,066 / Spring 1,346 / Summer 199; 2025-26
-  whole year 2,079. The 2024-25 whole-year figure (2,438) is NOT reliable: fall and spring came
-  from separately anonymized exports, so a person who came both semesters is mostly counted
-  twice. 2025-26 has data holes (Aug to Oct 6 2025 lost; Dec 2025 to Jan 2026 reader down), so it
-  is a floor. Recommended route: store these as fixed historical totals per semester (counts
-  only), not by importing taps, because the old exports cannot be tied to mkr.cx members.
-  `backend/cmd/checkin-backfill` exists but reads the card-server database, which no longer has
-  anything before October 2025.
+- Heatmap color (Shira, 2026-09-19, after four tries): white to red to maroon, with NO pale
+  tints. Rejected: maroon faded toward white (pink, "makeup palette"), gray plus maroon
+  ("confusing"), warm gray low end ("gray/blush not good"). Accepted: a quiet hour (under about a
+  third of the peak) is a white cell with a maroon outline and number; fill starts at full red
+  (200,16,46), reaches UMass maroon at two thirds of the peak, and deep maroon at the peak.
+- Past academic years (Shira, 2026-09-19): show a reasoned static visitor total, labeled
+  "about". Values live in `activityHistoricalVisitors` in `activity.go` and apply only to a past
+  year, and only when larger than what mkr.cx itself recorded. Source: the merged tap history in
+  `C:\Users\shira\Claude\Makerspace\.scratch\attendance_authoritative_build\` (33,067 taps,
+  Sep 2024 to Aug 2026; coverage notes in `attendance_data/COVERAGE.md`), tap-storm day excluded.
+  - 2024-25 = about 2,000. The fall export (1,093 people, Sep 3 to Nov 21) and the May export
+    (1,400 people, Nov 22 to May 23) were anonymized separately; only 55 people could be matched
+    by timestamp, because the exports overlap by three days. The overlap was therefore estimated
+    from 2025-26, where one export covers the whole year: of people seen Oct 7 to Nov 21, 28
+    percent of one-day visitors, 57 percent of 2-3 day visitors and 68 percent of 4+ day visitors
+    came back after Nov 22. Applied to the fall 2024 mix that is about 488 repeat people:
+    1,093 + 1,400 - 488 = about 2,005. If the return rates are off by a quarter either way the
+    range is 1,880 to 2,130.
+  - 2025-26 = about 2,250. Observed 2,079, but Aug to Oct 6 2025 is lost. In fall 2024, 257 of
+    the people seen before Oct 7 were not seen again that fall; about 72 percent of one-time
+    visitors never return, so roughly 185 people are missing: 2,079 + 185 = about 2,260, rounded
+    down. The Dec 2025 to Jan 2026 reader outage adds few people who came at no other time.
+  - Per-semester observed counts, for reference: 2024-25 Fall 1,328 / Spring 1,278; 2025-26 Fall
+    1,066 / Spring 1,346 / Summer 199.
+  - `backend/cmd/checkin-backfill` does not help here: it reads the card-server database, which
+    has nothing before October 2025, and the old exports cannot be tied to mkr.cx members.
 - PARKED IDEA (Shira, 2026-09-19, registration not stats): let a first-time visitor tap their
   card to start registration, so the card is linked in the same step as the QR sign-up. Would
   shrink "Card not linked". Belongs to the registration simplification work, not this page.
