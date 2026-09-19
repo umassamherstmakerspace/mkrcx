@@ -67,11 +67,22 @@ keep exact rollback digests. Production deploys need Shira's explicit approval.
 - Wording (Shira, 2026-09-19): minimal. No explanatory sentences, footnotes, or method notes on
   the page. Say "visitors" and "card taps". Insights are one short line with the numbers in it.
   No card-reader status here; the front desk HUD already shows Live.
-- Cards (Shira, 2026-09-19): each window (today, past 7 days, past 30 days) shows total unique
-  visitors, split into New (account created inside the window), Returning, and Unknown (distinct
-  unlinked cards). Totals, not averages. No raw card-tap counts on the cards; the heatmap is the
-  one place raw taps are right (door busyness). No "+" marker: Unknown beyond 7 days undercounts
-  until Shira extends fingerprint retention, which she plans to do separately.
+- Cards (Shira, 2026-09-19): four windows: today so far, yesterday, past 7 days, past 30 days.
+  Each shows total unique visitors, split into New (account created inside the window; people
+  register in person, so on the Today card this correctly means registered today), Returning,
+  Student staff, and Unknown (distinct unlinked cards). The 7-day and 30-day cards add a small
+  "about N a day" (average over open days; an open day has at least 5 visitors). No raw card-tap
+  counts on the cards; the heatmap is the one place raw taps are right (door busyness). No "+"
+  marker: Unknown beyond 7 days undercounts until Shira extends fingerprint retention, which she
+  plans to do separately.
+- Staff (Shira, 2026-09-19): professional staff are not visitors and are dropped from every
+  number, heatmap included. They are identified by account fields, never by name: type
+  `employee` with role `staff` or `admin` (same rule as the check-in export). Student staff
+  (role `staff` or `admin` on a non-employee account) ARE visitors, because they use the space
+  off shift too; they get their own group. No calendar or shift matching: decided too complicated.
+  CHECK BEFORE RELEASE: confirm the six professional accounts really have type `employee`.
+- Bottom "Totals" table: visitors and new registrations for the current semester and each
+  academic year. Years before tap records existed show a dash for visitors.
 - Unlinked insight = distinct unknown cards in the past 7 days that nobody has linked since, over
   all distinct visitors in that span (`still_unlinked`). People who tapped unlinked and then
   linked do not count. Seven days is the limit because that is how long fingerprints exist.

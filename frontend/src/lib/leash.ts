@@ -383,7 +383,7 @@ export interface ActivityPoint extends ActivitySummary {
 }
 
 export interface ActivityPulse {
-	key: 'today' | '7_days' | '30_days';
+	key: 'today' | 'yesterday' | '7_days' | '30_days';
 	label: string;
 	open_days: number;
 	people: number;
@@ -397,6 +397,7 @@ export interface ActivityPulse {
 	new_visitors: number;
 	returning_visitors: number;
 	unknown_visitors: number;
+	staff_visitors: number;
 }
 
 export interface ActivityResponse {
@@ -419,7 +420,9 @@ export interface ActivityResponse {
 		new_accounts: number;
 		newly_linked_cards: number;
 		current: boolean;
+		visitors: number;
 	}[];
+	semester: { label: string; visitors: number; new_accounts: number };
 	coverage: {
 		identified_checkins: number;
 		total_checkins: number;

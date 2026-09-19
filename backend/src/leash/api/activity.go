@@ -73,6 +73,9 @@ type activityPulse struct {
 	NewVisitors       int `json:"new_visitors"`
 	ReturningVisitors int `json:"returning_visitors"`
 	UnknownVisitors   int `json:"unknown_visitors"`
+	// StaffVisitors are student staff (staff or admin role on a non-employee
+	// account). They are part of Visitors and are not split into new/returning.
+	StaffVisitors int `json:"staff_visitors"`
 }
 
 // activityStillUnlinked covers the past seven local days, the span for which
@@ -106,6 +109,14 @@ type activityAcademicYear struct {
 	NewAccounts      int    `json:"new_accounts"`
 	NewlyLinkedCards int    `json:"newly_linked_cards"`
 	Current          bool   `json:"current"`
+	Visitors         int    `json:"visitors"`
+}
+
+// activitySemester is the running total for the current semester.
+type activitySemester struct {
+	Label       string `json:"label"`
+	Visitors    int    `json:"visitors"`
+	NewAccounts int    `json:"new_accounts"`
 }
 
 type activityResponse struct {
@@ -121,6 +132,7 @@ type activityResponse struct {
 	HeatmapOpenDays [7]int                 `json:"heatmap_open_days"`
 	Pulse           []activityPulse        `json:"pulse"`
 	StillUnlinked   activityStillUnlinked  `json:"still_unlinked"`
+	Semester        activitySemester       `json:"semester"`
 	AcademicYears   []activityAcademicYear `json:"academic_years"`
 	Coverage        activityCoverage       `json:"coverage"`
 }
@@ -318,6 +330,9 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 	if pulseStart.Before(eventQueryStart) {
 		eventQueryStart = pulseStart
 	}
+	if yearStart := academicYearStart(now, location); yearStart.Before(eventQueryStart) {
+		eventQueryStart = yearStart
+	}
 	currentAcademicYear := academicYearStart(now, location)
 	comparisonStart := currentAcademicYear.AddDate(-2, 0, 0)
 
@@ -328,6 +343,18 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		Order("occurred_at ASC").Scan(&events).Error; err != nil {
 		return activityResponse{}, err
 	}
+
+	members, err := activityMembersFor(db, events)
+	if err != nil {
+		return activityResponse{}, err
+	}
+	visitorEvents := events[:0]
+	for _, event := range events {
+		if !members[event.MemberUUID].professional {
+			visitorEvents = append(visitorEvents, event)
+		}
+	}
+	events = visitorEvents
 
 	var accounts []activityAccount
 	if err := db.Unscoped().Table("users").
@@ -524,34 +551,38 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		response.Heatmap = append(response.Heatmap, activityHeatCell{Weekday: cell[0], Hour: cell[1], Members: len(heat[cell]), Taps: heatTaps[cell]})
 	}
 
-	memberCreated, err := memberCreationTimes(db, events, pulseStart)
-	if err != nil {
-		return activityResponse{}, err
-	}
 	for _, window := range []struct {
 		key, label string
-		days       int
-	}{{"today", "Today", 1}, {"7_days", "Past 7 days", 7}, {"30_days", "Past 30 days", 30}} {
-		start := todayStart.AddDate(0, 0, -(window.days - 1))
-		windowMembers := map[string]struct{}{}
-		pulse := pulseFor(window.key, window.label, events, accounts, links, unknownCards, start, rangeEnd, location)
-		unique, err := stillUnlinkedFor(db, events, start, rangeEnd)
+		start, end time.Time
+	}{
+		{"today", "Today so far", todayStart, rangeEnd},
+		{"yesterday", "Yesterday", todayStart.AddDate(0, 0, -1), todayStart},
+		{"7_days", "Past 7 days", todayStart.AddDate(0, 0, -6), rangeEnd},
+		{"30_days", "Past 30 days", pulseStart, rangeEnd},
+	} {
+		pulse := pulseFor(window.key, window.label, events, accounts, links, unknownCards, window.start, window.end, location)
+		unique, err := stillUnlinkedFor(db, events, window.start, window.end)
 		if err != nil {
 			return activityResponse{}, err
 		}
 		pulse.Visitors = unique.Visitors
 		pulse.UnknownVisitors = unique.Cards
+		windowMembers := map[string]struct{}{}
 		for _, event := range events {
-			if event.MemberUUID == "" || event.OccurredAt.Before(start) || !event.OccurredAt.Before(rangeEnd) {
+			if event.MemberUUID == "" || event.OccurredAt.Before(window.start) || !event.OccurredAt.Before(window.end) {
 				continue
 			}
 			if _, counted := windowMembers[event.MemberUUID]; counted {
 				continue
 			}
 			windowMembers[event.MemberUUID] = struct{}{}
-			if created, known := memberCreated[event.MemberUUID]; known && !created.Before(start) {
+			member := members[event.MemberUUID]
+			switch {
+			case member.studentStaff:
+				pulse.StaffVisitors++
+			case member.known && !member.createdAt.Before(window.start):
 				pulse.NewVisitors++
-			} else {
+			default:
 				pulse.ReturningVisitors++
 			}
 		}
@@ -563,6 +594,16 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 		return activityResponse{}, err
 	}
 	response.StillUnlinked = stillUnlinked
+
+	_, semesterLabel, semesterStart, _ := activityPreset("semester", now, location)
+	semesterVisitors, err := stillUnlinkedFor(db, events, semesterStart, rangeEnd)
+	if err != nil {
+		return activityResponse{}, err
+	}
+	response.Semester = activitySemester{
+		Label: semesterLabel, Visitors: semesterVisitors.Visitors,
+		NewAccounts: summaryFor(nil, accounts, links, semesterStart, rangeEnd).NewAccounts,
+	}
 
 	for index := 0; index < 3; index++ {
 		start := comparisonStart.AddDate(index, 0, 0)
@@ -577,6 +618,11 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 			End: end.AddDate(0, 0, -1).Format("2006-01-02"), NewAccounts: summary.NewAccounts,
 			NewlyLinkedCards: summary.NewlyLinkedCards, Current: current,
 		})
+		yearVisitors, err := yearVisitorsFor(db, events, start, end, current)
+		if err != nil {
+			return activityResponse{}, err
+		}
+		response.AcademicYears[len(response.AcademicYears)-1].Visitors = yearVisitors
 	}
 	response.Coverage = activityCoverage{
 		IdentifiedCheckins: identified,
@@ -592,45 +638,78 @@ func BuildActivityResponse(db *gorm.DB, requested string, now time.Time, locatio
 	return response, nil
 }
 
-// memberCreationTimes returns when each member who tapped since start first
-// registered, so a window can split its visitors into new and returning.
-func memberCreationTimes(db *gorm.DB, events []activityEvent, start time.Time) (map[string]time.Time, error) {
-	seen := map[string]struct{}{}
+type activityMember struct {
+	known        bool
+	createdAt    time.Time
+	professional bool
+	studentStaff bool
+}
+
+const activityProfessionalWhere = "users.type = 'employee' AND users.role IN ('staff', 'admin')"
+
+// activityMembersFor looks up each tapping member once. Professional staff
+// (employee accounts with the staff or admin role) are not visitors. Student
+// staff are visitors, shown as their own group.
+func activityMembersFor(db *gorm.DB, events []activityEvent) (map[string]activityMember, error) {
+	members := map[string]activityMember{}
 	uuids := []string{}
 	for _, event := range events {
-		if event.MemberUUID == "" || event.OccurredAt.Before(start) {
-			continue
-		}
-		if _, exists := seen[event.MemberUUID]; !exists {
-			seen[event.MemberUUID] = struct{}{}
+		if _, exists := members[event.MemberUUID]; event.MemberUUID != "" && !exists {
+			members[event.MemberUUID] = activityMember{}
 			uuids = append(uuids, event.MemberUUID)
 		}
 	}
-	created := map[string]time.Time{}
 	if len(uuids) == 0 || !db.Migrator().HasTable(&models.CheckinIdentity{}) {
-		return created, nil
-	}
-	var rows []struct {
-		MemberUUID string
-		CreatedAt  time.Time
+		return members, nil
 	}
 	for offset := 0; offset < len(uuids); offset += 500 {
 		end := offset + 500
 		if end > len(uuids) {
 			end = len(uuids)
 		}
+		var rows []struct {
+			MemberUUID string
+			CreatedAt  time.Time
+			Role       string
+			Type       string
+		}
 		if err := db.Table("checkin_identities").
-			Select("checkin_identities.member_uuid AS member_uuid", "users.created_at AS created_at").
+			Select("checkin_identities.member_uuid AS member_uuid", "users.created_at AS created_at", "users.role AS role", "users.type AS type").
 			Joins("JOIN users ON users.id = checkin_identities.user_id").
 			Where("checkin_identities.member_uuid IN ?", uuids[offset:end]).
 			Scan(&rows).Error; err != nil {
 			return nil, err
 		}
 		for _, row := range rows {
-			created[row.MemberUUID] = row.CreatedAt
+			staffRole := row.Role == "staff" || row.Role == "admin"
+			members[row.MemberUUID] = activityMember{
+				known: true, createdAt: row.CreatedAt,
+				professional: staffRole && row.Type == "employee",
+				studentStaff: staffRole && row.Type != "employee",
+			}
 		}
 	}
-	return created, nil
+	return members, nil
+}
+
+// yearVisitorsFor counts distinct visitors in one academic year. The current
+// year uses the events already loaded; an earlier year is counted in SQL.
+func yearVisitorsFor(db *gorm.DB, events []activityEvent, start, end time.Time, current bool) (int, error) {
+	if current {
+		visitors, err := stillUnlinkedFor(db, events, start, end)
+		return visitors.Visitors, err
+	}
+	if !db.Migrator().HasTable(&models.CheckinIdentity{}) {
+		return 0, nil
+	}
+	var visitors int64
+	err := db.Table("checkin_events").
+		Joins("JOIN checkin_identities ON checkin_identities.member_uuid = checkin_events.member_uuid").
+		Joins("JOIN users ON users.id = checkin_identities.user_id").
+		Where("checkin_events.occurred_at >= ? AND checkin_events.occurred_at < ?", start.UTC(), end.UTC()).
+		Where("NOT (" + activityProfessionalWhere + ")").
+		Distinct("checkin_events.member_uuid").Count(&visitors).Error
+	return int(visitors), err
 }
 
 func stillUnlinkedFor(db *gorm.DB, events []activityEvent, start, end time.Time) (activityStillUnlinked, error) {

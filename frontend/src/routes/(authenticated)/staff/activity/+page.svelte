@@ -62,7 +62,7 @@
 
 	<section aria-labelledby="pulse-heading">
 		<h2 id="pulse-heading" class="sr-only">Visitors</h2>
-		<div class="grid gap-2 sm:grid-cols-3">
+		<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
 			{#each pulse as window}
 				<article
 					class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
@@ -71,11 +71,14 @@
 					<strong class="mt-1 block text-5xl font-bold tabular-nums text-gray-950 dark:text-white"
 						>{window.visitors.toLocaleString()}</strong
 					>
-					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">visitors</p>
+					<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+						visitors{#if (window.key === '7_days' || window.key === '30_days') && window.open_days > 0},
+							about {Math.round(window.avg_daily_people).toLocaleString()} a day{/if}
+					</p>
 					<dl
-						class="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800"
+						class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800"
 					>
-						{#each [{ label: 'New', value: window.new_visitors }, { label: 'Returning', value: window.returning_visitors }, { label: 'Unknown', value: window.unknown_visitors }] as part}
+						{#each [{ label: 'New', value: window.new_visitors }, { label: 'Returning', value: window.returning_visitors }, { label: 'Student staff', value: window.staff_visitors }, { label: 'Unknown', value: window.unknown_visitors }] as part}
 							<div>
 								<dt class="text-xs text-gray-500 dark:text-gray-400">{part.label}</dt>
 								<dd class="font-semibold tabular-nums text-gray-950 dark:text-white">
@@ -156,20 +159,28 @@
 		class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
 		aria-labelledby="years-heading"
 	>
-		<h2 id="years-heading" class="text-lg font-bold text-gray-950 dark:text-white">
-			New registrations by year
-		</h2>
-		<dl class="mt-2 grid grid-cols-3 gap-2 text-center">
-			{#each activity.academic_years as year}
-				<div class="rounded-lg bg-gray-50 px-2 py-2 dark:bg-gray-800">
-					<dt class="text-xs text-gray-500 dark:text-gray-400">
-						{year.label}{year.current ? ' so far' : ''}
-					</dt>
-					<dd class="text-2xl font-bold tabular-nums text-gray-950 dark:text-white">
-						{year.new_accounts.toLocaleString()}
-					</dd>
-				</div>
-			{/each}
-		</dl>
+		<h2 id="years-heading" class="text-lg font-bold text-gray-950 dark:text-white">Totals</h2>
+		<table class="mt-2 w-full text-sm">
+			<thead>
+				<tr class="text-right text-xs text-gray-500 dark:text-gray-400">
+					<th class="text-left font-medium"></th>
+					<th class="font-medium">Visitors</th>
+					<th class="font-medium">New registrations</th>
+				</tr>
+			</thead>
+			<tbody class="tabular-nums text-gray-950 dark:text-white">
+				{#each [{ label: activity.semester.label, visitors: activity.semester.visitors, registrations: activity.semester.new_accounts }, ...[...activity.academic_years]
+						.reverse()
+						.map( (year) => ({ label: year.label, visitors: year.visitors, registrations: year.new_accounts }) )] as row}
+					<tr class="border-t border-gray-100 text-right dark:border-gray-800">
+						<th class="py-1.5 text-left font-medium text-gray-600 dark:text-gray-300"
+							>{row.label}</th
+						>
+						<td class="font-semibold">{row.visitors > 0 ? row.visitors.toLocaleString() : '–'}</td>
+						<td class="font-semibold">{row.registrations.toLocaleString()}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
 	</section>
 </main>

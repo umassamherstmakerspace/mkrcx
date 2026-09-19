@@ -183,6 +183,8 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 		{OccurredAt: yesterday.Add(2 * time.Hour), IdempotencyScope: "test", IdempotencyKey: "u3"},
 		{OccurredAt: yesterday.Add(3 * time.Hour), MemberUUID: "member-a", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "m1"},
 		{OccurredAt: yesterday.Add(4 * time.Hour), MemberUUID: "member-b", LinkedAtTap: false, IdempotencyScope: "test", IdempotencyKey: "m2"},
+		{OccurredAt: yesterday.Add(5 * time.Hour), MemberUUID: "student-staff", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "m3"},
+		{OccurredAt: yesterday.Add(6 * time.Hour), MemberUUID: "professional", LinkedAtTap: true, IdempotencyScope: "test", IdempotencyKey: "m4"},
 	}
 	if err := db.Create(&events).Error; err != nil {
 		t.Fatal(err)
@@ -194,28 +196,45 @@ func TestUnknownCardDailyCountsFeedThePulse(t *testing.T) {
 	if err := db.Create(&models.CheckinIdentity{UserID: newMember.ID, MemberUUID: "member-a"}).Error; err != nil {
 		t.Fatal(err)
 	}
+	longAgo := yesterday.AddDate(-1, 0, 0)
+	studentStaff := models.User{Model: models.Model{CreatedAt: longAgo}, Email: "student-staff@example.com", Role: "staff", Type: "undergrad"}
+	professional := models.User{Model: models.Model{CreatedAt: longAgo}, Email: "professional@example.com", Role: "admin", Type: "employee"}
+	for uuid, user := range map[string]*models.User{"student-staff": &studentStaff, "professional": &professional} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Create(&models.CheckinIdentity{UserID: user.ID, MemberUUID: uuid}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
 	response, err := BuildActivityResponse(db, "semester", now, location)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(response.Pulse) != 3 {
-		t.Fatalf("pulse windows = %d, want 3", len(response.Pulse))
+	if len(response.Pulse) != 4 {
+		t.Fatalf("pulse windows = %d, want 4", len(response.Pulse))
 	}
-	week := response.Pulse[1]
-	// Four people is below the open-day minimum: counted, but not averaged.
-	if week.Key != "7_days" || week.OpenDays != 0 || week.People != 4 || week.AvgDailyPeople != 0 || week.NotLinkedPeople != 3 || week.NotLinkedPercent != 75 || week.Checkins != 5 {
+	if yesterdayPulse := response.Pulse[1]; yesterdayPulse.Key != "yesterday" || yesterdayPulse.Visitors != 5 {
+		t.Fatalf("unexpected yesterday pulse: %+v", yesterdayPulse)
+	}
+	week := response.Pulse[2]
+	// member-a, member-b, student staff and two unknown cards. The professional is not a visitor.
+	if week.Key != "7_days" || week.OpenDays != 1 || week.People != 5 || week.AvgDailyPeople != 5 || week.NotLinkedPeople != 3 || week.NotLinkedPercent != 60 || week.Checkins != 6 {
 		t.Fatalf("unexpected 7-day pulse: %+v", week)
 	}
 	if today := response.Pulse[0]; today.OpenDays != 0 || today.People != 0 {
 		t.Fatalf("unexpected today pulse: %+v", today)
 	}
 	// member-a registered inside the window (new); member-b has no record here (returning).
-	if week.Visitors != 4 || week.NewVisitors != 1 || week.ReturningVisitors != 1 || week.UnknownVisitors != 2 {
+	if week.Visitors != 5 || week.NewVisitors != 1 || week.ReturningVisitors != 1 || week.UnknownVisitors != 2 || week.StaffVisitors != 1 {
 		t.Fatalf("unexpected visitor breakdown: %+v", week)
 	}
-	// Two distinct unknown cards and two members in the past seven days.
-	if response.StillUnlinked.Cards != 2 || response.StillUnlinked.Visitors != 4 || response.StillUnlinked.Percent != 50 {
+	// Two distinct unknown cards and three members in the past seven days.
+	if response.StillUnlinked.Cards != 2 || response.StillUnlinked.Visitors != 5 || response.StillUnlinked.Percent != 40 {
 		t.Fatalf("unexpected still-unlinked summary: %+v", response.StillUnlinked)
+	}
+	if response.Semester.Label != "Fall 2026" || response.Semester.Visitors != 5 || response.AcademicYears[2].Visitors != 5 {
+		t.Fatalf("unexpected semester or year totals: %+v / %+v", response.Semester, response.AcademicYears)
 	}
 	if response.HeatmapOpenDays[int(time.Wednesday)] != 1 {
 		t.Fatalf("unexpected heatmap open days: %+v", response.HeatmapOpenDays)
