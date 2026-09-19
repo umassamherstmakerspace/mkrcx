@@ -41,6 +41,20 @@
 	const heatMax = Math.max(1, ...heatAverages.values());
 	const busiest = [...heatAverages.entries()].sort((a, b) => b[1] - a[1])[0];
 
+	// Fading maroon toward white gives pinks, so maroon is never faded: ordinary
+	// hours are a gray scale and only the busiest hours are solid maroon.
+	const heatBusyShare = 0.75;
+
+	function heatIsBusy(value: number): boolean {
+		return value > 0 && value / heatMax >= heatBusyShare;
+	}
+
+	function heatBackground(value: number): string {
+		if (value <= 0) return 'transparent';
+		if (heatIsBusy(value)) return '#840028';
+		return `rgba(75, 85, 99, ${0.1 + 0.5 * (value / heatMax / heatBusyShare)})`;
+	}
+
 	function heatAverage(weekday: number, hour: number): number {
 		return heatAverages.get(`${weekday}-${hour}`) ?? 0;
 	}
@@ -138,7 +152,7 @@
 			{#if busiest}
 				{@const [weekday, hour] = busiest[0].split('-').map(Number)}
 				Busiest: {weekdays.find((day) => day.value === weekday)?.label}
-				{hourLabel(hour)}.
+				{hourLabel(hour)}. Maroon marks the busiest hours.
 			{/if}
 		</p>
 		<div class="mt-3 overflow-x-auto">
@@ -160,12 +174,10 @@
 							{#each hours as hour}
 								{@const value = heatAverage(day.value, hour)}
 								<td
-									class="h-7 rounded tabular-nums {value / heatMax > 0.4
-										? 'text-white'
-										: 'text-gray-700 dark:text-gray-200'}"
-									style="background-color: rgba(132, 0, 40, {value > 0
-										? 0.08 + 0.92 * (value / heatMax)
-										: 0});"
+									class="h-7 rounded tabular-nums {heatIsBusy(value)
+										? 'font-semibold text-white'
+										: 'text-gray-900 dark:text-gray-100'}"
+									style="background-color: {heatBackground(value)};"
 									title="{day.label} {hourLabel(hour)}: {value.toFixed(1)} card taps"
 									>{value >= 0.5 ? Math.round(value) : ''}</td
 								>
@@ -221,7 +233,8 @@
 		background-color: #840028;
 	}
 	.swatch-new {
-		background-image: repeating-linear-gradient(135deg, #840028 0 3px, #e0435a 3px 6px);
+		background-image: repeating-linear-gradient(135deg, #840028 0 3px, #ffffff 3px 6px);
+		box-shadow: inset 0 0 0 1px #840028;
 	}
 	.swatch-staff {
 		background-color: #1f2937;
@@ -234,7 +247,8 @@
 		background-color: #b8325a;
 	}
 	:global(.dark) .swatch-new {
-		background-image: repeating-linear-gradient(135deg, #b8325a 0 3px, #f4a3b5 3px 6px);
+		background-image: repeating-linear-gradient(135deg, #b8325a 0 3px, #111827 3px 6px);
+		box-shadow: inset 0 0 0 1px #b8325a;
 	}
 	:global(.dark) .swatch-staff {
 		background-color: #e5e7eb;
