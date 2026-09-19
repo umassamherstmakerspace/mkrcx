@@ -97,7 +97,7 @@
 		>
 			<strong class="tabular-nums">{Math.round(unlinked.percent)}%</strong>
 			({unlinked.cards.toLocaleString()}/{unlinked.visitors.toLocaleString()}) of visitors in the
-			past 7 days still have no linked card.
+			past 7 days have not linked their card.
 		</p>
 	{/if}
 
